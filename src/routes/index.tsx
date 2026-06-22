@@ -1,29 +1,110 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Scissors, Calendar, LogIn } from "lucide-react";
+
+import { supabase } from "@/integrations/supabase/client";
+import type { Barbeiro } from "@/integrations/supabase/db-types";
+import { Button } from "@/components/ui/button";
+import { BrandTitle, BrandMark } from "@/components/Brand";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
+      { title: "VIP BARBER — Agende seu corte" },
+      {
+        name: "description",
+        content: "Escolha seu barbeiro favorito e agende em poucos toques.",
+      },
     ],
   }),
-  component: Index,
+  component: Home,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function Home() {
+  const { data: barbeiros, isLoading } = useQuery({
+    queryKey: ["barbeiros-list"],
+    queryFn: async (): Promise<Barbeiro[]> => {
+      const { data, error } = await supabase
+        .from("barbeiros")
+        .select("*")
+        .order("nome", { ascending: true });
+      if (error) throw error;
+      return data as Barbeiro[];
+    },
+  });
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="mx-auto max-w-2xl px-5 pb-20 pt-10">
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <BrandMark size={40} />
+          <div className="leading-tight">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              Bem-vindo
+            </p>
+            <p className="brand-text text-lg font-semibold">VIP BARBER</p>
+          </div>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/auth">
+            <LogIn /> Entrar
+          </Link>
+        </Button>
+      </header>
+
+      <section className="mt-10 text-center">
+        <BrandTitle />
+        <p className="mt-3 text-base text-muted-foreground">
+          Escolha seu barbeiro e agende em poucos toques.
+        </p>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-3 px-1 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Profissionais
+        </h2>
+
+        {isLoading && (
+          <div className="grid gap-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="surface h-24 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {!isLoading && (!barbeiros || barbeiros.length === 0) && (
+          <div className="surface p-8 text-center">
+            <Scissors className="mx-auto mb-3 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Nenhum barbeiro cadastrado ainda.
+            </p>
+          </div>
+        )}
+
+        <div className="grid gap-3">
+          {barbeiros?.map((b) => (
+            <Link
+              key={b.id}
+              to="/agendar/$barbeiroId"
+              params={{ barbeiroId: b.id }}
+              className="surface group flex items-center gap-4 p-4 transition-all hover:border-transparent hover:shadow-[var(--shadow-elev)]"
+            >
+              <div className="brand-gradient flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white">
+                {b.avatar_url ? (
+                  <img src={b.avatar_url} alt={b.nome} className="h-full w-full object-cover" />
+                ) : (
+                  b.nome.charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">{b.nome}</p>
+                <p className="text-xs text-muted-foreground">Toque para agendar</p>
+              </div>
+              <Calendar className="text-muted-foreground transition-transform group-hover:translate-x-1" />
+            </Link>
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }
