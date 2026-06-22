@@ -1,4 +1,4 @@
-import type { Agendamento, HorarioTrabalho, Servico } from "@/integrations/supabase/types";
+import type { Agendamento, HorarioTrabalho, Servico } from "@/integrations/supabase/db-types";
 
 export type Slot = { start: Date; end: Date; available: boolean };
 

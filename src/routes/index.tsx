@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Scissors, Calendar, LogIn } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro } from "@/integrations/supabase/types";
+import type { Barbeiro } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { BrandTitle, BrandMark } from "@/components/Brand";
 

@@ -4,7 +4,7 @@ import { Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro, HorarioTrabalho } from "@/integrations/supabase/types";
+import type { Barbeiro, HorarioTrabalho } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DIAS_SEMANA } from "@/lib/format";

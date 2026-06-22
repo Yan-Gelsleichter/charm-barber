@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro } from "@/integrations/supabase/types";
+import type { Barbeiro } from "@/integrations/supabase/db-types";
 
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);

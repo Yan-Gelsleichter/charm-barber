@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Agendamento, Barbeiro, Servico } from "@/integrations/supabase/types";
+import type { Agendamento, Barbeiro, Servico } from "@/integrations/supabase/db-types";
 import { brl, fmtTime } from "@/lib/format";
 
 export function DashboardTab({ barbeiro }: { barbeiro: Barbeiro }) {
