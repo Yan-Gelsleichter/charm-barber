@@ -1,17 +1,59 @@
 -- =====================================================================
--- VIP BARBER — Migração inicial
--- Cole no SQL Editor do seu Supabase e clique Run.
--- Idempotente: pode rodar de novo sem quebrar.
+-- VIP BARBER — Migração inicial (v2, defensiva)
+-- Cole no SQL Editor do Supabase e clique Run. Pode rodar várias vezes.
+-- Cria as tabelas se não existirem, renomeia variantes em inglês/acento,
+-- e só aplica RLS depois que tudo estiver no lugar.
 -- =====================================================================
 
--- 1) Renomear colunas com acento (executa só se ainda existirem) --------
+-- 0) Renomear tabelas em inglês (se existirem) -------------------------
 DO $$
 BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='barbers')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='barbeiros') THEN
+    EXECUTE 'ALTER TABLE public.barbers RENAME TO barbeiros';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='services')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='servicos')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='serviços') THEN
+    EXECUTE 'ALTER TABLE public.services RENAME TO servicos';
+  END IF;
+
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='serviços') THEN
     EXECUTE 'ALTER TABLE public."serviços" RENAME TO servicos';
   END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='appointments')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='agendamentos') THEN
+    EXECUTE 'ALTER TABLE public.appointments RENAME TO agendamentos';
+  END IF;
 END $$;
 
+-- 1) Criar tabelas base se não existirem -------------------------------
+CREATE TABLE IF NOT EXISTS public.barbeiros (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome        text NOT NULL,
+  avatar_url  text
+);
+
+CREATE TABLE IF NOT EXISTS public.servicos (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome             text NOT NULL,
+  duracao_minutos  integer NOT NULL DEFAULT 30,
+  preco            numeric NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS public.agendamentos (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  barbeiro_id       uuid,
+  nome_cliente      text,
+  telefone_cliente  text,
+  horario_consulta  timestamptz,
+  servico_id        uuid,
+  status            text
+);
+
+-- 2) Renomear colunas com acento (se ainda existirem) ------------------
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='servicos' AND column_name='duração_minutos') THEN
@@ -20,10 +62,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='servicos' AND column_name='preço') THEN
     EXECUTE 'ALTER TABLE public.servicos RENAME COLUMN "preço" TO preco';
   END IF;
-END $$;
 
-DO $$
-BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='agendamentos' AND column_name='horário_da_consulta') THEN
     EXECUTE 'ALTER TABLE public.agendamentos RENAME COLUMN "horário_da_consulta" TO horario_consulta';
   END IF;
@@ -38,23 +77,47 @@ BEGIN
   END IF;
 END $$;
 
--- 2) Novas colunas em barbeiros ----------------------------------------
+-- 3) Garantir colunas adicionais ---------------------------------------
 ALTER TABLE public.barbeiros
-  ADD COLUMN IF NOT EXISTS user_id  uuid UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-  ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS user_id    uuid UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS is_admin   boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS avatar_url text,
   ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
--- 3) Serviços por barbeiro ---------------------------------------------
 ALTER TABLE public.servicos
   ADD COLUMN IF NOT EXISTS barbeiro_id uuid REFERENCES public.barbeiros(id) ON DELETE CASCADE,
-  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+  ADD COLUMN IF NOT EXISTS created_at  timestamptz NOT NULL DEFAULT now();
 
--- 4) Defaults em agendamentos ------------------------------------------
 ALTER TABLE public.agendamentos
-  ALTER COLUMN status SET DEFAULT 'confirmado',
+  ADD COLUMN IF NOT EXISTS status     text,
   ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
--- 5) Tabela horarios_trabalho ------------------------------------------
+ALTER TABLE public.agendamentos ALTER COLUMN status SET DEFAULT 'confirmado';
+UPDATE public.agendamentos SET status = 'confirmado' WHERE status IS NULL;
+
+-- FKs em agendamentos (só adiciona se ainda não houver) ----------------
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_schema='public' AND table_name='agendamentos' AND constraint_name='agendamentos_barbeiro_id_fkey'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.agendamentos
+      ADD CONSTRAINT agendamentos_barbeiro_id_fkey
+      FOREIGN KEY (barbeiro_id) REFERENCES public.barbeiros(id) ON DELETE CASCADE';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_schema='public' AND table_name='agendamentos' AND constraint_name='agendamentos_servico_id_fkey'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.agendamentos
+      ADD CONSTRAINT agendamentos_servico_id_fkey
+      FOREIGN KEY (servico_id) REFERENCES public.servicos(id) ON DELETE SET NULL';
+  END IF;
+END $$;
+
+-- 4) Tabela horarios_trabalho -----------------------------------------
 CREATE TABLE IF NOT EXISTS public.horarios_trabalho (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   barbeiro_id  uuid NOT NULL REFERENCES public.barbeiros(id) ON DELETE CASCADE,
@@ -64,7 +127,7 @@ CREATE TABLE IF NOT EXISTS public.horarios_trabalho (
   UNIQUE (barbeiro_id, dia_semana)
 );
 
--- 6) Funções helper -----------------------------------------------------
+-- 5) Funções helper ----------------------------------------------------
 CREATE OR REPLACE FUNCTION public.is_barbeiro(_barbeiro_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.barbeiros WHERE id = _barbeiro_id AND user_id = auth.uid());
@@ -75,7 +138,7 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
   SELECT EXISTS (SELECT 1 FROM public.barbeiros WHERE user_id = auth.uid() AND is_admin = true);
 $$;
 
--- 7) GRANTs -------------------------------------------------------------
+-- 6) GRANTs ------------------------------------------------------------
 GRANT SELECT ON public.barbeiros          TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.barbeiros TO authenticated;
 GRANT ALL    ON public.barbeiros          TO service_role;
@@ -92,16 +155,16 @@ GRANT SELECT, INSERT ON public.agendamentos TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.agendamentos TO authenticated;
 GRANT ALL    ON public.agendamentos       TO service_role;
 
--- 8) RLS ----------------------------------------------------------------
+-- 7) RLS ---------------------------------------------------------------
 ALTER TABLE public.barbeiros         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.servicos          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.horarios_trabalho ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agendamentos      ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS barbeiros_select_all      ON public.barbeiros;
-DROP POLICY IF EXISTS barbeiros_insert_admin    ON public.barbeiros;
-DROP POLICY IF EXISTS barbeiros_update_own      ON public.barbeiros;
-DROP POLICY IF EXISTS barbeiros_delete_admin    ON public.barbeiros;
+DROP POLICY IF EXISTS barbeiros_select_all   ON public.barbeiros;
+DROP POLICY IF EXISTS barbeiros_insert_admin ON public.barbeiros;
+DROP POLICY IF EXISTS barbeiros_update_own   ON public.barbeiros;
+DROP POLICY IF EXISTS barbeiros_delete_admin ON public.barbeiros;
 CREATE POLICY barbeiros_select_all   ON public.barbeiros FOR SELECT USING (true);
 CREATE POLICY barbeiros_insert_admin ON public.barbeiros FOR INSERT TO authenticated
   WITH CHECK (public.is_admin());
@@ -132,3 +195,9 @@ CREATE POLICY ag_update_owner ON public.agendamentos FOR UPDATE TO authenticated
   USING (public.is_barbeiro(barbeiro_id));
 CREATE POLICY ag_delete_owner ON public.agendamentos FOR DELETE TO authenticated
   USING (public.is_barbeiro(barbeiro_id));
+
+-- 8) Pós-migração: criar o primeiro admin ------------------------------
+-- 1. Crie um usuário em Authentication > Users e copie o UID.
+-- 2. Rode (substituindo os valores):
+--    INSERT INTO public.barbeiros (user_id, nome, is_admin)
+--    VALUES ('UID_DO_USUARIO', 'Seu Nome', true);
