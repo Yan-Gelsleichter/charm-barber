@@ -1,4 +1,4 @@
-import type { Agendamento, HorarioTrabalho, Servico } from "@/integrations/supabase/db-types";
+import type { Appointment, WorkingHour, Service } from "@/integrations/supabase/db-types";
 
 export type Slot = { start: Date; end: Date; available: boolean };
 
@@ -11,35 +11,28 @@ function parseTime(hms: string, base: Date): Date {
   return d;
 }
 
-/**
- * Gera slots de SLOT_STEP_MIN minutos dentro do expediente do barbeiro
- * naquele dia. Marca como indisponível qualquer slot cujo intervalo
- * [start, start+duracao) sobreponha um agendamento existente
- * (considerando duração do serviço de cada agendamento conhecido,
- * ou um buffer mínimo do próprio serviço sendo agendado).
- */
 export function buildSlots(params: {
   date: Date;
-  horarios: HorarioTrabalho[];
-  servico: Servico;
-  agendamentos: Array<Pick<Agendamento, "horario_consulta" | "servico_id" | "status">>;
-  servicosMap: Map<string, Servico>;
+  hours: WorkingHour[];
+  service: Service;
+  appointments: Array<Pick<Appointment, "appointment_time" | "service_id" | "status">>;
+  servicesMap: Map<string, Service>;
 }): Slot[] {
-  const { date, horarios, servico, agendamentos, servicosMap } = params;
+  const { date, hours, service, appointments, servicesMap } = params;
   const dow = date.getDay();
-  const work = horarios.find((h) => h.dia_semana === dow);
+  const work = hours.find((h) => h.weekday === dow);
   if (!work) return [];
 
-  const start = parseTime(work.hora_inicio, date);
-  const end = parseTime(work.hora_fim, date);
-  const dur = servico.duracao_minutos;
+  const start = parseTime(work.start_time, date);
+  const end = parseTime(work.end_time, date);
+  const dur = service.duration_minutes;
 
-  const busy: Array<[number, number]> = agendamentos
+  const busy: Array<[number, number]> = appointments
     .filter((a) => a.status !== "cancelado")
     .map((a) => {
-      const s = new Date(a.horario_consulta).getTime();
-      const sv = servicosMap.get(a.servico_id);
-      const d = sv?.duracao_minutos ?? dur;
+      const s = new Date(a.appointment_time).getTime();
+      const sv = servicesMap.get(a.service_id);
+      const d = sv?.duration_minutes ?? dur;
       return [s, s + d * 60_000] as [number, number];
     });
 

@@ -1,71 +1,67 @@
-export type Barbeiro = {
+// Tipos espelhando o schema real (tabelas e colunas em inglês).
+
+export type Barber = {
   id: string;
-  nome: string;
+  name: string;
   avatar_url: string | null;
   user_id: string | null;
   is_admin: boolean;
-  created_at: string;
 };
-export type BarbeiroInsert = {
+export type BarberInsert = {
   id?: string;
-  nome: string;
+  name: string;
   avatar_url?: string | null;
   user_id?: string | null;
   is_admin?: boolean;
-  created_at?: string;
 };
 
-export type Servico = {
+export type Service = {
   id: string;
-  nome: string;
-  duracao_minutos: number;
-  preco: number;
-  barbeiro_id: string | null;
-  created_at: string;
+  name: string;
+  duration_minutes: number;
+  price: number;
+  barber_id: string | null;
 };
-export type ServicoInsert = {
+export type ServiceInsert = {
   id?: string;
-  nome: string;
-  duracao_minutos: number;
-  preco: number;
-  barbeiro_id?: string | null;
-  created_at?: string;
+  name: string;
+  duration_minutes: number;
+  price: number;
+  barber_id?: string | null;
 };
 
-export type HorarioTrabalho = {
+export type WorkingHour = {
   id: string;
-  barbeiro_id: string;
-  dia_semana: number;
-  hora_inicio: string;
-  hora_fim: string;
+  barber_id: string;
+  weekday: number;
+  start_time: string;
+  end_time: string;
 };
-export type HorarioTrabalhoInsert = {
+export type WorkingHourInsert = {
   id?: string;
-  barbeiro_id: string;
-  dia_semana: number;
-  hora_inicio: string;
-  hora_fim: string;
+  barber_id: string;
+  weekday: number;
+  start_time: string;
+  end_time: string;
 };
 
-export type Agendamento = {
+export type Appointment = {
   id: string;
-  barbeiro_id: string;
-  servico_id: string;
-  nome_cliente: string;
-  telefone_cliente: string;
-  horario_consulta: string;
+  barber_id: string;
+  service_id: string;
+  customer_name: string;
+  customer_phone: string;
+  appointment_time: string;
   status: string;
-  created_at: string;
 };
-export type AgendamentoInsert = {
+export type AppointmentInsert = {
   id?: string;
-  barbeiro_id: string;
-  servico_id: string;
-  nome_cliente: string;
-  telefone_cliente: string;
-  horario_consulta: string;
+  barber_id: string;
+  service_id: string;
+  customer_name: string;
+  customer_phone: string;
+  appointment_time: string;
   status?: string;
-  created_at?: string;
 };
 
 type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
@@ -73,10 +69,10 @@ type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
 export type Database = {
   public: {
     Tables: {
-      barbeiros: Table<Barbeiro, BarbeiroInsert>;
-      servicos: Table<Servico, ServicoInsert>;
-      horarios_trabalho: Table<HorarioTrabalho, HorarioTrabalhoInsert>;
-      agendamentos: Table<Agendamento, AgendamentoInsert>;
+      barbers: Table<Barber, BarberInsert>;
+      services: Table<Service, ServiceInsert>;
+      working_hours: Table<WorkingHour, WorkingHourInsert>;
+      appointments: Table<Appointment, AppointmentInsert>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

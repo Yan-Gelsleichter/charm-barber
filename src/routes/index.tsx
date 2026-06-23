@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Scissors, Calendar, LogIn } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro } from "@/integrations/supabase/db-types";
+import type { Barber } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { BrandTitle, BrandMark } from "@/components/Brand";
 
@@ -21,15 +21,15 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const { data: barbeiros, isLoading } = useQuery({
-    queryKey: ["barbeiros-list"],
-    queryFn: async (): Promise<Barbeiro[]> => {
+  const { data: barbers, isLoading } = useQuery({
+    queryKey: ["barbers-list"],
+    queryFn: async (): Promise<Barber[]> => {
       const { data, error } = await supabase
-        .from("barbeiros")
+        .from("barbers")
         .select("*")
-        .order("nome", { ascending: true });
+        .order("name", { ascending: true });
       if (error) throw error;
-      return data as Barbeiro[];
+      return data as Barber[];
     },
   });
 
@@ -72,7 +72,7 @@ function Home() {
           </div>
         )}
 
-        {!isLoading && (!barbeiros || barbeiros.length === 0) && (
+        {!isLoading && (!barbers || barbers.length === 0) && (
           <div className="surface p-8 text-center">
             <Scissors className="mx-auto mb-3 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
@@ -82,7 +82,7 @@ function Home() {
         )}
 
         <div className="grid gap-3">
-          {barbeiros?.map((b) => (
+          {barbers?.map((b) => (
             <Link
               key={b.id}
               to="/agendar/$barbeiroId"
@@ -91,13 +91,13 @@ function Home() {
             >
               <div className="brand-gradient flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white">
                 {b.avatar_url ? (
-                  <img src={b.avatar_url} alt={b.nome} className="h-full w-full object-cover" />
+                  <img src={b.avatar_url} alt={b.name} className="h-full w-full object-cover" />
                 ) : (
-                  b.nome.charAt(0).toUpperCase()
+                  b.name.charAt(0).toUpperCase()
                 )}
               </div>
               <div className="flex-1">
-                <p className="font-semibold">{b.nome}</p>
+                <p className="font-semibold">{b.name}</p>
                 <p className="text-xs text-muted-foreground">Toque para agendar</p>
               </div>
               <Calendar className="text-muted-foreground transition-transform group-hover:translate-x-1" />

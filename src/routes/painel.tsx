@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { useMeBarbeiro } from "@/hooks/use-auth";
+import { useMeBarber } from "@/hooks/use-auth";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,7 @@ function PainelPage() {
   const navigate = useNavigate();
   const loc = useLocation();
   const { tab } = Route.useSearch();
-  const { session, barbeiro, loading } = useMeBarbeiro();
+  const { session, barber, loading } = useMeBarber();
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -70,7 +70,7 @@ function PainelPage() {
 
   if (!session) return null;
 
-  if (!barbeiro) {
+  if (!barber) {
     return (
       <div className="mx-auto max-w-md px-5 py-20 text-center">
         <BrandMark size={48} />
@@ -93,7 +93,7 @@ function PainelPage() {
     );
   }
 
-  const items = NAV.filter((n) => !n.adminOnly || barbeiro.is_admin);
+  const items = NAV.filter((n) => !n.adminOnly || barber.is_admin);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -109,9 +109,9 @@ function PainelPage() {
             <BrandMark size={36} />
             <div className="leading-tight">
               <p className="text-xs text-muted-foreground">Olá,</p>
-              <p className="font-semibold">{barbeiro.nome}</p>
+              <p className="font-semibold">{barber.name}</p>
             </div>
-            {barbeiro.is_admin && (
+            {barber.is_admin && (
               <span className="brand-gradient ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                 Admin
               </span>
@@ -124,15 +124,14 @@ function PainelPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
-        {tab === "dashboard" && <DashboardTab barbeiro={barbeiro} />}
-        {tab === "agenda" && <AgendaTab barbeiro={barbeiro} />}
-        {tab === "servicos" && <ServicosTab barbeiro={barbeiro} />}
-        {tab === "horarios" && <HorariosTab barbeiro={barbeiro} />}
-        {tab === "historico" && <HistoricoTab barbeiro={barbeiro} />}
-        {tab === "barbeiros" && barbeiro.is_admin && <BarbeirosTab />}
+        {tab === "dashboard" && <DashboardTab barber={barber} />}
+        {tab === "agenda" && <AgendaTab barber={barber} />}
+        {tab === "servicos" && <ServicosTab barber={barber} />}
+        {tab === "horarios" && <HorariosTab barber={barber} />}
+        {tab === "historico" && <HistoricoTab barber={barber} />}
+        {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
       </main>
 
-      {/* Bottom nav (mobile-first) */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-around px-2 py-2">
           {items.map((n) => {
@@ -157,7 +156,6 @@ function PainelPage() {
             );
           })}
         </div>
-        {/* iOS safe-area */}
         <div style={{ height: "env(safe-area-inset-bottom)" }} />
         <span className="hidden">{loc.pathname}</span>
       </nav>
