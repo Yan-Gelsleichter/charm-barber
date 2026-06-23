@@ -4,7 +4,7 @@ import { Plus, Loader2, ShieldCheck, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro } from "@/integrations/supabase/db-types";
+import type { Barber } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,14 +18,14 @@ export function BarbeirosTab() {
   const [admin, setAdmin] = useState(false);
 
   const q = useQuery({
-    queryKey: ["barbeiros-painel"],
+    queryKey: ["barbers-painel"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("barbeiros")
+        .from("barbers")
         .select("*")
-        .order("nome");
+        .order("name");
       if (error) throw error;
-      return data as Barbeiro[];
+      return data as Barber[];
     },
   });
 
@@ -35,10 +35,6 @@ export function BarbeirosTab() {
       if (!email.includes("@")) throw new Error("E-mail inválido");
       if (senha.length < 6) throw new Error("Senha precisa de 6+ caracteres");
 
-      // Sign up the user via Supabase auth (RLS allows authenticated admin to insert into barbeiros).
-      // Note: signUp creates the user but the current admin session remains because we don't
-      // call signInWithPassword for the new user; however supabase-js v2 may temporarily switch
-      // the session. We'll restore by reading current session afterward.
       const adminSession = (await supabase.auth.getSession()).data.session;
 
       const { data: signUp, error: suErr } = await supabase.auth.signUp({
@@ -50,7 +46,6 @@ export function BarbeirosTab() {
       const newUserId = signUp.user?.id;
       if (!newUserId) throw new Error("Falha ao criar usuário");
 
-      // Restore admin session before inserting (signUp may have replaced session)
       if (adminSession) {
         await supabase.auth.setSession({
           access_token: adminSession.access_token,
@@ -58,9 +53,9 @@ export function BarbeirosTab() {
         });
       }
 
-      const { error: insErr } = await supabase.from("barbeiros").insert({
+      const { error: insErr } = await supabase.from("barbers").insert({
         user_id: newUserId,
-        nome: nome.trim(),
+        name: nome.trim(),
         is_admin: admin,
       });
       if (insErr) throw insErr;
@@ -73,20 +68,20 @@ export function BarbeirosTab() {
       setEmail("");
       setSenha("");
       setAdmin(false);
-      qc.invalidateQueries({ queryKey: ["barbeiros-painel"] });
+      qc.invalidateQueries({ queryKey: ["barbers-painel"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const toggleAdmin = useMutation({
-    mutationFn: async (b: Barbeiro) => {
+    mutationFn: async (b: Barber) => {
       const { error } = await supabase
-        .from("barbeiros")
+        .from("barbers")
         .update({ is_admin: !b.is_admin })
         .eq("id", b.id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["barbeiros-painel"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["barbers-painel"] }),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -141,11 +136,11 @@ export function BarbeirosTab() {
             <div key={b.id} className="surface flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white">
-                  {b.nome.charAt(0).toUpperCase()}
+                  {b.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <p className="font-semibold">
-                    {b.nome}
+                    {b.name}
                     {b.is_admin && (
                       <span className="brand-gradient ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                         Admin

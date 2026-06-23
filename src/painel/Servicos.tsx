@@ -4,28 +4,28 @@ import { Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro, Servico } from "@/integrations/supabase/db-types";
+import type { Barber, Service } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { brl } from "@/lib/format";
 
-export function ServicosTab({ barbeiro }: { barbeiro: Barbeiro }) {
+export function ServicosTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
   const [nome, setNome] = useState("");
   const [duracao, setDuracao] = useState("30");
   const [preco, setPreco] = useState("");
 
   const q = useQuery({
-    queryKey: ["servicos-painel", barbeiro.id],
+    queryKey: ["services-painel", barber.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("servicos")
+        .from("services")
         .select("*")
-        .eq("barbeiro_id", barbeiro.id)
-        .order("nome");
+        .eq("barber_id", barber.id)
+        .order("name");
       if (error) throw error;
-      return data as Servico[];
+      return data as Service[];
     },
   });
 
@@ -36,11 +36,11 @@ export function ServicosTab({ barbeiro }: { barbeiro: Barbeiro }) {
       const pre = Number(preco.replace(",", "."));
       if (!dur || dur < 5) throw new Error("Duração inválida");
       if (!pre || pre <= 0) throw new Error("Preço inválido");
-      const { error } = await supabase.from("servicos").insert({
-        nome: nome.trim(),
-        duracao_minutos: dur,
-        preco: pre,
-        barbeiro_id: barbeiro.id,
+      const { error } = await supabase.from("services").insert({
+        name: nome.trim(),
+        duration_minutes: dur,
+        price: pre,
+        barber_id: barber.id,
       });
       if (error) throw error;
     },
@@ -48,19 +48,19 @@ export function ServicosTab({ barbeiro }: { barbeiro: Barbeiro }) {
       toast.success("Serviço criado");
       setNome("");
       setPreco("");
-      qc.invalidateQueries({ queryKey: ["servicos-painel", barbeiro.id] });
+      qc.invalidateQueries({ queryKey: ["services-painel", barber.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("servicos").delete().eq("id", id);
+      const { error } = await supabase.from("services").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Serviço removido");
-      qc.invalidateQueries({ queryKey: ["servicos-painel", barbeiro.id] });
+      qc.invalidateQueries({ queryKey: ["services-painel", barber.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -114,11 +114,11 @@ export function ServicosTab({ barbeiro }: { barbeiro: Barbeiro }) {
             {q.data?.map((s) => (
               <div key={s.id} className="surface flex items-center justify-between p-4">
                 <div>
-                  <p className="font-semibold">{s.nome}</p>
-                  <p className="text-xs text-muted-foreground">{s.duracao_minutos} min</p>
+                  <p className="font-semibold">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">{s.duration_minutes} min</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="brand-text font-bold">{brl(s.preco)}</span>
+                  <span className="brand-text font-bold">{brl(s.price)}</span>
                   <Button
                     variant="ghost"
                     size="icon"

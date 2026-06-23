@@ -4,28 +4,27 @@ import { Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro, HorarioTrabalho } from "@/integrations/supabase/db-types";
+import type { Barber, WorkingHour } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DIAS_SEMANA } from "@/lib/format";
 
 type Row = { ativo: boolean; inicio: string; fim: string };
-
 const empty: Row = { ativo: false, inicio: "09:00", fim: "18:00" };
 
-export function HorariosTab({ barbeiro }: { barbeiro: Barbeiro }) {
+export function HorariosTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<Row[]>(() => Array(7).fill(0).map(() => ({ ...empty })));
 
   const q = useQuery({
-    queryKey: ["horarios-painel", barbeiro.id],
+    queryKey: ["working-hours-painel", barber.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("horarios_trabalho")
+        .from("working_hours")
         .select("*")
-        .eq("barbeiro_id", barbeiro.id);
+        .eq("barber_id", barber.id);
       if (error) throw error;
-      return data as HorarioTrabalho[];
+      return data as WorkingHour[];
     },
   });
 
@@ -33,10 +32,10 @@ export function HorariosTab({ barbeiro }: { barbeiro: Barbeiro }) {
     if (!q.data) return;
     const next = Array(7).fill(0).map(() => ({ ...empty }));
     q.data.forEach((h) => {
-      next[h.dia_semana] = {
+      next[h.weekday] = {
         ativo: true,
-        inicio: h.hora_inicio.slice(0, 5),
-        fim: h.hora_fim.slice(0, 5),
+        inicio: h.start_time.slice(0, 5),
+        fim: h.end_time.slice(0, 5),
       };
     });
     setRows(next);
@@ -44,32 +43,31 @@ export function HorariosTab({ barbeiro }: { barbeiro: Barbeiro }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      // wipe + reinsert (RLS scoped to barbeiro)
       const del = await supabase
-        .from("horarios_trabalho")
+        .from("working_hours")
         .delete()
-        .eq("barbeiro_id", barbeiro.id);
+        .eq("barber_id", barber.id);
       if (del.error) throw del.error;
       const inserts = rows
         .map((r, dia) =>
           r.ativo
             ? {
-                barbeiro_id: barbeiro.id,
-                dia_semana: dia,
-                hora_inicio: r.inicio,
-                hora_fim: r.fim,
+                barber_id: barber.id,
+                weekday: dia,
+                start_time: r.inicio,
+                end_time: r.fim,
               }
             : null,
         )
         .filter(Boolean);
       if (inserts.length) {
-        const ins = await supabase.from("horarios_trabalho").insert(inserts as never);
+        const ins = await supabase.from("working_hours").insert(inserts as never);
         if (ins.error) throw ins.error;
       }
     },
     onSuccess: () => {
       toast.success("Horários atualizados");
-      qc.invalidateQueries({ queryKey: ["horarios-painel", barbeiro.id] });
+      qc.invalidateQueries({ queryKey: ["working-hours-painel", barber.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

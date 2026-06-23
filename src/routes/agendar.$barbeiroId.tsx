@@ -5,7 +5,7 @@ import { ArrowLeft, Check, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro, HorarioTrabalho, Servico, Agendamento } from "@/integrations/supabase/db-types";
+import type { Barber, WorkingHour, Service, Appointment } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,47 +25,47 @@ function AgendarPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [servicoId, setServicoId] = useState<string | null>(null);
+  const [serviceId, setServiceId] = useState<string | null>(null);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [slotIso, setSlotIso] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [tel, setTel] = useState("");
 
-  const barbeiroQ = useQuery({
-    queryKey: ["barbeiro", barbeiroId],
+  const barberQ = useQuery({
+    queryKey: ["barber", barbeiroId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("barbeiros")
+        .from("barbers")
         .select("*")
         .eq("id", barbeiroId)
         .maybeSingle();
       if (error) throw error;
-      return data as Barbeiro | null;
+      return data as Barber | null;
     },
   });
 
-  const servicosQ = useQuery({
-    queryKey: ["servicos", barbeiroId],
+  const servicesQ = useQuery({
+    queryKey: ["services", barbeiroId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("servicos")
+        .from("services")
         .select("*")
-        .eq("barbeiro_id", barbeiroId)
-        .order("nome");
+        .eq("barber_id", barbeiroId)
+        .order("name");
       if (error) throw error;
-      return data as Servico[];
+      return data as Service[];
     },
   });
 
-  const horariosQ = useQuery({
-    queryKey: ["horarios", barbeiroId],
+  const hoursQ = useQuery({
+    queryKey: ["working_hours", barbeiroId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("horarios_trabalho")
+        .from("working_hours")
         .select("*")
-        .eq("barbeiro_id", barbeiroId);
+        .eq("barber_id", barbeiroId);
       if (error) throw error;
-      return data as HorarioTrabalho[];
+      return data as WorkingHour[];
     },
   });
 
@@ -79,44 +79,44 @@ function AgendarPage() {
       const end = new Date(start);
       end.setDate(end.getDate() + 1);
       const { data, error } = await supabase
-        .from("agendamentos")
-        .select("horario_consulta, servico_id, status")
-        .eq("barbeiro_id", barbeiroId)
-        .gte("horario_consulta", start.toISOString())
-        .lt("horario_consulta", end.toISOString());
+        .from("appointments")
+        .select("appointment_time, service_id, status")
+        .eq("barber_id", barbeiroId)
+        .gte("appointment_time", start.toISOString())
+        .lt("appointment_time", end.toISOString());
       if (error) throw error;
-      return data as Pick<Agendamento, "horario_consulta" | "servico_id" | "status">[];
+      return data as Pick<Appointment, "appointment_time" | "service_id" | "status">[];
     },
   });
 
-  const servico = servicosQ.data?.find((s) => s.id === servicoId) ?? null;
-  const servicosMap = useMemo(
-    () => new Map<string, Servico>((servicosQ.data ?? []).map((s) => [s.id, s])),
-    [servicosQ.data],
+  const service = servicesQ.data?.find((s) => s.id === serviceId) ?? null;
+  const servicesMap = useMemo(
+    () => new Map<string, Service>((servicesQ.data ?? []).map((s) => [s.id, s])),
+    [servicesQ.data],
   );
 
   const slots = useMemo(() => {
-    if (!date || !servico || !horariosQ.data) return [];
+    if (!date || !service || !hoursQ.data) return [];
     return buildSlots({
       date,
-      servico,
-      horarios: horariosQ.data,
-      agendamentos: agendaQ.data ?? [],
-      servicosMap,
+      service,
+      hours: hoursQ.data,
+      appointments: agendaQ.data ?? [],
+      servicesMap,
     });
-  }, [date, servico, horariosQ.data, agendaQ.data, servicosMap]);
+  }, [date, service, hoursQ.data, agendaQ.data, servicesMap]);
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!servico || !slotIso) throw new Error("Selecione serviço e horário");
+      if (!service || !slotIso) throw new Error("Selecione serviço e horário");
       if (nome.trim().length < 2) throw new Error("Informe seu nome");
       if (phoneDigits(tel).length < 10) throw new Error("Telefone inválido");
-      const { error } = await supabase.from("agendamentos").insert({
-        barbeiro_id: barbeiroId,
-        servico_id: servico.id,
-        nome_cliente: nome.trim(),
-        telefone_cliente: phoneDigits(tel),
-        horario_consulta: slotIso,
+      const { error } = await supabase.from("appointments").insert({
+        barber_id: barbeiroId,
+        service_id: service.id,
+        customer_name: nome.trim(),
+        customer_phone: phoneDigits(tel),
+        appointment_time: slotIso,
         status: "confirmado",
       });
       if (error) throw error;
@@ -124,14 +124,14 @@ function AgendarPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
       toast.success("Agendamento confirmado!", {
-        description: `${fmtTime(slotIso!)} com ${barbeiroQ.data?.nome}`,
+        description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });
       navigate({ to: "/" });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const barbeiro = barbeiroQ.data;
+  const barber = barberQ.data;
 
   return (
     <main className="mx-auto max-w-2xl px-5 pb-24 pt-6">
@@ -141,57 +141,57 @@ function AgendarPage() {
         </Link>
       </Button>
 
-      {barbeiro && (
+      {barber && (
         <header className="surface flex items-center gap-4 p-4">
           <div className="brand-gradient flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white">
-            {barbeiro.avatar_url ? (
-              <img src={barbeiro.avatar_url} alt={barbeiro.nome} className="h-full w-full object-cover" />
+            {barber.avatar_url ? (
+              <img src={barber.avatar_url} alt={barber.name} className="h-full w-full object-cover" />
             ) : (
-              barbeiro.nome.charAt(0).toUpperCase()
+              barber.name.charAt(0).toUpperCase()
             )}
           </div>
           <div>
             <p className="text-xs uppercase tracking-widest text-muted-foreground">
               Agendando com
             </p>
-            <p className="text-lg font-semibold">{barbeiro.nome}</p>
+            <p className="text-lg font-semibold">{barber.name}</p>
           </div>
         </header>
       )}
 
       {/* Step 1 — serviço */}
       <Step title="1. Escolha o serviço">
-        {servicosQ.isLoading && <Skeleton />}
-        {servicosQ.data?.length === 0 && (
+        {servicesQ.isLoading && <Skeleton />}
+        {servicesQ.data?.length === 0 && (
           <p className="text-sm text-muted-foreground">
             Este barbeiro ainda não cadastrou serviços.
           </p>
         )}
         <div className="grid gap-2">
-          {servicosQ.data?.map((s) => (
+          {servicesQ.data?.map((s) => (
             <button
               key={s.id}
               onClick={() => {
-                setServicoId(s.id);
+                setServiceId(s.id);
                 setSlotIso(null);
               }}
               className={cn(
                 "flex items-center justify-between rounded-xl border p-4 text-left transition-all",
-                servicoId === s.id
+                serviceId === s.id
                   ? "brand-gradient-soft border-transparent shadow-[var(--shadow-elev)]"
                   : "border-border bg-card/60 hover:border-border/80",
               )}
             >
               <div>
-                <p className="font-medium">{s.nome}</p>
+                <p className="font-medium">{s.name}</p>
                 <p className="text-xs text-muted-foreground">
                   <Clock className="mr-1 inline size-3" />
-                  {s.duracao_minutos} min
+                  {s.duration_minutes} min
                 </p>
               </div>
               <div className="text-right">
-                <p className="brand-text font-bold">{brl(s.preco)}</p>
-                {servicoId === s.id && (
+                <p className="brand-text font-bold">{brl(s.price)}</p>
+                {serviceId === s.id && (
                   <Check className="ml-auto mt-1 size-4 text-[color:var(--success)]" />
                 )}
               </div>
@@ -201,7 +201,7 @@ function AgendarPage() {
       </Step>
 
       {/* Step 2 — data */}
-      {servico && (
+      {service && (
         <Step title="2. Escolha a data">
           <div className="surface flex justify-center p-2">
             <Calendar
@@ -223,10 +223,10 @@ function AgendarPage() {
       )}
 
       {/* Step 3 — horário */}
-      {servico && date && (
+      {service && date && (
         <Step title="3. Escolha o horário">
-          {(horariosQ.isLoading || agendaQ.isLoading) && <Skeleton />}
-          {!horariosQ.isLoading && slots.length === 0 && (
+          {(hoursQ.isLoading || agendaQ.isLoading) && <Skeleton />}
+          {!hoursQ.isLoading && slots.length === 0 && (
             <p className="text-sm text-muted-foreground">
               Sem expediente neste dia.
             </p>
@@ -256,7 +256,7 @@ function AgendarPage() {
       )}
 
       {/* Step 4 — dados */}
-      {servico && slotIso && (
+      {service && slotIso && (
         <Step title="4. Seus dados">
           <div className="space-y-4">
             <div className="space-y-2">

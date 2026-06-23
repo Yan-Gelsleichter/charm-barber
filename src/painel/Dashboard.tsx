@@ -2,29 +2,29 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Agendamento, Barbeiro, Servico } from "@/integrations/supabase/db-types";
+import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtTime } from "@/lib/format";
 
-export function DashboardTab({ barbeiro }: { barbeiro: Barbeiro }) {
+export function DashboardTab({ barber }: { barber: Barber }) {
   const q = useQuery({
-    queryKey: ["dash", barbeiro.id],
+    queryKey: ["dash", barber.id],
     queryFn: async () => {
       const monthAgo = new Date();
       monthAgo.setDate(monthAgo.getDate() - 31);
       const [agRes, svRes] = await Promise.all([
         supabase
-          .from("agendamentos")
+          .from("appointments")
           .select("*")
-          .eq("barbeiro_id", barbeiro.id)
-          .gte("horario_consulta", monthAgo.toISOString())
-          .order("horario_consulta"),
-        supabase.from("servicos").select("*").eq("barbeiro_id", barbeiro.id),
+          .eq("barber_id", barber.id)
+          .gte("appointment_time", monthAgo.toISOString())
+          .order("appointment_time"),
+        supabase.from("services").select("*").eq("barber_id", barber.id),
       ]);
       if (agRes.error) throw agRes.error;
       if (svRes.error) throw svRes.error;
       return {
-        agendamentos: agRes.data as Agendamento[],
-        servicos: svRes.data as Servico[],
+        appointments: agRes.data as Appointment[],
+        services: svRes.data as Service[],
       };
     },
   });
@@ -36,29 +36,29 @@ export function DashboardTab({ barbeiro }: { barbeiro: Barbeiro }) {
   startWeek.setDate(startWeek.getDate() - startWeek.getDay());
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const priceMap = new Map((q.data?.servicos ?? []).map((s) => [s.id, Number(s.preco)]));
-  const agendamentos = q.data?.agendamentos ?? [];
+  const priceMap = new Map((q.data?.services ?? []).map((s) => [s.id, Number(s.price)]));
+  const appointments = q.data?.appointments ?? [];
 
   const sum = (from: Date) =>
-    agendamentos
+    appointments
       .filter(
         (a) =>
           a.status !== "cancelado" &&
-          new Date(a.horario_consulta) >= from &&
-          new Date(a.horario_consulta) <= now,
+          new Date(a.appointment_time) >= from &&
+          new Date(a.appointment_time) <= now,
       )
-      .reduce((s, a) => s + (priceMap.get(a.servico_id) ?? 0), 0);
+      .reduce((s, a) => s + (priceMap.get(a.service_id) ?? 0), 0);
 
   const ganhosDia = sum(startDay);
   const ganhosSemana = sum(startWeek);
   const ganhosMes = sum(startMonth);
 
-  const proximos = agendamentos
-    .filter((a) => new Date(a.horario_consulta) >= now && a.status !== "cancelado")
+  const proximos = appointments
+    .filter((a) => new Date(a.appointment_time) >= now && a.status !== "cancelado")
     .slice(0, 5);
 
   const clientesUnicos = new Set(
-    agendamentos.filter((a) => a.status !== "cancelado").map((a) => a.telefone_cliente),
+    appointments.filter((a) => a.status !== "cancelado").map((a) => a.customer_phone),
   ).size;
 
   return (
@@ -81,19 +81,19 @@ export function DashboardTab({ barbeiro }: { barbeiro: Barbeiro }) {
         ) : (
           <div className="grid gap-2">
             {proximos.map((a) => {
-              const sv = q.data?.servicos.find((s) => s.id === a.servico_id);
+              const sv = q.data?.services.find((s) => s.id === a.service_id);
               return (
                 <div key={a.id} className="surface flex items-center justify-between p-4">
                   <div>
-                    <p className="font-semibold">{a.nome_cliente}</p>
+                    <p className="font-semibold">{a.customer_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {sv?.nome ?? "Serviço"} ·{" "}
-                      {new Date(a.horario_consulta).toLocaleDateString("pt-BR")} ·{" "}
-                      {fmtTime(a.horario_consulta)}
+                      {sv?.name ?? "Serviço"} ·{" "}
+                      {new Date(a.appointment_time).toLocaleDateString("pt-BR")} ·{" "}
+                      {fmtTime(a.appointment_time)}
                     </p>
                   </div>
                   <span className="brand-text font-bold">
-                    {sv ? brl(sv.preco) : "—"}
+                    {sv ? brl(sv.price) : "—"}
                   </span>
                 </div>
               );

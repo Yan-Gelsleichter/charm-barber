@@ -1,27 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Agendamento, Barbeiro, Servico } from "@/integrations/supabase/db-types";
+import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
 
-export function HistoricoTab({ barbeiro }: { barbeiro: Barbeiro }) {
+export function HistoricoTab({ barber }: { barber: Barber }) {
   const q = useQuery({
-    queryKey: ["historico", barbeiro.id],
+    queryKey: ["historico", barber.id],
     queryFn: async () => {
       const now = new Date().toISOString();
       const [a, s] = await Promise.all([
         supabase
-          .from("agendamentos")
+          .from("appointments")
           .select("*")
-          .eq("barbeiro_id", barbeiro.id)
-          .lt("horario_consulta", now)
-          .order("horario_consulta", { ascending: false })
+          .eq("barber_id", barber.id)
+          .lt("appointment_time", now)
+          .order("appointment_time", { ascending: false })
           .limit(100),
-        supabase.from("servicos").select("*").eq("barbeiro_id", barbeiro.id),
+        supabase.from("services").select("*").eq("barber_id", barber.id),
       ]);
       if (a.error) throw a.error;
       if (s.error) throw s.error;
-      return { ag: a.data as Agendamento[], sv: s.data as Servico[] };
+      return { ag: a.data as Appointment[], sv: s.data as Service[] };
     },
   });
 
@@ -39,7 +39,7 @@ export function HistoricoTab({ barbeiro }: { barbeiro: Barbeiro }) {
       ) : (
         <div className="grid gap-2">
           {q.data?.ag.map((a) => {
-            const sv = svMap.get(a.servico_id);
+            const sv = svMap.get(a.service_id);
             const cancelado = a.status === "cancelado";
             return (
               <div
@@ -51,16 +51,16 @@ export function HistoricoTab({ barbeiro }: { barbeiro: Barbeiro }) {
               >
                 <div>
                   <p className={"font-semibold " + (cancelado ? "line-through" : "")}>
-                    {a.nome_cliente}
+                    {a.customer_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {sv?.nome ?? "Serviço"} · {fmtDateTime(a.horario_consulta)}
+                    {sv?.name ?? "Serviço"} · {fmtDateTime(a.appointment_time)}
                   </p>
                 </div>
                 {cancelado ? (
                   <span className="text-xs text-destructive">cancelado</span>
                 ) : (
-                  <span className="brand-text font-bold">{sv ? brl(sv.preco) : "—"}</span>
+                  <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
                 )}
               </div>
             );

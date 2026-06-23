@@ -4,13 +4,13 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Agendamento, Barbeiro, HorarioTrabalho, Servico } from "@/integrations/supabase/db-types";
+import type { Appointment, Barber, WorkingHour, Service } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { buildSlots } from "@/lib/availability";
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export function AgendaTab({ barbeiro }: { barbeiro: Barbeiro }) {
+export function AgendaTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
   const [date, setDate] = useState(() => {
     const d = new Date();
@@ -21,28 +21,28 @@ export function AgendaTab({ barbeiro }: { barbeiro: Barbeiro }) {
   const dayKey = date.toISOString().slice(0, 10);
 
   const q = useQuery({
-    queryKey: ["agenda-painel", barbeiro.id, dayKey],
+    queryKey: ["agenda-painel", barber.id, dayKey],
     queryFn: async () => {
       const end = new Date(date);
       end.setDate(end.getDate() + 1);
       const [a, h, s] = await Promise.all([
         supabase
-          .from("agendamentos")
+          .from("appointments")
           .select("*")
-          .eq("barbeiro_id", barbeiro.id)
-          .gte("horario_consulta", date.toISOString())
-          .lt("horario_consulta", end.toISOString())
-          .order("horario_consulta"),
-        supabase.from("horarios_trabalho").select("*").eq("barbeiro_id", barbeiro.id),
-        supabase.from("servicos").select("*").eq("barbeiro_id", barbeiro.id),
+          .eq("barber_id", barber.id)
+          .gte("appointment_time", date.toISOString())
+          .lt("appointment_time", end.toISOString())
+          .order("appointment_time"),
+        supabase.from("working_hours").select("*").eq("barber_id", barber.id),
+        supabase.from("services").select("*").eq("barber_id", barber.id),
       ]);
       if (a.error) throw a.error;
       if (h.error) throw h.error;
       if (s.error) throw s.error;
       return {
-        agendamentos: a.data as Agendamento[],
-        horarios: h.data as HorarioTrabalho[],
-        servicos: s.data as Servico[],
+        appointments: a.data as Appointment[],
+        hours: h.data as WorkingHour[],
+        services: s.data as Service[],
       };
     },
   });
@@ -50,36 +50,35 @@ export function AgendaTab({ barbeiro }: { barbeiro: Barbeiro }) {
   const cancel = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("agendamentos")
+        .from("appointments")
         .update({ status: "cancelado" })
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Agendamento cancelado");
-      qc.invalidateQueries({ queryKey: ["agenda-painel", barbeiro.id] });
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const servicosMap = useMemo(
-    () => new Map<string, Servico>((q.data?.servicos ?? []).map((s) => [s.id, s])),
-    [q.data?.servicos],
+  const servicesMap = useMemo(
+    () => new Map<string, Service>((q.data?.services ?? []).map((s) => [s.id, s])),
+    [q.data?.services],
   );
 
-  // representative servico for slot grid (smallest duration)
-  const refServico = q.data?.servicos.slice().sort((a, b) => a.duracao_minutos - b.duracao_minutos)[0];
+  const refService = q.data?.services.slice().sort((a, b) => a.duration_minutes - b.duration_minutes)[0];
 
   const slots = useMemo(() => {
-    if (!refServico || !q.data) return [];
+    if (!refService || !q.data) return [];
     return buildSlots({
       date,
-      servico: refServico,
-      horarios: q.data.horarios,
-      agendamentos: q.data.agendamentos,
-      servicosMap,
+      service: refService,
+      hours: q.data.hours,
+      appointments: q.data.appointments,
+      servicesMap,
     });
-  }, [date, refServico, q.data, servicosMap]);
+  }, [date, refService, q.data, servicesMap]);
 
   function move(delta: number) {
     const d = new Date(date);
@@ -87,8 +86,8 @@ export function AgendaTab({ barbeiro }: { barbeiro: Barbeiro }) {
     setDate(d);
   }
 
-  const agendamentosAtivos = (q.data?.agendamentos ?? []).filter((a) => a.status !== "cancelado");
-  const cancelados = (q.data?.agendamentos ?? []).filter((a) => a.status === "cancelado");
+  const ativos = (q.data?.appointments ?? []).filter((a) => a.status !== "cancelado");
+  const cancelados = (q.data?.appointments ?? []).filter((a) => a.status === "cancelado");
 
   return (
     <div className="space-y-6">
@@ -115,27 +114,27 @@ export function AgendaTab({ barbeiro }: { barbeiro: Barbeiro }) {
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Agendamentos
         </h2>
-        {agendamentosAtivos.length === 0 ? (
+        {ativos.length === 0 ? (
           <div className="surface p-6 text-center text-sm text-muted-foreground">
             Nenhum agendamento neste dia.
           </div>
         ) : (
           <div className="grid gap-2">
-            {agendamentosAtivos.map((a) => {
-              const sv = servicosMap.get(a.servico_id);
+            {ativos.map((a) => {
+              const sv = servicesMap.get(a.service_id);
               return (
                 <div key={a.id} className="surface flex items-center justify-between p-4">
                   <div>
                     <p className="font-semibold">
-                      {fmtTime(a.horario_consulta)} · {a.nome_cliente}
+                      {fmtTime(a.appointment_time)} · {a.customer_name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {sv?.nome ?? "Serviço"} · {sv?.duracao_minutos ?? "?"} min ·{" "}
-                      {a.telefone_cliente}
+                      {sv?.name ?? "Serviço"} · {sv?.duration_minutes ?? "?"} min ·{" "}
+                      {a.customer_phone}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="brand-text font-bold">{sv ? brl(sv.preco) : ""}</span>
+                    <span className="brand-text font-bold">{sv ? brl(sv.price) : ""}</span>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -157,7 +156,7 @@ export function AgendaTab({ barbeiro }: { barbeiro: Barbeiro }) {
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Mapa de horários
         </h2>
-        {!refServico ? (
+        {!refService ? (
           <p className="text-sm text-muted-foreground">
             Cadastre um serviço para ver o mapa de horários.
           </p>
@@ -191,7 +190,7 @@ export function AgendaTab({ barbeiro }: { barbeiro: Barbeiro }) {
             {cancelados.map((a) => (
               <div key={a.id} className="surface flex items-center justify-between p-3 opacity-60">
                 <p className="text-sm line-through">
-                  {fmtTime(a.horario_consulta)} · {a.nome_cliente}
+                  {fmtTime(a.appointment_time)} · {a.customer_name}
                 </p>
                 <span className="text-xs text-destructive">cancelado</span>
               </div>

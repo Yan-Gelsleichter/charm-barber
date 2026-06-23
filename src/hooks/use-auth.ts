@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Barbeiro } from "@/integrations/supabase/db-types";
+import type { Barber } from "@/integrations/supabase/db-types";
 
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -18,21 +18,21 @@ export function useSession() {
   return { session, loading };
 }
 
-export function useMeBarbeiro() {
+export function useMeBarber() {
   const { session, loading } = useSession();
   const userId = session?.user.id ?? null;
   const q = useQuery({
-    queryKey: ["me-barbeiro", userId],
+    queryKey: ["me-barber", userId],
     enabled: !!userId,
-    queryFn: async (): Promise<Barbeiro | null> => {
+    queryFn: async (): Promise<Barber | null> => {
       const { data, error } = await supabase
-        .from("barbeiros")
+        .from("barbers")
         .select("*")
         .eq("user_id", userId!)
         .maybeSingle();
       if (error) throw error;
-      return data as Barbeiro | null;
+      return data as Barber | null;
     },
   });
-  return { session, loadingSession: loading, barbeiro: q.data ?? null, loading: loading || q.isLoading };
+  return { session, loadingSession: loading, barber: q.data ?? null, loading: loading || q.isLoading };
 }
