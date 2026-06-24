@@ -24,6 +24,7 @@ const schema = z.object({
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,12 +36,20 @@ function AuthPage() {
       toast.error(parsed.error.issues[0].message);
       return;
     }
+    const barberName = name.trim();
+    if (mode === "signup" && barberName.length < 2) {
+      toast.error("Informe seu nome");
+      return;
+    }
     setLoading(true);
     if (mode === "signup") {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: window.location.origin + "/painel" },
+        options: {
+          emailRedirectTo: window.location.origin + "/painel",
+          data: { name: barberName, full_name: barberName },
+        },
       });
       setLoading(false);
       if (error) {
@@ -54,6 +63,7 @@ function AuthPage() {
         toast.success("Conta criada", {
           description: "Verifique seu e-mail para confirmar (ou desative a confirmação no painel do Cloud).",
         });
+        setName("");
         setMode("signin");
       }
       return;
@@ -78,6 +88,17 @@ function AuthPage() {
       </div>
 
       <form onSubmit={onSubmit} className="surface mt-8 space-y-5 p-6">
+        {mode === "signup" && (
+          <div className="space-y-2">
+            <Label htmlFor="name">Nome</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Seu nome"
+            />
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>
           <EmailInput id="email" value={email} onChange={setEmail} />

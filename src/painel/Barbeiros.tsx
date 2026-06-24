@@ -40,7 +40,10 @@ export function BarbeirosTab() {
       const { data: signUp, error: suErr } = await supabase.auth.signUp({
         email,
         password: senha,
-        options: { emailRedirectTo: window.location.origin },
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { name: nome.trim(), full_name: nome.trim() },
+        },
       });
       if (suErr) throw suErr;
       const newUserId = signUp.user?.id;
@@ -53,12 +56,21 @@ export function BarbeirosTab() {
         });
       }
 
-      const { error: insErr } = await supabase.from("barbers").insert({
-        user_id: newUserId,
-        name: nome.trim(),
-        is_admin: admin,
-      });
-      if (insErr) throw insErr;
+      const { data: updatedRows, error: updErr } = await supabase
+        .from("barbers")
+        .update({ name: nome.trim(), is_admin: admin })
+        .eq("user_id", newUserId)
+        .select("id");
+      if (updErr) throw updErr;
+
+      if (!updatedRows?.length) {
+        const { error: insErr } = await supabase.from("barbers").insert({
+          user_id: newUserId,
+          name: nome.trim(),
+          is_admin: admin,
+        });
+        if (insErr) throw insErr;
+      }
     },
     onSuccess: () => {
       toast.success("Barbeiro cadastrado", {
