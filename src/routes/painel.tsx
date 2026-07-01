@@ -10,6 +10,7 @@ import {
   LogOut,
   Loader2,
   Copy,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -55,7 +56,7 @@ function PainelPage() {
   const navigate = useNavigate();
   const loc = useLocation();
   const { tab } = Route.useSearch();
-  const { session, barber, loading } = useMeBarber();
+  const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -73,39 +74,70 @@ function PainelPage() {
   if (!session) return null;
 
   if (!barber) {
-    const linkSql = `INSERT INTO public.barbers (user_id, name, is_admin)
-VALUES ('${session.user.id}', '${(session.user.user_metadata?.name as string) || (session.user.email?.split("@")[0] ?? "Admin")}', true)
-ON CONFLICT (user_id) DO UPDATE
-SET is_admin = true,
-    name = EXCLUDED.name;`;
+    const adminName = String(
+      session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Admin",
+    ).replaceAll("'", "''");
+    const linkSql = `DO $$
+BEGIN
+  UPDATE public.barbers
+  SET name = '${adminName}',
+      is_admin = true
+  WHERE user_id = '${session.user.id}';
+
+  IF NOT FOUND THEN
+    INSERT INTO public.barbers (user_id, name, is_admin)
+    VALUES ('${session.user.id}', '${adminName}', true);
+  END IF;
+END $$;
+
+SELECT id, name, user_id, is_admin
+FROM public.barbers
+WHERE user_id = '${session.user.id}';`;
 
     return (
       <div className="mx-auto max-w-md px-5 py-20 text-center">
         <BrandMark size={48} />
         <h1 className="mt-4 text-xl font-semibold">Sua conta não está vinculada</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Peça ao administrador para cadastrar você como barbeiro com este e-mail (
-          <span className="brand-text">{session.user.email}</span>).
+          Ainda não encontrei um registro em <span className="brand-text">barbers</span> para este login.
+          Rode o SQL abaixo e depois atualize o acesso.
         </p>
         <div className="surface mt-5 text-left">
+          {error && (
+            <p className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+              Erro ao consultar barbers: {error.message}
+            </p>
+          )}
+          <p className="text-xs font-medium uppercase text-muted-foreground">E-mail</p>
+          <p className="mt-1 break-all text-xs">{session.user.email}</p>
           <p className="text-xs font-medium uppercase text-muted-foreground">Seu UID</p>
           <p className="mt-1 break-all font-mono text-xs">{session.user.id}</p>
           <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
             SQL para liberar admin
           </p>
-          <pre className="mt-2 max-h-44 overflow-auto rounded-lg bg-secondary p-3 text-xs text-secondary-foreground">
+          <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-secondary p-3 text-xs text-secondary-foreground">
             {linkSql}
           </pre>
-          <Button
-            className="mt-3 w-full"
-            variant="outline"
-            onClick={async () => {
-              await navigator.clipboard.writeText(linkSql);
-              toast.success("SQL copiado");
-            }}
-          >
-            <Copy /> Copiar SQL
-          </Button>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                await navigator.clipboard.writeText(linkSql);
+                toast.success("SQL copiado");
+              }}
+            >
+              <Copy /> Copiar SQL
+            </Button>
+            <Button
+              variant="hero"
+              onClick={async () => {
+                await refetchBarber();
+                toast.success("Acesso verificado");
+              }}
+            >
+              <RefreshCw /> Atualizar acesso
+            </Button>
+          </div>
         </div>
         <Button
           className="mt-6"
