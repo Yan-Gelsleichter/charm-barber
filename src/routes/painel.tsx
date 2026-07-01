@@ -9,7 +9,9 @@ import {
   History,
   LogOut,
   Loader2,
+  Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useMeBarber } from "@/hooks/use-auth";
@@ -71,6 +73,12 @@ function PainelPage() {
   if (!session) return null;
 
   if (!barber) {
+    const linkSql = `INSERT INTO public.barbers (user_id, name, is_admin)
+VALUES ('${session.user.id}', '${(session.user.user_metadata?.name as string) || (session.user.email?.split("@")[0] ?? "Admin")}', true)
+ON CONFLICT (user_id) DO UPDATE
+SET is_admin = true,
+    name = EXCLUDED.name;`;
+
     return (
       <div className="mx-auto max-w-md px-5 py-20 text-center">
         <BrandMark size={48} />
@@ -79,6 +87,26 @@ function PainelPage() {
           Peça ao administrador para cadastrar você como barbeiro com este e-mail (
           <span className="brand-text">{session.user.email}</span>).
         </p>
+        <div className="surface mt-5 text-left">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Seu UID</p>
+          <p className="mt-1 break-all font-mono text-xs">{session.user.id}</p>
+          <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+            SQL para liberar admin
+          </p>
+          <pre className="mt-2 max-h-44 overflow-auto rounded-lg bg-secondary p-3 text-xs text-secondary-foreground">
+            {linkSql}
+          </pre>
+          <Button
+            className="mt-3 w-full"
+            variant="outline"
+            onClick={async () => {
+              await navigator.clipboard.writeText(linkSql);
+              toast.success("SQL copiado");
+            }}
+          >
+            <Copy /> Copiar SQL
+          </Button>
+        </div>
         <Button
           className="mt-6"
           variant="outline"
