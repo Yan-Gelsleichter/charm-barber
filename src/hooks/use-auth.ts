@@ -34,5 +34,12 @@ export function useMeBarber() {
       return data as Barber | null;
     },
   });
-  return { session, loadingSession: loading, barber: q.data ?? null, loading: loading || q.isLoading };
+  return {
+    session,
+    loadingSession: loading,
+    barber: q.data ?? null,
+    loading: loading || q.isLoading,
+    error: q.error,
+    refetchBarber: q.refetch,
+  };
 }
