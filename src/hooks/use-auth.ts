@@ -29,6 +29,8 @@ export function useMeBarber() {
         .from("barbers")
         .select("*")
         .eq("user_id", userId!)
+        .order("is_admin", { ascending: false })
+        .limit(1)
         .maybeSingle();
       if (error) throw error;
       return data as Barber | null;
