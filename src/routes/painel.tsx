@@ -74,25 +74,78 @@ function PainelPage() {
   if (!session) return null;
 
   if (!barber) {
+    const currentEmail = session.user.email || "sem e-mail";
+    const currentUid = session.user.id;
     const adminName = String(
-      session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Admin",
+      session.user.user_metadata?.name || currentEmail.split("@")[0] || "Admin",
     ).replaceAll("'", "''");
-    const linkSql = `DO $$
+    const linkSql = `-- Cole este bloco inteiro no SQL Editor do MESMO projeto conectado ao app.
+-- Ele corrige visibilidade/RLS da tabela barbers e libera admin para o UID logado.
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+ALTER TABLE public.barbers
+  ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
+
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.barbers
+    WHERE user_id = auth.uid()
+      AND is_admin = true
+  );
+$$;
+
+GRANT SELECT ON public.barbers TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.barbers TO authenticated;
+GRANT ALL ON public.barbers TO service_role;
+
+ALTER TABLE public.barbers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS barbers_select_all ON public.barbers;
+DROP POLICY IF EXISTS barbers_insert_admin ON public.barbers;
+DROP POLICY IF EXISTS barbers_update_own ON public.barbers;
+DROP POLICY IF EXISTS barbers_delete_admin ON public.barbers;
+
+CREATE POLICY barbers_select_all ON public.barbers
+  FOR SELECT USING (true);
+
+CREATE POLICY barbers_insert_admin ON public.barbers
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_admin());
+
+CREATE POLICY barbers_update_own ON public.barbers
+  FOR UPDATE TO authenticated
+  USING (user_id = auth.uid() OR public.is_admin())
+  WITH CHECK (user_id = auth.uid() OR public.is_admin());
+
+CREATE POLICY barbers_delete_admin ON public.barbers
+  FOR DELETE TO authenticated
+  USING (public.is_admin());
+
+DO $$
 BEGIN
   UPDATE public.barbers
   SET name = '${adminName}',
       is_admin = true
-  WHERE user_id = '${session.user.id}';
+  WHERE user_id = '${currentUid}';
 
   IF NOT FOUND THEN
-    INSERT INTO public.barbers (user_id, name, is_admin)
-    VALUES ('${session.user.id}', '${adminName}', true);
+    INSERT INTO public.barbers (id, user_id, name, is_admin)
+    VALUES (gen_random_uuid(), '${currentUid}', '${adminName}', true);
   END IF;
 END $$;
 
 SELECT id, name, user_id, is_admin
 FROM public.barbers
-WHERE user_id = '${session.user.id}';`;
+WHERE user_id = '${currentUid}';`;
 
     return (
       <div className="mx-auto max-w-md px-5 py-20 text-center">
@@ -103,15 +156,19 @@ WHERE user_id = '${session.user.id}';`;
           Rode o SQL abaixo e depois atualize o acesso.
         </p>
         <div className="surface mt-5 text-left">
+          <p className="mb-4 rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs text-muted-foreground">
+            Você está conectado como <span className="font-semibold text-foreground">{currentEmail}</span>. Se
+            o e-mail correto for outro, saia e entre/crie a conta com o e-mail certo antes de rodar o SQL.
+          </p>
           {error && (
             <p className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
               Erro ao consultar barbers: {error.message}
             </p>
           )}
           <p className="text-xs font-medium uppercase text-muted-foreground">E-mail</p>
-          <p className="mt-1 break-all text-xs">{session.user.email}</p>
+          <p className="mt-1 break-all text-xs">{currentEmail}</p>
           <p className="text-xs font-medium uppercase text-muted-foreground">Seu UID</p>
-          <p className="mt-1 break-all font-mono text-xs">{session.user.id}</p>
+          <p className="mt-1 break-all font-mono text-xs">{currentUid}</p>
           <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
             SQL para liberar admin
           </p>
