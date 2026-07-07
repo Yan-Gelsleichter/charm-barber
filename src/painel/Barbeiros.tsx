@@ -13,6 +13,7 @@ import { EmailInput } from "@/components/EmailInput";
 
 export function BarbeirosTab() {
   const qc = useQueryClient();
+  const { barber: me } = useMeBarber();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
