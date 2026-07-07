@@ -20,7 +20,7 @@ export function buildSlots(params: {
 }): Slot[] {
   const { date, hours, service, appointments, servicesMap } = params;
   const dow = date.getDay();
-  const work = hours.find((h) => h.weekday === dow);
+  const work = hours.find((h) => Number(h.weekday) === dow);
   if (!work) return [];
 
   const start = parseTime(work.start_time, date);

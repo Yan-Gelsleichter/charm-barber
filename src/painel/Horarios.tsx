@@ -32,7 +32,8 @@ export function HorariosTab({ barber }: { barber: Barber }) {
     if (!q.data) return;
     const next = Array(7).fill(0).map(() => ({ ...empty }));
     q.data.forEach((h) => {
-      next[h.weekday] = {
+      const idx = Number(h.weekday);
+      next[idx] = {
         ativo: true,
         inicio: h.start_time.slice(0, 5),
         fim: h.end_time.slice(0, 5),
