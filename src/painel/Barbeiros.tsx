@@ -99,6 +99,18 @@ export function BarbeirosTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const remove = useMutation({
+    mutationFn: async (b: Barber) => {
+      const { error } = await supabase.from("barbers").delete().eq("id", b.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Barbeiro excluído");
+      qc.invalidateQueries({ queryKey: ["barbers-painel"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-6">
       <section className="surface p-4">
