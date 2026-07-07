@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, ShieldCheck, ShieldOff } from "lucide-react";
+import { Plus, Loader2, ShieldCheck, ShieldOff, Trash2 } from "lucide-react";
+import { useMeBarber } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
