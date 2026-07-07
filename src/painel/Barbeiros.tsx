@@ -178,10 +178,27 @@ export function BarbeirosTab() {
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => toggleAdmin.mutate(b)}>
-                {b.is_admin ? <ShieldOff /> : <ShieldCheck />}
-                {b.is_admin ? "Revogar admin" : "Tornar admin"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => toggleAdmin.mutate(b)}>
+                  {b.is_admin ? <ShieldOff /> : <ShieldCheck />}
+                  {b.is_admin ? "Revogar admin" : "Tornar admin"}
+                </Button>
+                {me?.id !== b.id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      if (confirm(`Excluir o barbeiro "${b.name}"? Esta ação não pode ser desfeita.`)) {
+                        remove.mutate(b);
+                      }
+                    }}
+                    disabled={remove.isPending}
+                  >
+                    <Trash2 /> Excluir
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>
