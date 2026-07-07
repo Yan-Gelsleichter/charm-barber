@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, ShieldCheck, ShieldOff } from "lucide-react";
+import { Plus, Loader2, ShieldCheck, ShieldOff, Trash2 } from "lucide-react";
+import { useMeBarber } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,7 @@ import { EmailInput } from "@/components/EmailInput";
 
 export function BarbeirosTab() {
   const qc = useQueryClient();
+  const { barber: me } = useMeBarber();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -97,6 +99,18 @@ export function BarbeirosTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const remove = useMutation({
+    mutationFn: async (b: Barber) => {
+      const { error } = await supabase.from("barbers").delete().eq("id", b.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Barbeiro excluído");
+      qc.invalidateQueries({ queryKey: ["barbers-painel"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-6">
       <section className="surface p-4">
@@ -164,10 +178,27 @@ export function BarbeirosTab() {
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => toggleAdmin.mutate(b)}>
-                {b.is_admin ? <ShieldOff /> : <ShieldCheck />}
-                {b.is_admin ? "Revogar admin" : "Tornar admin"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => toggleAdmin.mutate(b)}>
+                  {b.is_admin ? <ShieldOff /> : <ShieldCheck />}
+                  {b.is_admin ? "Revogar admin" : "Tornar admin"}
+                </Button>
+                {me?.id !== b.id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      if (confirm(`Excluir o barbeiro "${b.name}"? Esta ação não pode ser desfeita.`)) {
+                        remove.mutate(b);
+                      }
+                    }}
+                    disabled={remove.isPending}
+                  >
+                    <Trash2 /> Excluir
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>
