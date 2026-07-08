@@ -67,6 +67,7 @@ function PainelPage() {
   const { tab } = Route.useSearch();
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [signingOut, setSigningOut] = useState(false);
+  useApplyPrimaryColor(barber?.primary_color ?? null);
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
