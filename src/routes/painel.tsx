@@ -11,11 +11,14 @@ import {
   Loader2,
   Copy,
   RefreshCw,
+  Settings,
+  UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useMeBarber } from "@/hooks/use-auth";
+import { useApplyPrimaryColor } from "@/lib/theme";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,6 +29,8 @@ import { ServicosTab } from "@/painel/Servicos";
 import { HorariosTab } from "@/painel/Horarios";
 import { BarbeirosTab } from "@/painel/Barbeiros";
 import { HistoricoTab } from "@/painel/Historico";
+import { ClientesTab } from "@/painel/Clientes";
+import { ConfiguracoesTab } from "@/painel/Configuracoes";
 
 type Tab =
   | "dashboard"
@@ -33,15 +38,19 @@ type Tab =
   | "servicos"
   | "horarios"
   | "barbeiros"
+  | "clientes"
+  | "configuracoes"
   | "historico";
 
 const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
   { id: "dashboard", label: "Painel", icon: LayoutDashboard },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
+  { id: "clientes", label: "Clientes", icon: UserRound, adminOnly: true },
   { id: "servicos", label: "Serviços", icon: Scissors },
   { id: "horarios", label: "Horários", icon: Clock4 },
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
+  { id: "configuracoes", label: "Config.", icon: Settings, adminOnly: true },
 ];
 
 export const Route = createFileRoute("/painel")({
