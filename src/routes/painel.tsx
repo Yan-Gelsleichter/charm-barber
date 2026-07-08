@@ -272,7 +272,9 @@ WHERE user_id = '${currentUid}';`;
         {tab === "historico" && <HistoricoTab barber={barber} />}
         {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
         {tab === "clientes" && barber.is_admin && <ClientesTab barber={barber} />}
+        {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
         {tab === "configuracoes" && barber.is_admin && <ConfiguracoesTab barber={barber} />}
+
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
