@@ -31,6 +31,7 @@ import { BarbeirosTab } from "@/painel/Barbeiros";
 import { HistoricoTab } from "@/painel/Historico";
 import { ClientesTab } from "@/painel/Clientes";
 import { ConfiguracoesTab } from "@/painel/Configuracoes";
+import { PerfilTab } from "@/painel/Perfil";
 
 type Tab =
   | "dashboard"
@@ -40,6 +41,7 @@ type Tab =
   | "barbeiros"
   | "clientes"
   | "configuracoes"
+  | "perfil"
   | "historico";
 
 const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
@@ -50,8 +52,10 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "horarios", label: "Horários", icon: Clock4 },
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
+  { id: "perfil", label: "Perfil", icon: UserRound },
   { id: "configuracoes", label: "Config.", icon: Settings, adminOnly: true },
 ];
+
 
 export const Route = createFileRoute("/painel")({
   head: () => ({ meta: [{ title: "Painel — VIP BARBER" }] }),
