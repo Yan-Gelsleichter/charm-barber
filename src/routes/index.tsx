@@ -1,11 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Scissors, Calendar, LogIn } from "lucide-react";
+import { Scissors, Calendar, LogOut, CalendarDays, LayoutDashboard, Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Barber } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { BrandTitle, BrandMark } from "@/components/Brand";
+import { useMeBarber } from "@/hooks/use-auth";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -21,8 +24,16 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
+  const navigate = useNavigate();
+  const { session, barber, loading } = useMeBarber();
+
+  useEffect(() => {
+    if (!loading && !session) navigate({ to: "/auth" });
+  }, [loading, session, navigate]);
+
   const { data: barbers, isLoading } = useQuery({
     queryKey: ["barbers-list"],
+    enabled: !!session,
     queryFn: async (): Promise<Barber[]> => {
       const { data, error } = await supabase
         .from("barbers")
@@ -33,6 +44,19 @@ function Home() {
     },
   });
 
+  if (loading || !session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
+  }
+
   return (
     <main className="mx-auto max-w-2xl px-5 pb-20 pt-10">
       <header className="flex items-center justify-between">
@@ -42,15 +66,31 @@ function Home() {
             <p className="text-xs uppercase tracking-widest text-muted-foreground">
               Bem-vindo
             </p>
-            <p className="brand-text text-lg font-semibold">VIP BARBER</p>
+            <p className="brand-text text-lg font-semibold">
+              {session.user.user_metadata?.name || session.user.email}
+            </p>
           </div>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/auth">
-            <LogIn /> Entrar
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {barber ? (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/painel">
+                <LayoutDashboard /> Painel
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/meus-agendamentos">
+                <CalendarDays /> Meus
+              </Link>
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={handleSignOut}>
+            <LogOut />
+          </Button>
+        </div>
       </header>
+
 
       <section className="mt-10 text-center">
         <BrandTitle />
