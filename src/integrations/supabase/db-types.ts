@@ -6,6 +6,9 @@ export type Barber = {
   avatar_url: string | null;
   user_id: string | null;
   is_admin: boolean;
+  business_name: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
 };
 export type BarberInsert = {
   id?: string;
@@ -13,6 +16,9 @@ export type BarberInsert = {
   avatar_url?: string | null;
   user_id?: string | null;
   is_admin?: boolean;
+  business_name?: string | null;
+  logo_url?: string | null;
+  primary_color?: string | null;
 };
 
 export type Service = {
@@ -64,6 +70,24 @@ export type AppointmentInsert = {
   status?: string;
 };
 
+export type Client = {
+  id: string;
+  barber_id: string;
+  name: string;
+  email: string | null;
+  whatsapp: string | null;
+  user_id: string | null;
+  created_at?: string;
+};
+export type ClientInsert = {
+  id?: string;
+  barber_id: string;
+  name: string;
+  email?: string | null;
+  whatsapp?: string | null;
+  user_id?: string | null;
+};
+
 type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
 
 export type Database = {
@@ -73,6 +97,7 @@ export type Database = {
       services: Table<Service, ServiceInsert>;
       working_hours: Table<WorkingHour, WorkingHourInsert>;
       appointments: Table<Appointment, AppointmentInsert>;
+      clients: Table<Client, ClientInsert>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
