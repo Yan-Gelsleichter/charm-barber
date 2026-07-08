@@ -42,12 +42,22 @@ function AuthPage() {
       return;
     }
     setLoading(true);
+    async function routeByRole(userId: string) {
+      const { data: b } = await supabase
+        .from("barbers")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      navigate({ to: b ? "/painel" : "/meus-agendamentos" });
+    }
+
     if (mode === "signup") {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin + "/painel",
+          emailRedirectTo: window.location.origin + "/meus-agendamentos",
           data: { name: barberName, full_name: barberName },
         },
       });
@@ -56,9 +66,9 @@ function AuthPage() {
         toast.error("Não foi possível criar conta", { description: error.message });
         return;
       }
-      if (data.session) {
+      if (data.session && data.user) {
         toast.success("Conta criada! Bem-vindo.");
-        navigate({ to: "/painel" });
+        await routeByRole(data.user.id);
       } else {
         toast.success("Conta criada", {
           description: "Verifique seu e-mail para confirmar (ou desative a confirmação no painel do Cloud).",
@@ -68,14 +78,14 @@ function AuthPage() {
       }
       return;
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
       toast.error("Não foi possível entrar", { description: error.message });
       return;
     }
     toast.success("Bem-vindo!");
-    navigate({ to: "/painel" });
+    if (signIn.user) await routeByRole(signIn.user.id);
   }
 
   return (
