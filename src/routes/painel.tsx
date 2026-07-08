@@ -233,9 +233,19 @@ WHERE user_id = '${currentUid}';`;
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <BrandMark size={36} />
+            {barber.logo_url ? (
+              <img
+                src={barber.logo_url}
+                alt={barber.business_name ?? "logo"}
+                className="h-9 w-9 rounded-xl object-cover"
+              />
+            ) : (
+              <BrandMark size={36} />
+            )}
             <div className="leading-tight">
-              <p className="text-xs text-muted-foreground">Olá,</p>
+              <p className="text-xs text-muted-foreground">
+                {barber.business_name ? barber.business_name : "Olá,"}
+              </p>
               <p className="font-semibold">{barber.name}</p>
             </div>
             {barber.is_admin && (
@@ -257,6 +267,8 @@ WHERE user_id = '${currentUid}';`;
         {tab === "horarios" && <HorariosTab barber={barber} />}
         {tab === "historico" && <HistoricoTab barber={barber} />}
         {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
+        {tab === "clientes" && barber.is_admin && <ClientesTab barber={barber} />}
+        {tab === "configuracoes" && barber.is_admin && <ConfiguracoesTab barber={barber} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
