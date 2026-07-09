@@ -4,6 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Barber } from "@/integrations/supabase/db-types";
 
+export function isClientAccount(session: Pick<Session, "user"> | null) {
+  return session?.user.user_metadata?.account_type === "client";
+}
+
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,10 +24,11 @@ export function useSession() {
 
 export function useMeBarber() {
   const { session, loading } = useSession();
+  const clientAccount = isClientAccount(session);
   const userId = session?.user.id ?? null;
   const q = useQuery({
     queryKey: ["me-barber", userId],
-    enabled: !!userId,
+    enabled: !!userId && !clientAccount,
     queryFn: async (): Promise<Barber | null> => {
       const { data, error } = await supabase
         .from("barbers")
@@ -39,7 +44,7 @@ export function useMeBarber() {
   return {
     session,
     loadingSession: loading,
-    barber: q.data ?? null,
+    barber: clientAccount ? null : q.data ?? null,
     loading: loading || q.isLoading,
     error: q.error,
     refetchBarber: q.refetch,
