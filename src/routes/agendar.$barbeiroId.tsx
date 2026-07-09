@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Clock, Loader2 } from "lucide-react";
@@ -7,10 +7,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Barber, WorkingHour, Service, Appointment } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
-import { PhoneInput } from "@/components/PhoneInput";
+import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
 import { buildSlots } from "@/lib/availability";
 import { cn } from "@/lib/utils";
