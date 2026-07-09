@@ -23,11 +23,22 @@ function AgendarPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  const { session, loading: loadingSession } = useSession();
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [slotIso, setSlotIso] = useState<string | null>(null);
-  const [nome, setNome] = useState("");
-  const [tel, setTel] = useState("");
+
+  const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
+  const clientName = (meta.name || meta.full_name || session?.user.email || "").toString().trim();
+  const clientPhone = (meta.whatsapp_digits || meta.whatsapp || "").toString();
+
+  useEffect(() => {
+    if (!loadingSession && !session) {
+      toast.info("Entre na sua conta para agendar");
+      navigate({ to: "/auth" });
+    }
+  }, [loadingSession, session, navigate]);
+
 
   const barberQ = useQuery({
     queryKey: ["barber", barbeiroId],
