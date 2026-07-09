@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Clock, Loader2 } from "lucide-react";
@@ -7,10 +7,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Barber, WorkingHour, Service, Appointment } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
-import { PhoneInput } from "@/components/PhoneInput";
+import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
 import { buildSlots } from "@/lib/availability";
 import { cn } from "@/lib/utils";
@@ -25,11 +23,22 @@ function AgendarPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  const { session, loading: loadingSession } = useSession();
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [slotIso, setSlotIso] = useState<string | null>(null);
-  const [nome, setNome] = useState("");
-  const [tel, setTel] = useState("");
+
+  const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
+  const clientName = (meta.name || meta.full_name || session?.user.email || "").toString().trim();
+  const clientPhone = (meta.whatsapp_digits || meta.whatsapp || "").toString();
+
+  useEffect(() => {
+    if (!loadingSession && !session) {
+      toast.info("Entre na sua conta para agendar");
+      navigate({ to: "/auth" });
+    }
+  }, [loadingSession, session, navigate]);
+
 
   const barberQ = useQuery({
     queryKey: ["barber", barbeiroId],
@@ -109,13 +118,14 @@ function AgendarPage() {
   const create = useMutation({
     mutationFn: async () => {
       if (!service || !slotIso) throw new Error("Selecione serviço e horário");
-      if (nome.trim().length < 2) throw new Error("Informe seu nome");
-      if (phoneDigits(tel).length < 10) throw new Error("Telefone inválido");
+      if (!session) throw new Error("Entre na sua conta para agendar");
+      if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
+      if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
       const { error } = await supabase.from("appointments").insert({
         barber_id: barbeiroId,
         service_id: service.id,
-        customer_name: nome.trim(),
-        customer_phone: phoneDigits(tel),
+        customer_name: clientName,
+        customer_phone: phoneDigits(clientPhone),
         appointment_time: slotIso,
         status: "confirmado",
       });
@@ -126,10 +136,11 @@ function AgendarPage() {
       toast.success("Agendamento confirmado!", {
         description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });
-      navigate({ to: "/" });
+      navigate({ to: "/meus-agendamentos" });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const barber = barberQ.data;
 
@@ -255,29 +266,23 @@ function AgendarPage() {
         </Step>
       )}
 
-      {/* Step 4 — dados */}
+      {/* Step 4 — confirmação */}
       {service && slotIso && (
-        <Step title="4. Seus dados">
+        <Step title="4. Confirmar">
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome completo</Label>
-              <Input
-                id="nome"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                placeholder="Como devemos te chamar"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tel">Telefone</Label>
-              <PhoneInput id="tel" value={tel} onChange={setTel} />
+            <div className="surface p-4 text-sm">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Cliente</p>
+              <p className="font-semibold">{clientName || "—"}</p>
+              {clientPhone && (
+                <p className="text-xs text-muted-foreground">WhatsApp: {clientPhone}</p>
+              )}
             </div>
             <Button
               variant="hero"
               size="xl"
               className="w-full"
               onClick={() => create.mutate()}
-              disabled={create.isPending}
+              disabled={create.isPending || !session}
             >
               {create.isPending ? <Loader2 className="animate-spin" /> : "Confirmar agendamento"}
             </Button>
