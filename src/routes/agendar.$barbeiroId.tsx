@@ -266,29 +266,23 @@ function AgendarPage() {
         </Step>
       )}
 
-      {/* Step 4 — dados */}
+      {/* Step 4 — confirmação */}
       {service && slotIso && (
-        <Step title="4. Seus dados">
+        <Step title="4. Confirmar">
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome completo</Label>
-              <Input
-                id="nome"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                placeholder="Como devemos te chamar"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tel">Telefone</Label>
-              <PhoneInput id="tel" value={tel} onChange={setTel} />
+            <div className="surface p-4 text-sm">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Cliente</p>
+              <p className="font-semibold">{clientName || "—"}</p>
+              {clientPhone && (
+                <p className="text-xs text-muted-foreground">WhatsApp: {clientPhone}</p>
+              )}
             </div>
             <Button
               variant="hero"
               size="xl"
               className="w-full"
               onClick={() => create.mutate()}
-              disabled={create.isPending}
+              disabled={create.isPending || !session}
             >
               {create.isPending ? <Loader2 className="animate-spin" /> : "Confirmar agendamento"}
             </Button>
