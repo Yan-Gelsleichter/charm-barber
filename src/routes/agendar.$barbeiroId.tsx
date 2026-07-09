@@ -118,13 +118,14 @@ function AgendarPage() {
   const create = useMutation({
     mutationFn: async () => {
       if (!service || !slotIso) throw new Error("Selecione serviço e horário");
-      if (nome.trim().length < 2) throw new Error("Informe seu nome");
-      if (phoneDigits(tel).length < 10) throw new Error("Telefone inválido");
+      if (!session) throw new Error("Entre na sua conta para agendar");
+      if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
+      if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
       const { error } = await supabase.from("appointments").insert({
         barber_id: barbeiroId,
         service_id: service.id,
-        customer_name: nome.trim(),
-        customer_phone: phoneDigits(tel),
+        customer_name: clientName,
+        customer_phone: phoneDigits(clientPhone),
         appointment_time: slotIso,
         status: "confirmado",
       });
@@ -135,10 +136,11 @@ function AgendarPage() {
       toast.success("Agendamento confirmado!", {
         description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });
-      navigate({ to: "/" });
+      navigate({ to: "/meus-agendamentos" });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const barber = barberQ.data;
 
