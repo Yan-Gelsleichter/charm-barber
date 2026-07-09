@@ -12,16 +12,26 @@ import { fmtDate, fmtTime, brl } from "@/lib/format";
 
 export const Route = createFileRoute("/meus-agendamentos")({
   head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    cliente: s.cliente === "1" || s.cliente === true,
+  }),
   component: MeusAgendamentosPage,
 });
 
 function MeusAgendamentosPage() {
   const navigate = useNavigate();
+  const { cliente } = Route.useSearch();
   const { session, loading } = useSession();
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
   }, [loading, session, navigate]);
+
+  useEffect(() => {
+    if (!cliente || !session) return;
+    void supabase.auth.updateUser({ data: { account_type: "client" } });
+    void supabase.from("barbers").delete().eq("user_id", session.user.id);
+  }, [cliente, session]);
 
   const uid = session?.user.id ?? null;
   const email = session?.user.email ?? null;

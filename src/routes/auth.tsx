@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { z } from "zod";
 
 import { supabase } from "@/integrations/supabase/client";
+import { isClientAccount } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,11 @@ function AuthPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   async function routeByRole(userId: string) {
+    const { data: userData } = await supabase.auth.getUser();
+    if (isClientAccount(userData.user ? { user: userData.user } : null)) {
+      navigate({ to: "/meus-agendamentos" });
+      return;
+    }
     const { data: b } = await supabase
       .from("barbers")
       .select("id")
@@ -48,7 +54,7 @@ function AuthPage() {
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin + "/meus-agendamentos" },
+      options: { redirectTo: window.location.origin + "/meus-agendamentos?cliente=1" },
     });
     if (error) {
       setGoogleLoading(false);
@@ -82,6 +88,7 @@ function AuthPage() {
         options: {
           emailRedirectTo: window.location.origin + "/meus-agendamentos",
           data: {
+            account_type: "client",
             name: name.trim(),
             full_name: name.trim(),
             whatsapp: whatsapp,
@@ -95,6 +102,16 @@ function AuthPage() {
         return;
       }
       if (data.session && data.user) {
+        await supabase.auth.updateUser({
+          data: {
+            account_type: "client",
+            name: name.trim(),
+            full_name: name.trim(),
+            whatsapp,
+            whatsapp_digits: phoneDigits(whatsapp),
+          },
+        });
+        await supabase.from("barbers").delete().eq("user_id", data.user.id);
         toast.success("Conta criada! Bem-vindo.");
         navigate({ to: "/meus-agendamentos" });
       } else {
