@@ -270,12 +270,34 @@ function AgendarPage() {
       {service && slotIso && (
         <Step title="4. Confirmar">
           <div className="space-y-4">
-            <div className="surface p-4 text-sm">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Cliente</p>
-              <p className="font-semibold">{clientName || "—"}</p>
-              {clientPhone && (
-                <p className="text-xs text-muted-foreground">WhatsApp: {clientPhone}</p>
-              )}
+            <div className="surface space-y-3 p-4 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Serviço</p>
+                  <p className="font-semibold">{service.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    <Clock className="mr-1 inline size-3" />
+                    {service.duration_minutes} min
+                  </p>
+                </div>
+                <p className="brand-text font-bold">{brl(service.price)}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Data</p>
+                  <p className="font-semibold capitalize">
+                    {new Date(slotIso).toLocaleDateString("pt-BR", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "2-digit",
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Horário</p>
+                  <p className="font-semibold">{fmtTime(slotIso)}</p>
+                </div>
+              </div>
             </div>
             <Button
               variant="hero"
