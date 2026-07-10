@@ -86,7 +86,7 @@ function AuthPage() {
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin + "/meus-agendamentos",
+          emailRedirectTo: window.location.origin + "/",
           data: {
             account_type: "client",
             name: name.trim(),
@@ -113,7 +113,7 @@ function AuthPage() {
         });
         await supabase.from("barbers").delete().eq("user_id", data.user.id);
         toast.success("Conta criada! Bem-vindo.");
-        navigate({ to: "/meus-agendamentos" });
+        navigate({ to: "/" });
       } else {
         toast.success("Conta criada", {
           description: "Verifique seu e-mail para confirmar o cadastro.",
