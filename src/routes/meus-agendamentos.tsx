@@ -1,14 +1,14 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Loader2, LogOut, Scissors } from "lucide-react";
+import { CalendarDays, Loader2, LogOut } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-auth";
-import type { Appointment, Barber, Client, Service } from "@/integrations/supabase/db-types";
+import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
-import { fmtDate, fmtTime, brl } from "@/lib/format";
+import { fmtDate, fmtTime, brl, phoneDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/meus-agendamentos")({
   head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
@@ -35,72 +35,43 @@ function MeusAgendamentosPage() {
 
   const uid = session?.user.id ?? null;
   const email = session?.user.email ?? null;
-  const metaName = (session?.user.user_metadata?.name || session?.user.user_metadata?.full_name) as
-    | string
-    | undefined;
-
-  // Busca registros de cliente vinculados a esse usuário (por user_id ou por e-mail).
-  const clientsQ = useQuery({
-    queryKey: ["me-clients", uid, email],
-    enabled: !!uid,
-    queryFn: async (): Promise<Client[]> => {
-      const results: Record<string, Client> = {};
-      const { data: byUser } = await supabase
-        .from("clients")
-        .select("*")
-        .eq("user_id", uid!);
-      (byUser ?? []).forEach((c) => (results[c.id] = c as Client));
-      if (email) {
-        const { data: byEmail } = await supabase
-          .from("clients")
-          .select("*")
-          .ilike("email", email);
-        for (const c of byEmail ?? []) {
-          const row = c as Client;
-          results[row.id] = row;
-          // vincula automaticamente ao user_id se ainda não estiver
-          if (!row.user_id) {
-            await supabase.from("clients").update({ user_id: uid }).eq("id", row.id);
-            row.user_id = uid;
-          }
-        }
-      }
-      return Object.values(results);
-    },
-  });
-
-  const clients = clientsQ.data ?? [];
-  const barberIds = Array.from(new Set(clients.map((c) => c.barber_id)));
+  const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
+  const metaName = (meta.name || meta.full_name) as string | undefined;
+  const phone = phoneDigits(meta.whatsapp_digits || meta.whatsapp || "");
 
   const dataQ = useQuery({
-    queryKey: ["my-appointments", uid, barberIds.join(",")],
-    enabled: !!uid && barberIds.length > 0,
+    queryKey: ["my-appointments", uid, phone, email, metaName],
+    enabled: !!uid,
     queryFn: async () => {
-      const phones = clients.map((c) => c.whatsapp).filter(Boolean) as string[];
-      const names = clients.map((c) => c.name);
-      const nowIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      // Encontra agendamentos por telefone (preferencial) ou pelo nome do usuário
+      const orParts: string[] = [];
+      if (phone) orParts.push(`customer_phone.eq.${phone}`);
+      if (metaName) orParts.push(`customer_name.ilike.${metaName}`);
+      if (orParts.length === 0) return { appointments: [] as Appointment[], barbersMap: new Map<string, Barber>(), servicesMap: new Map<string, Service>() };
 
-      const [apRes, brRes, svRes] = await Promise.all([
-        supabase
-          .from("appointments")
-          .select("*")
-          .in("barber_id", barberIds)
-          .gte("appointment_time", nowIso)
-          .order("appointment_time"),
-        supabase.from("barbers").select("*").in("id", barberIds),
-        supabase.from("services").select("*").in("barber_id", barberIds),
+      const { data: ap, error } = await supabase
+        .from("appointments")
+        .select("*")
+        .or(orParts.join(","))
+        .order("appointment_time", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+
+      const appointments = (ap ?? []) as Appointment[];
+      const barberIds = Array.from(new Set(appointments.map((a) => a.barber_id)));
+      const serviceIds = Array.from(new Set(appointments.map((a) => a.service_id)));
+
+      const [brRes, svRes] = await Promise.all([
+        barberIds.length
+          ? supabase.from("barbers").select("*").in("id", barberIds)
+          : Promise.resolve({ data: [] as Barber[], error: null }),
+        serviceIds.length
+          ? supabase.from("services").select("*").in("id", serviceIds)
+          : Promise.resolve({ data: [] as Service[], error: null }),
       ]);
-      if (apRes.error) throw apRes.error;
-      if (brRes.error) throw brRes.error;
-      if (svRes.error) throw svRes.error;
 
-      const appointments = (apRes.data as Appointment[]).filter(
-        (a) =>
-          (a.customer_phone && phones.includes(a.customer_phone)) ||
-          names.includes(a.customer_name),
-      );
-      const barbersMap = new Map((brRes.data as Barber[]).map((b) => [b.id, b]));
-      const servicesMap = new Map((svRes.data as Service[]).map((s) => [s.id, s]));
+      const barbersMap = new Map(((brRes.data ?? []) as Barber[]).map((b) => [b.id, b]));
+      const servicesMap = new Map(((svRes.data ?? []) as Service[]).map((s) => [s.id, s]));
       return { appointments, barbersMap, servicesMap };
     },
   });
@@ -113,8 +84,12 @@ function MeusAgendamentosPage() {
     );
   }
 
-  const displayName = clients[0]?.name || metaName || email || "Cliente";
-  const primaryClient = clients[0];
+  const displayName = metaName || email || "Cliente";
+  const appointments = dataQ.data?.appointments ?? [];
+  const now = Date.now();
+  const upcoming = appointments.filter((a) => new Date(a.appointment_time).getTime() >= now).slice().reverse();
+  const past = appointments.filter((a) => new Date(a.appointment_time).getTime() < now);
+  const latest = appointments[0]; // mais recente pela data do agendamento
 
   return (
     <div className="mx-auto max-w-2xl px-5 pb-16 pt-8">
@@ -140,50 +115,24 @@ function MeusAgendamentosPage() {
 
       <section className="mt-8">
         <h1 className="text-xl font-semibold">Meus agendamentos</h1>
-        <p className="text-sm text-muted-foreground">
-          Seus horários confirmados nas próximas semanas.
-        </p>
+        <p className="text-sm text-muted-foreground">Seu último agendamento realizado.</p>
       </section>
 
-      {clientsQ.isLoading || dataQ.isLoading ? (
+      {dataQ.isLoading ? (
         <div className="surface mt-6 flex items-center justify-center p-10">
           <Loader2 className="animate-spin" />
         </div>
-      ) : clients.length === 0 ? (
-        <div className="surface mt-6 space-y-4 p-6 text-center">
-          <Scissors className="mx-auto text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Ainda não localizamos seu cadastro em nenhuma barbearia com o e-mail{" "}
-            <span className="font-medium text-foreground">{email}</span>.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Peça ao seu barbeiro para te cadastrar com este e-mail, ou escolha um profissional abaixo para
-            marcar um horário.
-          </p>
+      ) : !latest ? (
+        <div className="surface mt-6 p-6 text-center">
           <Button asChild variant="hero">
             <Link to="/">
               <CalendarDays /> Ver barbeiros
             </Link>
           </Button>
         </div>
-      ) : (dataQ.data?.appointments.length ?? 0) === 0 ? (
-        <div className="surface mt-6 space-y-4 p-6 text-center">
-          <CalendarDays className="mx-auto text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Você não tem agendamentos futuros. Que tal marcar um?
-          </p>
-          <Button asChild variant="hero">
-            <Link
-              to={primaryClient ? "/agendar/$barbeiroId" : "/"}
-              params={primaryClient ? { barbeiroId: primaryClient.barber_id } : undefined}
-            >
-              Agendar agora
-            </Link>
-          </Button>
-        </div>
       ) : (
         <div className="mt-6 grid gap-3">
-          {dataQ.data!.appointments.map((a) => {
+          {(upcoming.length > 0 ? upcoming : [latest]).map((a) => {
             const b = dataQ.data!.barbersMap.get(a.barber_id);
             const s = dataQ.data!.servicesMap.get(a.service_id);
             const d = new Date(a.appointment_time);
@@ -192,7 +141,7 @@ function MeusAgendamentosPage() {
                 <div>
                   <p className="font-semibold">{s?.name ?? "Serviço"}</p>
                   <p className="text-xs text-muted-foreground">
-                    com {b?.name ?? "barbeiro"} • {b?.business_name ?? ""}
+                    com {b?.name ?? "barbeiro"} {b?.business_name ? `• ${b.business_name}` : ""}
                   </p>
                   <p className="mt-1 text-sm">
                     <span className="brand-text font-semibold">{fmtDate(d)}</span> às{" "}
@@ -203,6 +152,11 @@ function MeusAgendamentosPage() {
               </div>
             );
           })}
+          {upcoming.length === 0 && past.length > 0 && (
+            <p className="text-center text-xs text-muted-foreground">
+              Último atendimento realizado.
+            </p>
+          )}
         </div>
       )}
 
