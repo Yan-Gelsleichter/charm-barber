@@ -278,28 +278,30 @@ WHERE user_id = '${currentUid}';`;
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-around px-2 py-2">
-          {items.map((n) => {
-            const active = tab === n.id;
-            const Icon = n.icon;
-            return (
-              <Link
-                key={n.id}
-                to="/painel"
-                search={{ tab: n.id }}
-                replace
-                className={cn(
-                  "flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors",
-                  active
-                    ? "brand-text"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className={cn("size-5", active && "drop-shadow-[0_0_8px_var(--brand-from)]")} />
-                {n.label}
-              </Link>
-            );
-          })}
+        <div className="mx-auto max-w-5xl overflow-x-auto">
+          <div className="flex min-w-max items-center gap-1 px-2 py-2">
+            {items.map((n) => {
+              const active = tab === n.id;
+              const Icon = n.icon;
+              return (
+                <Link
+                  key={n.id}
+                  to="/painel"
+                  search={{ tab: n.id }}
+                  replace
+                  className={cn(
+                    "flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-3 py-2 text-[11px] font-medium transition-colors",
+                    active
+                      ? "text-[var(--brand-from)]"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className={cn("size-5", active && "drop-shadow-[0_0_8px_var(--brand-from)]")} />
+                  {n.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
         <div style={{ height: "env(safe-area-inset-bottom)" }} />
         <span className="hidden">{loc.pathname}</span>
