@@ -86,7 +86,7 @@ function AuthPage() {
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin + "/meus-agendamentos",
+          emailRedirectTo: window.location.origin + "/",
           data: {
             account_type: "client",
             name: name.trim(),
