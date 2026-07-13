@@ -153,21 +153,47 @@ function MeusAgendamentosPage() {
                   {s && <span className="brand-text font-bold">{brl(s.price)}</span>}
                 </div>
                 {isUpcoming && (
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-end gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={async () => {
                         const ok = window.confirm(
-                          "Deseja remarcar este agendamento? O horário atual será cancelado.",
+                          "Deseja remarcar este agendamento? O horário atual será liberado.",
                         );
                         if (!ok) return;
-                        await supabase.from("appointments").delete().eq("id", a.id);
+                        const upd = await supabase
+                          .from("appointments")
+                          .update({ status: "cancelado" })
+                          .eq("id", a.id);
+                        if (upd.error) {
+                          await supabase.from("appointments").delete().eq("id", a.id);
+                        }
                         await dataQ.refetch();
                         navigate({ to: "/agendar/$barbeiroId", params: { barbeiroId: a.barber_id } });
                       }}
                     >
                       <RefreshCw /> Remarcar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const ok = window.confirm(
+                          "Deseja cancelar este atendimento? Esta ação não pode ser desfeita.",
+                        );
+                        if (!ok) return;
+                        const upd = await supabase
+                          .from("appointments")
+                          .update({ status: "cancelado" })
+                          .eq("id", a.id);
+                        if (upd.error) {
+                          await supabase.from("appointments").delete().eq("id", a.id);
+                        }
+                        await dataQ.refetch();
+                      }}
+                    >
+                      <X /> Cancelar
                     </Button>
                   </div>
                 )}
