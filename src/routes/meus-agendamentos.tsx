@@ -85,7 +85,7 @@ function MeusAgendamentosPage() {
   }
 
   const displayName = metaName || email || "Cliente";
-  const appointments = dataQ.data?.appointments ?? [];
+  const appointments = (dataQ.data?.appointments ?? []).filter((a) => a.status !== "cancelado");
   const now = Date.now();
   const upcoming = appointments.filter((a) => new Date(a.appointment_time).getTime() >= now).slice().reverse();
   const past = appointments.filter((a) => new Date(a.appointment_time).getTime() < now);
