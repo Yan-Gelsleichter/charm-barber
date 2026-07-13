@@ -15,17 +15,23 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/agendar/$barbeiroId")({
   head: () => ({ meta: [{ title: "Agendar — VIP BARBER" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    remarcar: typeof s.remarcar === "string" ? s.remarcar : undefined,
+    servico: typeof s.servico === "string" ? s.servico : undefined,
+    data: typeof s.data === "string" ? s.data : undefined,
+  }),
   component: AgendarPage,
 });
 
 function AgendarPage() {
   const { barbeiroId } = Route.useParams();
+  const { remarcar, servico, data } = Route.useSearch();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   const { session, loading: loadingSession } = useSession();
-  const [serviceId, setServiceId] = useState<string | null>(null);
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [serviceId, setServiceId] = useState<string | null>(servico ?? null);
+  const [date, setDate] = useState<Date | undefined>(() => (data ? new Date(`${data}T12:00:00`) : new Date()));
   const [slotIso, setSlotIso] = useState<string | null>(null);
 
   const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
@@ -89,12 +95,12 @@ function AgendarPage() {
       end.setDate(end.getDate() + 1);
       const { data, error } = await supabase
         .from("appointments")
-        .select("appointment_time, service_id, status")
+        .select("id, appointment_time, service_id, status")
         .eq("barber_id", barbeiroId)
         .gte("appointment_time", start.toISOString())
         .lt("appointment_time", end.toISOString());
       if (error) throw error;
-      return data as Pick<Appointment, "appointment_time" | "service_id" | "status">[];
+      return data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status">[];
     },
   });
 
@@ -106,14 +112,15 @@ function AgendarPage() {
 
   const slots = useMemo(() => {
     if (!date || !service || !hoursQ.data) return [];
+    const appointments = (agendaQ.data ?? []).filter((a) => a.id !== remarcar);
     return buildSlots({
       date,
       service,
       hours: hoursQ.data,
-      appointments: agendaQ.data ?? [],
+      appointments,
       servicesMap,
     });
-  }, [date, service, hoursQ.data, agendaQ.data, servicesMap]);
+  }, [date, service, hoursQ.data, agendaQ.data, servicesMap, remarcar]);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -121,6 +128,34 @@ function AgendarPage() {
       if (!session) throw new Error("Entre na sua conta para agendar");
       if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
       if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
+      if (remarcar) {
+        const { data: updated, error: updateError } = await supabase
+          .from("appointments")
+          .update({
+            barber_id: barbeiroId,
+            service_id: service.id,
+            appointment_time: slotIso,
+            status: "confirmado",
+          })
+          .eq("id", remarcar)
+          .eq("customer_phone", phoneDigits(clientPhone))
+          .select("id")
+          .maybeSingle();
+        if (updateError) throw updateError;
+        if (updated) return;
+
+        const { data: deleted, error: deleteError } = await supabase
+          .from("appointments")
+          .delete()
+          .eq("id", remarcar)
+          .eq("customer_phone", phoneDigits(clientPhone))
+          .select("id")
+          .maybeSingle();
+        if (deleteError) throw deleteError;
+        if (!deleted) {
+          throw new Error("Não foi possível remarcar este agendamento. Cancele o horário anterior e tente novamente.");
+        }
+      }
       const { error } = await supabase.from("appointments").insert({
         barber_id: barbeiroId,
         service_id: service.id,
@@ -133,6 +168,7 @@ function AgendarPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
+      qc.invalidateQueries({ queryKey: ["my-appointments"] });
       toast.success("Agendamento confirmado!", {
         description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });
