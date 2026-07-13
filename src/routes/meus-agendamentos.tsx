@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Loader2, LogOut } from "lucide-react";
+import { CalendarDays, Loader2, LogOut, RefreshCw } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-auth";
@@ -136,19 +136,41 @@ function MeusAgendamentosPage() {
             const b = dataQ.data!.barbersMap.get(a.barber_id);
             const s = dataQ.data!.servicesMap.get(a.service_id);
             const d = new Date(a.appointment_time);
+            const isUpcoming = d.getTime() >= now;
             return (
-              <div key={a.id} className="surface flex items-center justify-between p-4">
-                <div>
-                  <p className="font-semibold">{s?.name ?? "Serviço"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    com {b?.name ?? "barbeiro"} {b?.business_name ? `• ${b.business_name}` : ""}
-                  </p>
-                  <p className="mt-1 text-sm">
-                    <span className="brand-text font-semibold">{fmtDate(d)}</span> às{" "}
-                    <span className="font-semibold">{fmtTime(d)}</span>
-                  </p>
+              <div key={a.id} className="surface p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">{s?.name ?? "Serviço"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      com {b?.name ?? "barbeiro"} {b?.business_name ? `• ${b.business_name}` : ""}
+                    </p>
+                    <p className="mt-1 text-sm">
+                      <span className="brand-text font-semibold">{fmtDate(d)}</span> às{" "}
+                      <span className="font-semibold">{fmtTime(d)}</span>
+                    </p>
+                  </div>
+                  {s && <span className="brand-text font-bold">{brl(s.price)}</span>}
                 </div>
-                {s && <span className="brand-text font-bold">{brl(s.price)}</span>}
+                {isUpcoming && (
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const ok = window.confirm(
+                          "Deseja remarcar este agendamento? O horário atual será cancelado.",
+                        );
+                        if (!ok) return;
+                        await supabase.from("appointments").delete().eq("id", a.id);
+                        await dataQ.refetch();
+                        navigate({ to: "/agendar/$barbeiroId", params: { barbeiroId: a.barber_id } });
+                      }}
+                    >
+                      <RefreshCw /> Remarcar
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })}
