@@ -162,15 +162,15 @@ function MeusAgendamentosPage() {
                           "Deseja remarcar este agendamento? O horário atual será liberado.",
                         );
                         if (!ok) return;
-                        const upd = await supabase
-                          .from("appointments")
-                          .update({ status: "cancelado" })
-                          .eq("id", a.id);
-                        if (upd.error) {
-                          await supabase.from("appointments").delete().eq("id", a.id);
-                        }
-                        await dataQ.refetch();
-                        navigate({ to: "/agendar/$barbeiroId", params: { barbeiroId: a.barber_id } });
+                        navigate({
+                          to: "/agendar/$barbeiroId",
+                          params: { barbeiroId: a.barber_id },
+                          search: {
+                            remarcar: a.id,
+                            servico: a.service_id,
+                            data: a.appointment_time.slice(0, 10),
+                          },
+                        });
                       }}
                     >
                       <RefreshCw /> Remarcar

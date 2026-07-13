@@ -3,6 +3,12 @@ import type { Appointment, WorkingHour, Service } from "@/integrations/supabase/
 export type Slot = { start: Date; end: Date; available: boolean };
 
 const SLOT_STEP_MIN = 15;
+const INACTIVE_STATUSES = new Set(["cancelado", "cancelada", "cancelled", "remarcado", "remarcando"]);
+
+function isBusyStatus(status: string | null | undefined): boolean {
+  const normalized = (status || "confirmado").trim().toLowerCase();
+  return !INACTIVE_STATUSES.has(normalized);
+}
 
 function parseTime(hms: string, base: Date): Date {
   const [h, m] = hms.split(":").map(Number);
@@ -28,7 +34,7 @@ export function buildSlots(params: {
   const dur = service.duration_minutes;
 
   const busy: Array<[number, number]> = appointments
-    .filter((a) => a.status !== "cancelado")
+    .filter((a) => isBusyStatus(a.status))
     .map((a) => {
       const s = new Date(a.appointment_time).getTime();
       const sv = servicesMap.get(a.service_id);
