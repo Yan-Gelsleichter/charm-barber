@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Loader2, LogOut, RefreshCw } from "lucide-react";
+import { CalendarDays, Loader2, LogOut, RefreshCw, X } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-auth";
@@ -85,7 +85,7 @@ function MeusAgendamentosPage() {
   }
 
   const displayName = metaName || email || "Cliente";
-  const appointments = dataQ.data?.appointments ?? [];
+  const appointments = (dataQ.data?.appointments ?? []).filter((a) => a.status !== "cancelado");
   const now = Date.now();
   const upcoming = appointments.filter((a) => new Date(a.appointment_time).getTime() >= now).slice().reverse();
   const past = appointments.filter((a) => new Date(a.appointment_time).getTime() < now);
@@ -153,21 +153,47 @@ function MeusAgendamentosPage() {
                   {s && <span className="brand-text font-bold">{brl(s.price)}</span>}
                 </div>
                 {isUpcoming && (
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-end gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={async () => {
                         const ok = window.confirm(
-                          "Deseja remarcar este agendamento? O horário atual será cancelado.",
+                          "Deseja remarcar este agendamento? O horário atual será liberado.",
                         );
                         if (!ok) return;
-                        await supabase.from("appointments").delete().eq("id", a.id);
+                        const upd = await supabase
+                          .from("appointments")
+                          .update({ status: "cancelado" })
+                          .eq("id", a.id);
+                        if (upd.error) {
+                          await supabase.from("appointments").delete().eq("id", a.id);
+                        }
                         await dataQ.refetch();
                         navigate({ to: "/agendar/$barbeiroId", params: { barbeiroId: a.barber_id } });
                       }}
                     >
                       <RefreshCw /> Remarcar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const ok = window.confirm(
+                          "Deseja cancelar este atendimento? Esta ação não pode ser desfeita.",
+                        );
+                        if (!ok) return;
+                        const upd = await supabase
+                          .from("appointments")
+                          .update({ status: "cancelado" })
+                          .eq("id", a.id);
+                        if (upd.error) {
+                          await supabase.from("appointments").delete().eq("id", a.id);
+                        }
+                        await dataQ.refetch();
+                      }}
+                    >
+                      <X /> Cancelar
                     </Button>
                   </div>
                 )}
