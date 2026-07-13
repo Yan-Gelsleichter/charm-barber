@@ -95,12 +95,12 @@ function AgendarPage() {
       end.setDate(end.getDate() + 1);
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, appointment_time, service_id, status")
+        .select("id, appointment_time, service_id, status, customer_phone")
         .eq("barber_id", barbeiroId)
         .gte("appointment_time", start.toISOString())
         .lt("appointment_time", end.toISOString());
       if (error) throw error;
-      return data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status">[];
+      return data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status" | "customer_phone">[];
     },
   });
 
@@ -112,7 +112,9 @@ function AgendarPage() {
 
   const slots = useMemo(() => {
     if (!date || !service || !hoursQ.data) return [];
-    const appointments = (agendaQ.data ?? []).filter((a) => a.id !== remarcar);
+    const appointments = (agendaQ.data ?? []).filter(
+      (a) => !(a.id === remarcar && a.customer_phone === phoneDigits(clientPhone)),
+    );
     return buildSlots({
       date,
       service,
