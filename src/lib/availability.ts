@@ -15,6 +15,12 @@ export function cancellationMarkerName(appointmentId: string, customerName: stri
   return `${CANCELLATION_MARKER_PREFIX}${appointmentId}:${customerName}`;
 }
 
+export function cancellationMarkerTime(appointmentTime: string): string {
+  const original = new Date(appointmentTime);
+  const marker = new Date(original.getTime() + 1000);
+  return marker.toISOString();
+}
+
 type AppointmentState = Pick<Appointment, "id" | "status"> & Partial<Pick<Appointment, "customer_name">>;
 
 export function cancellationTargetId(appointment: AppointmentState): string | null {
