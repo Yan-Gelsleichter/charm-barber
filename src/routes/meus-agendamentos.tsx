@@ -9,6 +9,7 @@ import type { Appointment, Barber, Service } from "@/integrations/supabase/db-ty
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { fmtDate, fmtTime, brl, phoneDigits } from "@/lib/format";
+import { cancellationMarkerName, filterActiveAppointments } from "@/lib/availability";
 
 export const Route = createFileRoute("/meus-agendamentos")({
   head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
@@ -85,7 +86,30 @@ function MeusAgendamentosPage() {
   }
 
   const displayName = metaName || email || "Cliente";
-  const appointments = (dataQ.data?.appointments ?? []).filter((a) => a.status !== "cancelado");
+  async function cancelAppointment(appointment: Appointment) {
+    const { data: updated, error: updateError } = await supabase
+      .from("appointments")
+      .update({ status: "cancelado" })
+      .eq("id", appointment.id)
+      .eq("customer_phone", phone)
+      .select("id")
+      .maybeSingle();
+
+    if (updateError) throw updateError;
+    if (updated) return;
+
+    const { error: markerError } = await supabase.from("appointments").insert({
+      barber_id: appointment.barber_id,
+      service_id: appointment.service_id,
+      customer_name: cancellationMarkerName(appointment.id, appointment.customer_name),
+      customer_phone: appointment.customer_phone,
+      appointment_time: appointment.appointment_time,
+      status: "cancelado",
+    });
+    if (markerError) throw markerError;
+  }
+
+  const appointments = filterActiveAppointments(dataQ.data?.appointments ?? []);
   const now = Date.now();
   const upcoming = appointments.filter((a) => new Date(a.appointment_time).getTime() >= now).slice().reverse();
   const past = appointments.filter((a) => new Date(a.appointment_time).getTime() < now);
@@ -183,14 +207,12 @@ function MeusAgendamentosPage() {
                           "Deseja cancelar este atendimento? Esta ação não pode ser desfeita.",
                         );
                         if (!ok) return;
-                        const upd = await supabase
-                          .from("appointments")
-                          .update({ status: "cancelado" })
-                          .eq("id", a.id);
-                        if (upd.error) {
-                          await supabase.from("appointments").delete().eq("id", a.id);
+                        try {
+                          await cancelAppointment(a);
+                          await dataQ.refetch();
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : "Não foi possível cancelar");
                         }
-                        await dataQ.refetch();
                       }}
                     >
                       <X /> Cancelar
