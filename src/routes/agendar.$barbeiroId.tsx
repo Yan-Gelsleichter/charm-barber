@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
-import { buildSlots } from "@/lib/availability";
+import { buildSlots, cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/agendar/$barbeiroId")({
@@ -95,12 +95,12 @@ function AgendarPage() {
       end.setDate(end.getDate() + 1);
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, appointment_time, service_id, status, customer_phone")
+        .select("id, appointment_time, service_id, status, customer_phone, customer_name")
         .eq("barber_id", barbeiroId)
         .gte("appointment_time", start.toISOString())
         .lt("appointment_time", end.toISOString());
       if (error) throw error;
-      return data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status" | "customer_phone">[];
+      return data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status" | "customer_phone" | "customer_name">[];
     },
   });
 
@@ -112,9 +112,7 @@ function AgendarPage() {
 
   const slots = useMemo(() => {
     if (!date || !service || !hoursQ.data) return [];
-    const appointments = (agendaQ.data ?? []).filter(
-      (a) => !(a.id === remarcar && a.customer_phone === phoneDigits(clientPhone)),
-    );
+    const appointments = filterActiveAppointments(agendaQ.data ?? []).filter((a) => a.id !== remarcar);
     return buildSlots({
       date,
       service,
@@ -130,6 +128,14 @@ function AgendarPage() {
       if (!session) throw new Error("Entre na sua conta para agendar");
       if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
       if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
+      const newAppointment = {
+        barber_id: barbeiroId,
+        service_id: service.id,
+        customer_name: clientName,
+        customer_phone: phoneDigits(clientPhone),
+        appointment_time: slotIso,
+        status: "confirmado",
+      };
       if (remarcar) {
         const { data: updated, error: updateError } = await supabase
           .from("appointments")
@@ -146,26 +152,31 @@ function AgendarPage() {
         if (updateError) throw updateError;
         if (updated) return;
 
-        const { data: deleted, error: deleteError } = await supabase
+        const { data: previous, error: previousError } = await supabase
           .from("appointments")
-          .delete()
+          .select("*")
           .eq("id", remarcar)
           .eq("customer_phone", phoneDigits(clientPhone))
-          .select("id")
           .maybeSingle();
-        if (deleteError) throw deleteError;
-        if (!deleted) {
+        if (previousError) throw previousError;
+        if (!previous) {
           throw new Error("Não foi possível remarcar este agendamento. Cancele o horário anterior e tente novamente.");
         }
+        const { error: replaceError } = await supabase.from("appointments").insert([
+          {
+            barber_id: previous.barber_id,
+            service_id: previous.service_id,
+            customer_name: cancellationMarkerName(previous.id, previous.customer_name),
+            customer_phone: previous.customer_phone,
+            appointment_time: cancellationMarkerTime(previous.appointment_time),
+            status: "cancelado",
+          },
+          newAppointment,
+        ]);
+        if (replaceError) throw replaceError;
+        return;
       }
-      const { error } = await supabase.from("appointments").insert({
-        barber_id: barbeiroId,
-        service_id: service.id,
-        customer_name: clientName,
-        customer_phone: phoneDigits(clientPhone),
-        appointment_time: slotIso,
-        status: "confirmado",
-      });
+      const { error } = await supabase.from("appointments").insert(newAppointment);
       if (error) throw error;
     },
     onSuccess: () => {
