@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
-import { buildSlots, cancellationMarkerName, filterActiveAppointments } from "@/lib/availability";
+import { buildSlots, cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/agendar/$barbeiroId")({
@@ -168,7 +168,7 @@ function AgendarPage() {
             service_id: previous.service_id,
             customer_name: cancellationMarkerName(previous.id, previous.customer_name),
             customer_phone: previous.customer_phone,
-            appointment_time: previous.appointment_time,
+            appointment_time: cancellationMarkerTime(previous.appointment_time),
             status: "cancelado",
           },
           newAppointment,
