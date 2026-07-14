@@ -10,7 +10,7 @@ import type { Appointment, Barber, Service } from "@/integrations/supabase/db-ty
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { fmtDate, fmtTime, brl, phoneDigits } from "@/lib/format";
-import { cancellationMarkerName, filterActiveAppointments } from "@/lib/availability";
+import { cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
 
 export const Route = createFileRoute("/meus-agendamentos")({
   head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
@@ -104,7 +104,7 @@ function MeusAgendamentosPage() {
       service_id: appointment.service_id,
       customer_name: cancellationMarkerName(appointment.id, appointment.customer_name),
       customer_phone: appointment.customer_phone,
-      appointment_time: appointment.appointment_time,
+      appointment_time: cancellationMarkerTime(appointment.appointment_time),
       status: "cancelado",
     });
     if (markerError) throw markerError;
