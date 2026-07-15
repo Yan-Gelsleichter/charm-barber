@@ -62,14 +62,14 @@ export function ConfiguracoesTab({ barber }: { barber: Barber }) {
     const ext = file.name.split(".").pop() || "png";
     const path = `${barber.id}/${Date.now()}.${ext}`;
     const { error } = await supabase.storage
-      .from("logos")
+      .from("barberlogos")
       .upload(path, file, { cacheControl: "3600", upsert: true });
     if (error) {
       setUploading(false);
       toast.error("Falha no upload", { description: error.message });
       return;
     }
-    const { data } = supabase.storage.from("logos").getPublicUrl(path);
+    const { data } = supabase.storage.from("barberlogos").getPublicUrl(path);
     setLogoUrl(data.publicUrl);
     setUploading(false);
     toast.success("Logo enviada — clique em salvar");
