@@ -148,7 +148,7 @@ function MeusAgendamentosPage() {
         <div className="surface mt-6 flex items-center justify-center p-10">
           <Loader2 className="animate-spin" />
         </div>
-      ) : !latest ? (
+      ) : upcoming.length === 0 ? (
         <div className="surface mt-6 p-6 text-center">
           <Button asChild variant="hero">
             <Link to="/">
@@ -158,7 +158,7 @@ function MeusAgendamentosPage() {
         </div>
       ) : (
         <div className="mt-6 grid gap-3">
-          {(upcoming.length > 0 ? upcoming : [latest]).map((a) => {
+          {upcoming.map((a) => {
             const b = dataQ.data!.barbersMap.get(a.barber_id);
             const s = dataQ.data!.servicesMap.get(a.service_id);
             const d = new Date(a.appointment_time);
