@@ -113,6 +113,7 @@ function MeusAgendamentosPage() {
   const appointments = filterActiveAppointments(dataQ.data?.appointments ?? []);
   const now = Date.now();
   const upcoming = appointments.filter((a) => new Date(a.appointment_time).getTime() >= now).slice().reverse();
+
   const past = appointments.filter((a) => new Date(a.appointment_time).getTime() < now);
   const latest = appointments[0]; // mais recente pela data do agendamento
 
