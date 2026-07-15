@@ -67,11 +67,9 @@ export function buildSlots(params: {
 }): Slot[] {
   const { date, hours, service, appointments, servicesMap } = params;
   const dow = date.getDay();
-  const work = hours.find((h) => Number(h.weekday) === dow);
-  if (!work) return [];
+  const works = hours.filter((h) => Number(h.weekday) === dow);
+  if (works.length === 0) return [];
 
-  const start = parseTime(work.start_time, date);
-  const end = parseTime(work.end_time, date);
   const dur = service.duration_minutes;
 
   const inactiveIds = cancelledAppointmentIds(appointments);
@@ -86,19 +84,24 @@ export function buildSlots(params: {
 
   const slots: Slot[] = [];
   const now = Date.now();
-  for (
-    let t = start.getTime();
-    t + dur * 60_000 <= end.getTime();
-    t += SLOT_STEP_MIN * 60_000
-  ) {
-    const slotEnd = t + dur * 60_000;
-    const past = t < now;
-    const overlap = busy.some(([bs, be]) => t < be && slotEnd > bs);
-    slots.push({
-      start: new Date(t),
-      end: new Date(slotEnd),
-      available: !overlap && !past,
-    });
+  for (const work of works) {
+    const start = parseTime(work.start_time, date);
+    const end = parseTime(work.end_time, date);
+    for (
+      let t = start.getTime();
+      t + dur * 60_000 <= end.getTime();
+      t += SLOT_STEP_MIN * 60_000
+    ) {
+      const slotEnd = t + dur * 60_000;
+      const past = t < now;
+      const overlap = busy.some(([bs, be]) => t < be && slotEnd > bs);
+      slots.push({
+        start: new Date(t),
+        end: new Date(slotEnd),
+        available: !overlap && !past,
+      });
+    }
   }
+  slots.sort((a, b) => a.start.getTime() - b.start.getTime());
   return slots;
 }
