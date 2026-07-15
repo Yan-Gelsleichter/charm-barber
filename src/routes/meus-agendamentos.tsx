@@ -224,11 +224,6 @@ function MeusAgendamentosPage() {
               </div>
             );
           })}
-          {upcoming.length === 0 && past.length > 0 && (
-            <p className="text-center text-xs text-muted-foreground">
-              Último atendimento realizado.
-            </p>
-          )}
         </div>
       )}
 
