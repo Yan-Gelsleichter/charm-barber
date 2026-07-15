@@ -113,8 +113,7 @@ function MeusAgendamentosPage() {
   const appointments = filterActiveAppointments(dataQ.data?.appointments ?? []);
   const now = Date.now();
   const upcoming = appointments.filter((a) => new Date(a.appointment_time).getTime() >= now).slice().reverse();
-  const past = appointments.filter((a) => new Date(a.appointment_time).getTime() < now);
-  const latest = appointments[0]; // mais recente pela data do agendamento
+
 
   return (
     <div className="mx-auto max-w-2xl px-5 pb-16 pt-8">
@@ -147,7 +146,7 @@ function MeusAgendamentosPage() {
         <div className="surface mt-6 flex items-center justify-center p-10">
           <Loader2 className="animate-spin" />
         </div>
-      ) : !latest ? (
+      ) : upcoming.length === 0 ? (
         <div className="surface mt-6 p-6 text-center">
           <Button asChild variant="hero">
             <Link to="/">
@@ -157,7 +156,7 @@ function MeusAgendamentosPage() {
         </div>
       ) : (
         <div className="mt-6 grid gap-3">
-          {(upcoming.length > 0 ? upcoming : [latest]).map((a) => {
+          {upcoming.map((a) => {
             const b = dataQ.data!.barbersMap.get(a.barber_id);
             const s = dataQ.data!.servicesMap.get(a.service_id);
             const d = new Date(a.appointment_time);
@@ -223,11 +222,6 @@ function MeusAgendamentosPage() {
               </div>
             );
           })}
-          {upcoming.length === 0 && past.length > 0 && (
-            <p className="text-center text-xs text-muted-foreground">
-              Último atendimento realizado.
-            </p>
-          )}
         </div>
       )}
 
