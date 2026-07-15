@@ -9,8 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DIAS_SEMANA } from "@/lib/format";
 
-type Row = { ativo: boolean; inicio: string; fim: string };
-const empty: Row = { ativo: false, inicio: "09:00", fim: "18:00" };
+type Row = {
+  ativo: boolean;
+  inicio: string;
+  fim: string;
+  almoco: boolean;
+  almocoInicio: string;
+  almocoFim: string;
+};
+const empty: Row = {
+  ativo: false,
+  inicio: "09:00",
+  fim: "18:00",
+  almoco: false,
+  almocoInicio: "12:00",
+  almocoFim: "13:00",
+};
 
 export function HorariosTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
@@ -22,7 +36,8 @@ export function HorariosTab({ barber }: { barber: Barber }) {
       const { data, error } = await supabase
         .from("working_hours")
         .select("*")
-        .eq("barber_id", barber.id);
+        .eq("barber_id", barber.id)
+        .order("start_time");
       if (error) throw error;
       return data as WorkingHour[];
     },
@@ -31,36 +46,68 @@ export function HorariosTab({ barber }: { barber: Barber }) {
   useEffect(() => {
     if (!q.data) return;
     const next = Array(7).fill(0).map(() => ({ ...empty }));
+    // group by weekday
+    const byDay = new Map<number, WorkingHour[]>();
     q.data.forEach((h) => {
       const idx = Number(h.weekday);
-      next[idx] = {
-        ativo: true,
-        inicio: h.start_time.slice(0, 5),
-        fim: h.end_time.slice(0, 5),
-      };
+      if (!byDay.has(idx)) byDay.set(idx, []);
+      byDay.get(idx)!.push(h);
+    });
+    byDay.forEach((list, idx) => {
+      list.sort((a, b) => a.start_time.localeCompare(b.start_time));
+      if (list.length >= 2) {
+        next[idx] = {
+          ativo: true,
+          inicio: list[0].start_time.slice(0, 5),
+          fim: list[list.length - 1].end_time.slice(0, 5),
+          almoco: true,
+          almocoInicio: list[0].end_time.slice(0, 5),
+          almocoFim: list[1].start_time.slice(0, 5),
+        };
+      } else {
+        next[idx] = {
+          ativo: true,
+          inicio: list[0].start_time.slice(0, 5),
+          fim: list[0].end_time.slice(0, 5),
+          almoco: false,
+          almocoInicio: "12:00",
+          almocoFim: "13:00",
+        };
+      }
     });
     setRows(next);
   }, [q.data]);
 
   const save = useMutation({
     mutationFn: async () => {
+      // validate
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r.ativo) continue;
+        if (r.inicio >= r.fim) throw new Error(`${DIAS_SEMANA[i]}: horário final deve ser após o inicial`);
+        if (r.almoco) {
+          if (r.almocoInicio <= r.inicio || r.almocoFim >= r.fim || r.almocoInicio >= r.almocoFim) {
+            throw new Error(`${DIAS_SEMANA[i]}: intervalo de almoço inválido`);
+          }
+        }
+      }
+
       const del = await supabase
         .from("working_hours")
         .delete()
         .eq("barber_id", barber.id);
       if (del.error) throw del.error;
-      const inserts = rows
-        .map((r, dia) =>
-          r.ativo
-            ? {
-                barber_id: barber.id,
-                weekday: dia,
-                start_time: r.inicio,
-                end_time: r.fim,
-              }
-            : null,
-        )
-        .filter(Boolean);
+
+      const inserts: Array<{ barber_id: string; weekday: number; start_time: string; end_time: string }> = [];
+      rows.forEach((r, dia) => {
+        if (!r.ativo) return;
+        if (r.almoco) {
+          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.inicio, end_time: r.almocoInicio });
+          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.almocoFim, end_time: r.fim });
+        } else {
+          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.inicio, end_time: r.fim });
+        }
+      });
       if (inserts.length) {
         const ins = await supabase.from("working_hours").insert(inserts as never);
         if (ins.error) throw ins.error;
@@ -80,41 +127,70 @@ export function HorariosTab({ barber }: { barber: Barber }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Marque os dias em que você atende e defina o intervalo de trabalho.
+        Marque os dias em que você atende, defina o intervalo de trabalho e, se quiser, um intervalo de almoço.
       </p>
 
       <div className="surface divide-y divide-border">
         {rows.map((r, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 p-3 sm:grid-cols-[120px_auto_1fr_1fr]"
-          >
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={r.ativo}
-                onChange={(e) => update(i, { ativo: e.target.checked })}
-                className="size-4 accent-[color:var(--brand-from)]"
-              />
-              {DIAS_SEMANA[i]}
-            </label>
-            <span className="hidden text-xs text-muted-foreground sm:block">
-              {r.ativo ? "Atendendo" : "Folga"}
-            </span>
-            <Input
-              type="time"
-              value={r.inicio}
-              onChange={(e) => update(i, { inicio: e.target.value })}
-              disabled={!r.ativo}
-              className="w-28"
-            />
-            <Input
-              type="time"
-              value={r.fim}
-              onChange={(e) => update(i, { fim: e.target.value })}
-              disabled={!r.ativo}
-              className="w-28"
-            />
+          <div key={i} className="space-y-3 p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex min-w-[110px] items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={r.ativo}
+                  onChange={(e) => update(i, { ativo: e.target.checked })}
+                  className="size-4 accent-[color:var(--brand-from)]"
+                />
+                {DIAS_SEMANA[i]}
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="time"
+                  value={r.inicio}
+                  onChange={(e) => update(i, { inicio: e.target.value })}
+                  disabled={!r.ativo}
+                  className="w-28"
+                />
+                <span className="text-xs text-muted-foreground">até</span>
+                <Input
+                  type="time"
+                  value={r.fim}
+                  onChange={(e) => update(i, { fim: e.target.value })}
+                  disabled={!r.ativo}
+                  className="w-28"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pl-1">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={r.almoco}
+                  onChange={(e) => update(i, { almoco: e.target.checked })}
+                  disabled={!r.ativo}
+                  className="size-3.5 accent-[color:var(--brand-from)]"
+                />
+                Intervalo de almoço
+              </label>
+              {r.almoco && r.ativo && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="time"
+                    value={r.almocoInicio}
+                    onChange={(e) => update(i, { almocoInicio: e.target.value })}
+                    className="w-28"
+                  />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input
+                    type="time"
+                    value={r.almocoFim}
+                    onChange={(e) => update(i, { almocoFim: e.target.value })}
+                    className="w-28"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
