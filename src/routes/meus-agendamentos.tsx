@@ -114,8 +114,6 @@ function MeusAgendamentosPage() {
   const now = Date.now();
   const upcoming = appointments.filter((a) => new Date(a.appointment_time).getTime() >= now).slice().reverse();
 
-  const past = appointments.filter((a) => new Date(a.appointment_time).getTime() < now);
-  const latest = appointments[0]; // mais recente pela data do agendamento
 
   return (
     <div className="mx-auto max-w-2xl px-5 pb-16 pt-8">
