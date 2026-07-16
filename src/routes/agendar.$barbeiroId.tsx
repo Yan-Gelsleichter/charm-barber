@@ -169,7 +169,7 @@ function AgendarPage() {
             customer_name: cancellationMarkerName(previous.id, previous.customer_name),
             customer_phone: previous.customer_phone,
             appointment_time: cancellationMarkerTime(previous.appointment_time),
-            status: "cancelado",
+            status: "remarcado",
           },
           newAppointment,
         ]);
