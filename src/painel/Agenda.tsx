@@ -6,7 +6,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, WorkingHour, Service } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
-import { buildSlots, filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
+import {
+  buildSlots,
+  cancelledAppointmentIds,
+  filterActiveAppointments,
+  isCancellationMarker,
+  isInactiveStatus,
+} from "@/lib/availability";
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
