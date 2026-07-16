@@ -11,7 +11,6 @@ import {
   cancelledAppointmentIds,
   filterActiveAppointments,
   isCancellationMarker,
-  isInactiveStatus,
 } from "@/lib/availability";
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
