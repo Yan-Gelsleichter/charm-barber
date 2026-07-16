@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
+import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 
 export function HistoricoTab({ barber }: { barber: Barber }) {
   const q = useQuery({
@@ -26,19 +27,23 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
   });
 
   const svMap = new Map((q.data?.sv ?? []).map((s) => [s.id, s]));
+  const historico = [
+    ...filterActiveAppointments(q.data?.ag ?? []),
+    ...(q.data?.ag ?? []).filter((a) => a.status === "cancelado" && !isCancellationMarker(a)),
+  ].sort((a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime());
 
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
         Atendimentos passados
       </h2>
-      {q.data?.ag.length === 0 ? (
+      {historico.length === 0 ? (
         <div className="surface p-6 text-center text-sm text-muted-foreground">
           Sem atendimentos no histórico.
         </div>
       ) : (
         <div className="grid gap-2">
-          {q.data?.ag.map((a) => {
+          {historico.map((a) => {
             const sv = svMap.get(a.service_id);
             const cancelado = a.status === "cancelado";
             return (

@@ -4,6 +4,7 @@ import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtTime } from "@/lib/format";
+import { filterActiveAppointments } from "@/lib/availability";
 
 export function DashboardTab({ barber }: { barber: Barber }) {
   const q = useQuery({
@@ -37,13 +38,12 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const priceMap = new Map((q.data?.services ?? []).map((s) => [s.id, Number(s.price)]));
-  const appointments = q.data?.appointments ?? [];
+  const appointments = filterActiveAppointments(q.data?.appointments ?? []);
 
   const sum = (from: Date) =>
     appointments
       .filter(
         (a) =>
-          a.status !== "cancelado" &&
           new Date(a.appointment_time) >= from &&
           new Date(a.appointment_time) <= now,
       )
@@ -54,12 +54,10 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const ganhosMes = sum(startMonth);
 
   const proximos = appointments
-    .filter((a) => new Date(a.appointment_time) >= now && a.status !== "cancelado")
+    .filter((a) => new Date(a.appointment_time) >= now)
     .slice(0, 5);
 
-  const clientesUnicos = new Set(
-    appointments.filter((a) => a.status !== "cancelado").map((a) => a.customer_phone),
-  ).size;
+  const clientesUnicos = new Set(appointments.map((a) => a.customer_phone)).size;
 
   return (
     <div className="space-y-6">

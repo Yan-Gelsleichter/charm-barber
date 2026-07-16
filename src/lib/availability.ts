@@ -23,6 +23,11 @@ export function cancellationMarkerTime(appointmentTime: string): string {
 
 type AppointmentState = Pick<Appointment, "id" | "status"> & Partial<Pick<Appointment, "customer_name">>;
 
+export function isCancellationMarker(appointment: AppointmentState): boolean {
+  const name = appointment.customer_name?.trim() ?? "";
+  return name.startsWith(CANCELLATION_MARKER_PREFIX);
+}
+
 export function cancellationTargetId(appointment: AppointmentState): string | null {
   const status = (appointment.status || "").trim().toLowerCase();
   if (status.startsWith("cancelado:")) return appointment.status.trim().slice("cancelado:".length);
