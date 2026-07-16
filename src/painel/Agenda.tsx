@@ -6,7 +6,12 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, WorkingHour, Service } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
-import { buildSlots, filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
+import {
+  buildSlots,
+  cancelledAppointmentIds,
+  filterActiveAppointments,
+  isCancellationMarker,
+} from "@/lib/availability";
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -86,10 +91,17 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     setDate(d);
   }
 
-  const ativos = filterActiveAppointments(q.data?.appointments ?? []);
-  const cancelados = (q.data?.appointments ?? []).filter(
-    (a) => a.status === "cancelado" && !isCancellationMarker(a),
+  const allAppts = q.data?.appointments ?? [];
+  const ativos = filterActiveAppointments(allAppts);
+  const cancelMarkerTargets = cancelledAppointmentIds(
+    allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
   );
+  const cancelados = allAppts.filter((a) => {
+    if (isCancellationMarker(a)) return false;
+    const status = (a.status || "").trim().toLowerCase();
+    if (status === "remarcado" || status.startsWith("cancelado:")) return false;
+    return status === "cancelado" || cancelMarkerTargets.has(a.id);
+  });
 
   return (
     <div className="space-y-6">
