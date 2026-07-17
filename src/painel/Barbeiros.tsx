@@ -41,15 +41,36 @@ export function BarbeirosTab() {
       const adminUserId = adminSession?.user.id;
       if (!adminUserId) throw new Error("Sessão de admin não encontrada");
 
-      // Busca barbershop_id do perfil do admin logado
+      // Busca barbershop_id: primeiro no perfil do admin logado (profiles.id = auth.uid()),
+      // com fallback para o registro do próprio admin em barbers (caso RLS bloqueie profiles).
+      let barbershopId: string | null = null;
+
       const { data: profile, error: profErr } = await supabase
         .from("profiles" as never)
         .select("barbershop_id")
         .eq("id", adminUserId)
         .maybeSingle();
-      if (profErr) throw profErr;
-      const barbershopId = (profile as { barbershop_id?: string } | null)?.barbershop_id ?? null;
-      if (!barbershopId) throw new Error("Seu perfil não possui barbershop_id definido");
+      if (!profErr && profile) {
+        barbershopId = (profile as { barbershop_id?: string | null }).barbershop_id ?? null;
+      }
+
+      if (!barbershopId) {
+        const { data: myBarber } = await supabase
+          .from("barbers")
+          .select("barbershop_id" as never)
+          .eq("user_id", adminUserId)
+          .not("barbershop_id" as never, "is", null)
+          .limit(1)
+          .maybeSingle();
+        barbershopId = (myBarber as { barbershop_id?: string | null } | null)?.barbershop_id ?? null;
+      }
+
+      if (!barbershopId) {
+        throw new Error(
+          "Não foi possível ler o barbershop_id do seu perfil. Verifique as políticas RLS da tabela profiles (SELECT WHERE id = auth.uid()).",
+        );
+      }
+
 
       const { data: signUp, error: suErr } = await supabase.auth.signUp({
         email,
