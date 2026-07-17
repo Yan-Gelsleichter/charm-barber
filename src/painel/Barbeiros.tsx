@@ -38,6 +38,18 @@ export function BarbeirosTab() {
       if (senha.length < 6) throw new Error("Senha precisa de 6+ caracteres");
 
       const adminSession = (await supabase.auth.getSession()).data.session;
+      const adminUserId = adminSession?.user.id;
+      if (!adminUserId) throw new Error("Sessão de admin não encontrada");
+
+      // Busca barbershop_id do perfil do admin logado
+      const { data: profile, error: profErr } = await supabase
+        .from("profiles" as never)
+        .select("barbershop_id")
+        .eq("id", adminUserId)
+        .maybeSingle();
+      if (profErr) throw profErr;
+      const barbershopId = (profile as { barbershop_id?: string } | null)?.barbershop_id ?? null;
+      if (!barbershopId) throw new Error("Seu perfil não possui barbershop_id definido");
 
       const { data: signUp, error: suErr } = await supabase.auth.signUp({
         email,
@@ -60,7 +72,7 @@ export function BarbeirosTab() {
 
       const { data: updatedRows, error: updErr } = await supabase
         .from("barbers")
-        .update({ name: nome.trim(), is_admin: admin })
+        .update({ name: nome.trim(), is_admin: admin, barbershop_id: barbershopId } as never)
         .eq("user_id", newUserId)
         .select("id");
       if (updErr) throw updErr;
@@ -70,7 +82,8 @@ export function BarbeirosTab() {
           user_id: newUserId,
           name: nome.trim(),
           is_admin: admin,
-        });
+          barbershop_id: barbershopId,
+        } as never);
         if (insErr) throw insErr;
       }
     },
