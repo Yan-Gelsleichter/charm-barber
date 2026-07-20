@@ -28,6 +28,8 @@ export const Route = createFileRoute("/")({
 function Home() {
   const navigate = useNavigate();
   const { session, barber, loading } = useMeBarber();
+  const { data: shop } = useShopConfig(barber?.barbershop_id ?? null);
+  useApplyPrimaryColor(shop?.primary_color ?? null);
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
