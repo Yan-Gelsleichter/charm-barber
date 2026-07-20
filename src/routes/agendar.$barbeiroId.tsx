@@ -128,6 +128,8 @@ function AgendarPage() {
       if (!session) throw new Error("Entre na sua conta para agendar");
       if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
       if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
+      const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
+      const barbershopId = barberQ.data?.barbershop_id ?? (await getBarbershopIdByBarberId(barbeiroId));
       const newAppointment = {
         barber_id: barbeiroId,
         service_id: service.id,
@@ -135,6 +137,7 @@ function AgendarPage() {
         customer_phone: phoneDigits(clientPhone),
         appointment_time: slotIso,
         status: "confirmado",
+        barbershop_id: barbershopId,
       };
       if (remarcar) {
         const { data: updated, error: updateError } = await supabase
@@ -144,6 +147,7 @@ function AgendarPage() {
             service_id: service.id,
             appointment_time: slotIso,
             status: "confirmado",
+            barbershop_id: barbershopId,
           })
           .eq("id", remarcar)
           .eq("customer_phone", phoneDigits(clientPhone))
@@ -170,6 +174,7 @@ function AgendarPage() {
             customer_phone: previous.customer_phone,
             appointment_time: cancellationMarkerTime(previous.appointment_time),
             status: "remarcado",
+            barbershop_id: previous.barbershop_id ?? barbershopId,
           },
           newAppointment,
         ]);

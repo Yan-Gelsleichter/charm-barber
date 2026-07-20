@@ -42,11 +42,14 @@ export function ClientesTab({ barber }: { barber: Barber }) {
   const save = useMutation({
     mutationFn: async () => {
       if (name.trim().length < 2) throw new Error("Nome muito curto");
+      const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
+      const barbershopId = barber.barbershop_id ?? (await getBarbershopIdByBarberId(barber.id));
       const payload = {
         name: name.trim(),
         email: email.trim() || null,
         whatsapp: whatsapp.trim() || null,
         barber_id: barber.id, // isolamento multi-tenant
+        barbershop_id: barbershopId,
       };
       if (editing) {
         const { error } = await supabase

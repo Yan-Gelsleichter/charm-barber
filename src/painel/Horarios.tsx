@@ -98,14 +98,17 @@ export function HorariosTab({ barber }: { barber: Barber }) {
         .eq("barber_id", barber.id);
       if (del.error) throw del.error;
 
-      const inserts: Array<{ barber_id: string; weekday: number; start_time: string; end_time: string }> = [];
+      const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
+      const barbershopId = barber.barbershop_id ?? (await getBarbershopIdByBarberId(barber.id));
+
+      const inserts: Array<{ barber_id: string; weekday: number; start_time: string; end_time: string; barbershop_id: string | null }> = [];
       rows.forEach((r, dia) => {
         if (!r.ativo) return;
         if (r.almoco) {
-          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.inicio, end_time: r.almocoInicio });
-          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.almocoFim, end_time: r.fim });
+          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.inicio, end_time: r.almocoInicio, barbershop_id: barbershopId });
+          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.almocoFim, end_time: r.fim, barbershop_id: barbershopId });
         } else {
-          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.inicio, end_time: r.fim });
+          inserts.push({ barber_id: barber.id, weekday: dia, start_time: r.inicio, end_time: r.fim, barbershop_id: barbershopId });
         }
       });
       if (inserts.length) {
