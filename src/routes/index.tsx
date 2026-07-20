@@ -144,6 +144,8 @@ function Home() {
               <div className="brand-gradient flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white">
                 {b.avatar_url ? (
                   <img src={b.avatar_url} alt={b.name} className="h-full w-full object-cover" />
+                ) : shop?.logo_url ? (
+                  <img src={shop.logo_url} alt={b.name} className="h-full w-full object-cover" />
                 ) : (
                   b.name.charAt(0).toUpperCase()
                 )}
