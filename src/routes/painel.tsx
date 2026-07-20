@@ -241,10 +241,10 @@ WHERE user_id = '${currentUid}';`;
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            {barber.logo_url ? (
+            {shopLogo ? (
               <img
-                src={barber.logo_url}
-                alt={barber.business_name ?? "logo"}
+                src={shopLogo}
+                alt={shopName ?? "logo"}
                 className="h-9 w-9 rounded-xl object-cover"
               />
             ) : (
@@ -252,7 +252,7 @@ WHERE user_id = '${currentUid}';`;
             )}
             <div className="leading-tight">
               <p className="text-xs text-muted-foreground">
-                {barber.business_name ? barber.business_name : "Olá,"}
+                {shopName ? shopName : "Olá,"}
               </p>
               <p className="font-semibold">{barber.name}</p>
             </div>
