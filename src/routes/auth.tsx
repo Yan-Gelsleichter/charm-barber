@@ -82,6 +82,7 @@ function AuthPage() {
     setLoading(true);
 
     if (mode === "signup") {
+      const digits = phoneDigits(whatsapp);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -91,8 +92,10 @@ function AuthPage() {
             account_type: "client",
             name: name.trim(),
             full_name: name.trim(),
-            whatsapp: whatsapp,
-            whatsapp_digits: phoneDigits(whatsapp),
+            whatsapp: digits,
+            whatsapp_masked: whatsapp,
+            whatsapp_digits: digits,
+            phone: digits,
           },
         },
       });
@@ -107,12 +110,15 @@ function AuthPage() {
             account_type: "client",
             name: name.trim(),
             full_name: name.trim(),
-            whatsapp,
-            whatsapp_digits: phoneDigits(whatsapp),
+            whatsapp: digits,
+            whatsapp_masked: whatsapp,
+            whatsapp_digits: digits,
+            phone: digits,
           },
         });
         await supabase.from("barbers").delete().eq("user_id", data.user.id);
         toast.success("Conta criada! Bem-vindo.");
+
         navigate({ to: "/" });
       } else {
         toast.success("Conta criada", {
