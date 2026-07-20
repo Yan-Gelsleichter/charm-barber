@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useMeBarber } from "@/hooks/use-auth";
+import { useShopConfig } from "@/hooks/use-shop";
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
