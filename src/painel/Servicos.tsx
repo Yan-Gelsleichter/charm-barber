@@ -36,11 +36,14 @@ export function ServicosTab({ barber }: { barber: Barber }) {
       const pre = Number(preco.replace(",", "."));
       if (!dur || dur < 5) throw new Error("Duração inválida");
       if (!pre || pre <= 0) throw new Error("Preço inválido");
+      const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
+      const barbershopId = barber.barbershop_id ?? (await getBarbershopIdByBarberId(barber.id));
       const { error } = await supabase.from("services").insert({
         name: nome.trim(),
         duration_minutes: dur,
         price: pre,
         barber_id: barber.id,
+        barbershop_id: barbershopId,
       });
       if (error) throw error;
     },
