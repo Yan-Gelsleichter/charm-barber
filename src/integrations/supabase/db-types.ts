@@ -9,6 +9,7 @@ export type Barber = {
   business_name: string | null;
   logo_url: string | null;
   primary_color: string | null;
+  barbershop_id?: string | null;
 };
 export type BarberInsert = {
   id?: string;
@@ -19,6 +20,7 @@ export type BarberInsert = {
   business_name?: string | null;
   logo_url?: string | null;
   primary_color?: string | null;
+  barbershop_id?: string | null;
 };
 
 export type Service = {
@@ -27,6 +29,7 @@ export type Service = {
   duration_minutes: number;
   price: number;
   barber_id: string | null;
+  barbershop_id?: string | null;
 };
 export type ServiceInsert = {
   id?: string;
@@ -34,6 +37,7 @@ export type ServiceInsert = {
   duration_minutes: number;
   price: number;
   barber_id?: string | null;
+  barbershop_id?: string | null;
 };
 
 export type WorkingHour = {
@@ -42,6 +46,7 @@ export type WorkingHour = {
   weekday: number;
   start_time: string;
   end_time: string;
+  barbershop_id?: string | null;
 };
 export type WorkingHourInsert = {
   id?: string;
@@ -49,6 +54,7 @@ export type WorkingHourInsert = {
   weekday: number;
   start_time: string;
   end_time: string;
+  barbershop_id?: string | null;
 };
 
 export type Appointment = {
@@ -59,6 +65,7 @@ export type Appointment = {
   customer_phone: string;
   appointment_time: string;
   status: string;
+  barbershop_id?: string | null;
 };
 export type AppointmentInsert = {
   id?: string;
@@ -68,6 +75,7 @@ export type AppointmentInsert = {
   customer_phone: string;
   appointment_time: string;
   status?: string;
+  barbershop_id?: string | null;
 };
 
 export type Client = {
@@ -78,6 +86,7 @@ export type Client = {
   whatsapp: string | null;
   user_id: string | null;
   created_at?: string;
+  barbershop_id?: string | null;
 };
 export type ClientInsert = {
   id?: string;
@@ -86,6 +95,7 @@ export type ClientInsert = {
   email?: string | null;
   whatsapp?: string | null;
   user_id?: string | null;
+  barbershop_id?: string | null;
 };
 
 type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
