@@ -65,7 +65,15 @@ function Home() {
     <main className="mx-auto max-w-2xl px-5 pb-20 pt-10">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <BrandMark size={40} />
+          {shop?.logo_url ? (
+            <img
+              src={shop.logo_url}
+              alt={shop.business_name ?? "logo"}
+              className="h-10 w-10 rounded-xl object-cover"
+            />
+          ) : (
+            <BrandMark size={40} />
+          )}
           <div className="leading-tight">
             <p className="text-xs uppercase tracking-widest text-muted-foreground">
               Bem-vindo
