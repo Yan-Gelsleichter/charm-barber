@@ -72,7 +72,10 @@ function PainelPage() {
   const { tab } = Route.useSearch();
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [signingOut, setSigningOut] = useState(false);
-  useApplyPrimaryColor(barber?.primary_color ?? null);
+  const { data: shop } = useShopConfig(barber?.barbershop_id ?? null);
+  const shopLogo = shop?.logo_url ?? barber?.logo_url ?? null;
+  const shopName = shop?.business_name ?? barber?.business_name ?? null;
+  useApplyPrimaryColor(shop?.primary_color ?? barber?.primary_color ?? null);
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
