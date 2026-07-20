@@ -45,6 +45,7 @@ export function ConfiguracoesTab({ barber }: { barber: Barber }) {
       toast.success("Configurações salvas");
       qc.invalidateQueries({ queryKey: ["me-barber"] });
       qc.invalidateQueries({ queryKey: ["barbers-list"] });
+      qc.invalidateQueries({ queryKey: ["shop-config"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

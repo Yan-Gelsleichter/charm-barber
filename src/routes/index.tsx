@@ -8,6 +8,8 @@ import type { Barber } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { BrandTitle, BrandMark } from "@/components/Brand";
 import { useMeBarber } from "@/hooks/use-auth";
+import { useShopConfig } from "@/hooks/use-shop";
+import { useApplyPrimaryColor } from "@/lib/theme";
 
 
 export const Route = createFileRoute("/")({
@@ -26,6 +28,8 @@ export const Route = createFileRoute("/")({
 function Home() {
   const navigate = useNavigate();
   const { session, barber, loading } = useMeBarber();
+  const { data: shop } = useShopConfig(barber?.barbershop_id ?? null);
+  useApplyPrimaryColor(shop?.primary_color ?? null);
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
@@ -61,7 +65,15 @@ function Home() {
     <main className="mx-auto max-w-2xl px-5 pb-20 pt-10">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <BrandMark size={40} />
+          {shop?.logo_url ? (
+            <img
+              src={shop.logo_url}
+              alt={shop.business_name ?? "logo"}
+              className="h-10 w-10 rounded-xl object-cover"
+            />
+          ) : (
+            <BrandMark size={40} />
+          )}
           <div className="leading-tight">
             <p className="text-xs uppercase tracking-widest text-muted-foreground">
               Bem-vindo
@@ -132,6 +144,8 @@ function Home() {
               <div className="brand-gradient flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white">
                 {b.avatar_url ? (
                   <img src={b.avatar_url} alt={b.name} className="h-full w-full object-cover" />
+                ) : shop?.logo_url ? (
+                  <img src={shop.logo_url} alt={b.name} className="h-full w-full object-cover" />
                 ) : (
                   b.name.charAt(0).toUpperCase()
                 )}

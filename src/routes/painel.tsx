@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useMeBarber } from "@/hooks/use-auth";
+import { useShopConfig } from "@/hooks/use-shop";
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,10 @@ function PainelPage() {
   const { tab } = Route.useSearch();
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [signingOut, setSigningOut] = useState(false);
-  useApplyPrimaryColor(barber?.primary_color ?? null);
+  const { data: shop } = useShopConfig(barber?.barbershop_id ?? null);
+  const shopLogo = shop?.logo_url ?? barber?.logo_url ?? null;
+  const shopName = shop?.business_name ?? barber?.business_name ?? null;
+  useApplyPrimaryColor(shop?.primary_color ?? barber?.primary_color ?? null);
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
@@ -237,10 +241,10 @@ WHERE user_id = '${currentUid}';`;
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            {barber.logo_url ? (
+            {shopLogo ? (
               <img
-                src={barber.logo_url}
-                alt={barber.business_name ?? "logo"}
+                src={shopLogo}
+                alt={shopName ?? "logo"}
                 className="h-9 w-9 rounded-xl object-cover"
               />
             ) : (
@@ -248,7 +252,7 @@ WHERE user_id = '${currentUid}';`;
             )}
             <div className="leading-tight">
               <p className="text-xs text-muted-foreground">
-                {barber.business_name ? barber.business_name : "Olá,"}
+                {shopName ? shopName : "Olá,"}
               </p>
               <p className="font-semibold">{barber.name}</p>
             </div>
