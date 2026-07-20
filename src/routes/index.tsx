@@ -8,6 +8,8 @@ import type { Barber } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { BrandTitle, BrandMark } from "@/components/Brand";
 import { useMeBarber } from "@/hooks/use-auth";
+import { useShopConfig } from "@/hooks/use-shop";
+import { useApplyPrimaryColor } from "@/lib/theme";
 
 
 export const Route = createFileRoute("/")({
