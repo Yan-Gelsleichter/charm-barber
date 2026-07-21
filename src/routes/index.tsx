@@ -142,8 +142,8 @@ function Home() {
               className="surface group flex items-center gap-4 p-4 transition-all hover:border-transparent hover:shadow-[var(--shadow-elev)]"
             >
               <div className="brand-gradient flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white">
-                {b.avatar_url ? (
-                  <img src={b.avatar_url} alt={b.name} className="h-full w-full object-cover" />
+                {b.avatar_url || b.logo_url ? (
+                  <img src={b.avatar_url ?? b.logo_url ?? ""} alt={b.name} className="h-full w-full object-cover" />
                 ) : shop?.logo_url ? (
                   <img src={shop.logo_url} alt={b.name} className="h-full w-full object-cover" />
                 ) : (
