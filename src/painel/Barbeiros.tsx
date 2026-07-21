@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmailInput } from "@/components/EmailInput";
+import { getMyBarbershopId } from "@/lib/barbershop";
 
 export function BarbeirosTab() {
   const qc = useQueryClient();
@@ -20,12 +21,12 @@ export function BarbeirosTab() {
   const [admin, setAdmin] = useState(false);
 
   const q = useQuery({
-    queryKey: ["barbers-painel"],
+    queryKey: ["barbers-painel", me?.barbershop_id ?? null],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("barbers")
-        .select("*")
-        .order("name");
+      const shopId = me?.barbershop_id ?? (await getMyBarbershopId());
+      let query = supabase.from("barbers").select("*").order("name");
+      if (shopId) query = query.eq("barbershop_id", shopId);
+      const { data, error } = await query;
       if (error) throw error;
       return data as Barber[];
     },
