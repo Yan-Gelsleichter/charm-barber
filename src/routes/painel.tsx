@@ -11,7 +11,6 @@ import {
   Loader2,
   Copy,
   RefreshCw,
-  Settings,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
