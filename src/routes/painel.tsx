@@ -11,7 +11,6 @@ import {
   Loader2,
   Copy,
   RefreshCw,
-  Settings,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,7 +30,6 @@ import { HorariosTab } from "@/painel/Horarios";
 import { BarbeirosTab } from "@/painel/Barbeiros";
 import { HistoricoTab } from "@/painel/Historico";
 import { ClientesTab } from "@/painel/Clientes";
-import { ConfiguracoesTab } from "@/painel/Configuracoes";
 import { PerfilTab } from "@/painel/Perfil";
 
 type Tab =
@@ -41,7 +39,6 @@ type Tab =
   | "horarios"
   | "barbeiros"
   | "clientes"
-  | "configuracoes"
   | "perfil"
   | "historico";
 
@@ -54,7 +51,6 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
   { id: "perfil", label: "Perfil", icon: UserRound },
-  { id: "configuracoes", label: "Config.", icon: Settings, adminOnly: true },
 ];
 
 
@@ -277,7 +273,7 @@ WHERE user_id = '${currentUid}';`;
         {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
         {tab === "clientes" && barber.is_admin && <ClientesTab barber={barber} />}
         {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
-        {tab === "configuracoes" && barber.is_admin && <ConfiguracoesTab barber={barber} />}
+
 
       </main>
 
