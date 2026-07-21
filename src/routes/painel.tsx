@@ -273,7 +273,7 @@ WHERE user_id = '${currentUid}';`;
         {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
         {tab === "clientes" && barber.is_admin && <ClientesTab barber={barber} />}
         {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
-        {tab === "configuracoes" && barber.is_admin && <ConfiguracoesTab barber={barber} />}
+
 
       </main>
 
