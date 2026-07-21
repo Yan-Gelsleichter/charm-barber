@@ -30,7 +30,6 @@ import { HorariosTab } from "@/painel/Horarios";
 import { BarbeirosTab } from "@/painel/Barbeiros";
 import { HistoricoTab } from "@/painel/Historico";
 import { ClientesTab } from "@/painel/Clientes";
-import { ConfiguracoesTab } from "@/painel/Configuracoes";
 import { PerfilTab } from "@/painel/Perfil";
 
 type Tab =
@@ -40,7 +39,6 @@ type Tab =
   | "horarios"
   | "barbeiros"
   | "clientes"
-  | "configuracoes"
   | "perfil"
   | "historico";
 
@@ -53,7 +51,6 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
   { id: "perfil", label: "Perfil", icon: UserRound },
-  { id: "configuracoes", label: "Config.", icon: Settings, adminOnly: true },
 ];
 
 
