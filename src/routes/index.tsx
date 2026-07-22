@@ -29,7 +29,13 @@ export const Route = createFileRoute("/")({
 function Home() {
   const navigate = useNavigate();
   const { session, barber, loading } = useMeBarber();
-  const { data: shop } = useShopConfig(barber?.barbershop_id ?? null);
+  const shopIdQ = useQuery({
+    queryKey: ["current-barbershop-id", session?.user.id ?? null, barber?.barbershop_id ?? null],
+    enabled: !!session,
+    queryFn: async () => barber?.barbershop_id ?? (await getMyBarbershopId()),
+  });
+  const currentBarbershopId = barber?.barbershop_id ?? shopIdQ.data ?? null;
+  const { data: shop } = useShopConfig(currentBarbershopId);
   useApplyPrimaryColor(shop?.primary_color ?? null);
 
   useEffect(() => {
@@ -37,13 +43,14 @@ function Home() {
   }, [loading, session, navigate]);
 
   const { data: barbers, isLoading } = useQuery({
-    queryKey: ["barbers-list", barber?.barbershop_id ?? "auto"],
-    enabled: !!session,
+    queryKey: ["barbers-list", currentBarbershopId],
+    enabled: !!session && shopIdQ.isSuccess && !!currentBarbershopId,
     queryFn: async (): Promise<Barber[]> => {
-      const shopId = barber?.barbershop_id ?? (await getMyBarbershopId());
-      let query = supabase.from("barbers").select("*").order("name", { ascending: true });
-      if (shopId) query = query.eq("barbershop_id", shopId);
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from("barbers")
+        .select("*")
+        .eq("barbershop_id", currentBarbershopId!)
+        .order("name", { ascending: true });
       if (error) throw error;
       return data as Barber[];
     },
@@ -117,7 +124,7 @@ function Home() {
           Profissionais
         </h2>
 
-        {isLoading && (
+        {(isLoading || shopIdQ.isLoading) && (
           <div className="grid gap-3">
             {[0, 1, 2].map((i) => (
               <div key={i} className="surface h-24 animate-pulse" />
@@ -125,7 +132,7 @@ function Home() {
           </div>
         )}
 
-        {!isLoading && (!barbers || barbers.length === 0) && (
+        {!isLoading && !shopIdQ.isLoading && (!currentBarbershopId || !barbers || barbers.length === 0) && (
           <div className="surface p-8 text-center">
             <Scissors className="mx-auto mb-3 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
