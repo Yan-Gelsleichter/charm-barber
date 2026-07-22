@@ -10,6 +10,7 @@ import { BrandTitle, BrandMark } from "@/components/Brand";
 import { useMeBarber } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
 import { useApplyPrimaryColor } from "@/lib/theme";
+import { getMyBarbershopId } from "@/lib/barbershop";
 
 
 export const Route = createFileRoute("/")({
