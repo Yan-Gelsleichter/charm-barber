@@ -63,6 +63,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
       const { error } = await supabase
         .from("barbers")
         .update({
+          business_name: businessName.trim() || null,
           logo_url: photoUrl.trim() || null,
           primary_color: color || null,
         })
