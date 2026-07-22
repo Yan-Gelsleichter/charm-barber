@@ -25,6 +25,9 @@ export async function getMyBarbershopId(): Promise<string | null> {
   const uid = user?.id;
   if (!uid) return null;
 
+  const metaShop = (user.user_metadata as { barbershop_id?: string } | null)?.barbershop_id;
+  if (metaShop) return metaShop;
+
   const prof = await supabase
     .from("profiles" as never)
     .select("barbershop_id")
