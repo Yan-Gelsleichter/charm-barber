@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -34,6 +34,29 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [invitedShopId, setInvitedShopId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const sid = params.get("barbershop_id") || params.get("shop");
+    if (sid) {
+      try {
+        sessionStorage.setItem("invite_barbershop_id", sid);
+      } catch {
+        /* ignore */
+      }
+      setInvitedShopId(sid);
+      setMode("signup");
+    } else {
+      try {
+        const stored = sessionStorage.getItem("invite_barbershop_id");
+        if (stored) setInvitedShopId(stored);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
 
   async function routeByRole(userId: string) {
     const { data: userData } = await supabase.auth.getUser();
@@ -52,9 +75,12 @@ function AuthPage() {
 
   async function onGoogle() {
     setGoogleLoading(true);
+    const shopParam = invitedShopId ? `&barbershop_id=${encodeURIComponent(invitedShopId)}` : "";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin + "/meus-agendamentos?cliente=1" },
+      options: {
+        redirectTo: window.location.origin + "/meus-agendamentos?cliente=1" + shopParam,
+      },
     });
     if (error) {
       setGoogleLoading(false);
@@ -83,20 +109,22 @@ function AuthPage() {
 
     if (mode === "signup") {
       const digits = phoneDigits(whatsapp);
+      const metaBase = {
+        account_type: "client" as const,
+        name: name.trim(),
+        full_name: name.trim(),
+        whatsapp: digits,
+        whatsapp_masked: whatsapp,
+        whatsapp_digits: digits,
+        phone: digits,
+        ...(invitedShopId ? { barbershop_id: invitedShopId } : {}),
+      };
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: window.location.origin + "/",
-          data: {
-            account_type: "client",
-            name: name.trim(),
-            full_name: name.trim(),
-            whatsapp: digits,
-            whatsapp_masked: whatsapp,
-            whatsapp_digits: digits,
-            phone: digits,
-          },
+          data: metaBase,
         },
       });
       setLoading(false);
@@ -105,20 +133,20 @@ function AuthPage() {
         return;
       }
       if (data.session && data.user) {
-        await supabase.auth.updateUser({
-          data: {
-            account_type: "client",
-            name: name.trim(),
-            full_name: name.trim(),
-            whatsapp: digits,
-            whatsapp_masked: whatsapp,
-            whatsapp_digits: digits,
-            phone: digits,
-          },
-        });
+        await supabase.auth.updateUser({ data: metaBase });
         await supabase.from("barbers").delete().eq("user_id", data.user.id);
+        if (invitedShopId) {
+          await supabase
+            .from("clients")
+            .update({ barbershop_id: invitedShopId })
+            .eq("user_id", data.user.id);
+        }
+        try {
+          sessionStorage.removeItem("invite_barbershop_id");
+        } catch {
+          /* ignore */
+        }
         toast.success("Conta criada! Bem-vindo.");
-
         navigate({ to: "/" });
       } else {
         toast.success("Conta criada", {
@@ -151,6 +179,12 @@ function AuthPage() {
           {isSignup ? "Criar conta de cliente" : "Entrar na sua conta"}
         </p>
       </div>
+
+      {isSignup && invitedShopId && (
+        <p className="mt-4 rounded-xl border border-border bg-secondary/50 p-3 text-center text-xs text-muted-foreground">
+          Cadastro vinculado à barbearia via convite.
+        </p>
+      )}
 
       <form onSubmit={onSubmit} className="surface mt-8 space-y-5 p-6">
         {isSignup && (

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { QRCodeSVG } from "qrcode.react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Barber } from "@/integrations/supabase/db-types";
@@ -226,6 +227,12 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         </Button>
       </section>
 
+      {barber.is_admin && barber.barbershop_id ? (
+        <QrInviteSection barbershopId={barber.barbershop_id} />
+      ) : null}
+
+
+
       <section className="surface space-y-4 p-4">
         <div className="flex items-center gap-2">
           <KeyRound className="text-muted-foreground" size={18} />
@@ -258,5 +265,65 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         </Button>
       </section>
     </div>
+  );
+}
+
+function QrInviteSection({ barbershopId }: { barbershopId: string }) {
+  const inviteUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/auth?barbershop_id=${encodeURIComponent(barbershopId)}`;
+  }, [barbershopId]);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      toast.success("Link copiado");
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
+  }
+
+  function download() {
+    const svg = document.getElementById("shop-invite-qr");
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "qr-barbearia.svg";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section className="surface space-y-4 p-4">
+      <div className="flex items-center gap-2">
+        <QrCode className="text-muted-foreground" size={18} />
+        <h2 className="font-semibold">QR Code da barbearia</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Compartilhe este QR Code ou link. Quem se cadastrar por ele será vinculado
+        automaticamente à sua barbearia.
+      </p>
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+        <div className="rounded-2xl bg-white p-3">
+          <QRCodeSVG id="shop-invite-qr" value={inviteUrl} size={168} includeMargin={false} />
+        </div>
+        <div className="flex-1 space-y-2">
+          <Label>Link de cadastro</Label>
+          <Input readOnly value={inviteUrl} onFocus={(e) => e.currentTarget.select()} />
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={copy}>
+              <Copy /> Copiar link
+            </Button>
+            <Button type="button" variant="outline" onClick={download}>
+              <Upload className="rotate-180" /> Baixar QR
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
