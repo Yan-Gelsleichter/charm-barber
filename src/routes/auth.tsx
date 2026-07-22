@@ -34,6 +34,29 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [invitedShopId, setInvitedShopId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const sid = params.get("barbershop_id") || params.get("shop");
+    if (sid) {
+      try {
+        sessionStorage.setItem("invite_barbershop_id", sid);
+      } catch {
+        /* ignore */
+      }
+      setInvitedShopId(sid);
+      setMode("signup");
+    } else {
+      try {
+        const stored = sessionStorage.getItem("invite_barbershop_id");
+        if (stored) setInvitedShopId(stored);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
 
   async function routeByRole(userId: string) {
     const { data: userData } = await supabase.auth.getUser();
