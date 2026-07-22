@@ -36,13 +36,13 @@ function Home() {
   }, [loading, session, navigate]);
 
   const { data: barbers, isLoading } = useQuery({
-    queryKey: ["barbers-list"],
+    queryKey: ["barbers-list", barber?.barbershop_id ?? "auto"],
     enabled: !!session,
     queryFn: async (): Promise<Barber[]> => {
-      const { data, error } = await supabase
-        .from("barbers")
-        .select("*")
-        .order("name", { ascending: true });
+      const shopId = barber?.barbershop_id ?? (await getMyBarbershopId());
+      let query = supabase.from("barbers").select("*").order("name", { ascending: true });
+      if (shopId) query = query.eq("barbershop_id", shopId);
+      const { data, error } = await query;
       if (error) throw error;
       return data as Barber[];
     },
