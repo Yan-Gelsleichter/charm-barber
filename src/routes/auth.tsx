@@ -180,6 +180,12 @@ function AuthPage() {
         </p>
       </div>
 
+      {isSignup && invitedShopId && (
+        <p className="mt-4 rounded-xl border border-border bg-secondary/50 p-3 text-center text-xs text-muted-foreground">
+          Cadastro vinculado à barbearia via convite.
+        </p>
+      )}
+
       <form onSubmit={onSubmit} className="surface mt-8 space-y-5 p-6">
         {isSignup && (
           <>
