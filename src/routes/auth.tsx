@@ -75,9 +75,12 @@ function AuthPage() {
 
   async function onGoogle() {
     setGoogleLoading(true);
+    const shopParam = invitedShopId ? `&barbershop_id=${encodeURIComponent(invitedShopId)}` : "";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin + "/meus-agendamentos?cliente=1" },
+      options: {
+        redirectTo: window.location.origin + "/meus-agendamentos?cliente=1" + shopParam,
+      },
     });
     if (error) {
       setGoogleLoading(false);
