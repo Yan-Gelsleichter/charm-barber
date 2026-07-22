@@ -32,14 +32,16 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
   const fileRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [businessName, setBusinessName] = useState(barber.business_name ?? "");
   const [photoUrl, setPhotoUrl] = useState(barber.logo_url ?? "");
   const [color, setColor] = useState(barber.primary_color ?? "#3b82f6");
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
+    setBusinessName(barber.business_name ?? "");
     setPhotoUrl(barber.logo_url ?? "");
     setColor(barber.primary_color ?? "#3b82f6");
-  }, [barber.id, barber.logo_url, barber.primary_color]);
+  }, [barber.id, barber.business_name, barber.logo_url, barber.primary_color]);
 
   const change = useMutation({
     mutationFn: async () => {
@@ -61,6 +63,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
       const { error } = await supabase
         .from("barbers")
         .update({
+          business_name: businessName.trim() || null,
           logo_url: photoUrl.trim() || null,
           primary_color: color || null,
         })
@@ -124,6 +127,16 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         <div className="flex items-center gap-2">
           <Palette className="text-muted-foreground" size={18} />
           <h2 className="font-semibold">Personalização</h2>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="bname">Nome da barbearia</Label>
+          <Input
+            id="bname"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="Ex.: VIP Barber Studio"
+          />
         </div>
 
         <div className="space-y-2">
