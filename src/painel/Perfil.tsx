@@ -227,6 +227,12 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         </Button>
       </section>
 
+      {barber.is_admin && barber.barbershop_id ? (
+        <QrInviteSection barbershopId={barber.barbershop_id} />
+      ) : null}
+
+
+
       <section className="surface space-y-4 p-4">
         <div className="flex items-center gap-2">
           <KeyRound className="text-muted-foreground" size={18} />
