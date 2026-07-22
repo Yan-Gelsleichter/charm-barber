@@ -18,10 +18,11 @@ export async function getBarbershopIdByBarberId(barberId: string): Promise<strin
 }
 
 /** Resolve barbershop_id from the logged-in user's profile, with fallback to
- *  their own barbers row. Returns null if none is found. */
+ *  their own barbers row or their client record. Returns null if none is found. */
 export async function getMyBarbershopId(): Promise<string | null> {
   const { data: sessionData } = await supabase.auth.getSession();
-  const uid = sessionData.session?.user.id;
+  const user = sessionData.session?.user;
+  const uid = user?.id;
   if (!uid) return null;
 
   const prof = await supabase
@@ -39,5 +40,22 @@ export async function getMyBarbershopId(): Promise<string | null> {
     .order("is_admin", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return (barb.data as { barbershop_id?: string | null } | null)?.barbershop_id ?? null;
+  const fromBarber = (barb.data as { barbershop_id?: string | null } | null)?.barbershop_id ?? null;
+  if (fromBarber) return fromBarber;
+
+  const meta = (user.user_metadata ?? {}) as Record<string, string | undefined>;
+  const whatsapp = (meta.whatsapp_digits || meta.whatsapp || meta.phone || "").replace(/\D/g, "");
+  const email = user.email?.trim().toLowerCase();
+  const filters: string[] = [`user_id.eq.${uid}`];
+  if (email) filters.push(`email.eq.${email}`);
+  if (whatsapp) filters.push(`whatsapp.eq.${whatsapp}`);
+
+  const client = await supabase
+    .from("clients")
+    .select("barbershop_id")
+    .or(filters.join(","))
+    .not("barbershop_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  return (client.data as { barbershop_id?: string | null } | null)?.barbershop_id ?? null;
 }
