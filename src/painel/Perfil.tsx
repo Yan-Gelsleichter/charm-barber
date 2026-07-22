@@ -129,6 +129,16 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
           <h2 className="font-semibold">Personalização</h2>
         </div>
 
+        <div className="space-y-1">
+          <Label htmlFor="bname">Nome da barbearia</Label>
+          <Input
+            id="bname"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="Ex.: VIP Barber Studio"
+          />
+        </div>
+
         <div className="space-y-2">
           <Label>Foto</Label>
           <div className="flex items-center gap-4">
