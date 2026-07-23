@@ -45,7 +45,7 @@ type Tab =
 const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
   { id: "dashboard", label: "Painel", icon: LayoutDashboard },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
-  { id: "clientes", label: "Clientes", icon: UserRound, adminOnly: true },
+  { id: "clientes", label: "Clientes", icon: UserRound },
   { id: "servicos", label: "Serviços", icon: Scissors },
   { id: "horarios", label: "Horários", icon: Clock4 },
   { id: "historico", label: "Histórico", icon: History },
@@ -271,7 +271,7 @@ WHERE user_id = '${currentUid}';`;
         {tab === "horarios" && <HorariosTab barber={barber} />}
         {tab === "historico" && <HistoricoTab barber={barber} />}
         {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
-        {tab === "clientes" && barber.is_admin && <ClientesTab barber={barber} />}
+        {tab === "clientes" && <ClientesTab barber={barber} />}
         {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
 
 
