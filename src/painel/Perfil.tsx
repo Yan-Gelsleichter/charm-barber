@@ -227,7 +227,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         </Button>
       </section>
 
-      {barber.is_admin && barber.barbershop_id ? (
+      {barber.barbershop_id ? (
         <QrInviteSection barbershopId={barber.barbershop_id} />
       ) : null}
 
