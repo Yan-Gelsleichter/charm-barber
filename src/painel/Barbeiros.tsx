@@ -136,8 +136,20 @@ export function BarbeirosTab() {
 
   const remove = useMutation({
     mutationFn: async (b: Barber) => {
-      const { error } = await supabase.from("barbers").delete().eq("id", b.id);
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke("delete-barber-user", {
+        body: { barber_id: b.id },
+      });
+      if (error) {
+        // Fallback: at least remove the barbers row so the UI stays consistent.
+        const { error: delErr } = await supabase.from("barbers").delete().eq("id", b.id);
+        if (delErr) throw error;
+        throw new Error(
+          "Barbeiro removido da equipe, mas o login não pôde ser apagado automaticamente. Faça o deploy da Edge Function 'delete-barber-user' no Supabase.",
+        );
+      }
+      if (data && typeof data === "object" && "error" in data && data.error) {
+        throw new Error(String((data as { error: unknown }).error));
+      }
     },
     onSuccess: () => {
       toast.success("Barbeiro excluído");
@@ -145,6 +157,7 @@ export function BarbeirosTab() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   return (
     <div className="space-y-6">
