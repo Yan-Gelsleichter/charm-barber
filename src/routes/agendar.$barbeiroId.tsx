@@ -183,6 +183,35 @@ function AgendarPage() {
       }
       const { error } = await supabase.from("appointments").insert(newAppointment);
       if (error) throw error;
+
+      // Registrar cliente automaticamente na base do barbeiro (se ainda não existir)
+      try {
+        const uid = session.user.id;
+        const emailLower = (session.user.email ?? "").trim().toLowerCase() || null;
+        const whatsappDigits = phoneDigits(clientPhone) || null;
+        const filters: string[] = [`user_id.eq.${uid}`];
+        if (emailLower) filters.push(`email.eq.${emailLower}`);
+        if (whatsappDigits) filters.push(`whatsapp.eq.${whatsappDigits}`);
+        const { data: existing } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("barber_id", barbeiroId)
+          .or(filters.join(","))
+          .limit(1)
+          .maybeSingle();
+        if (!existing) {
+          await supabase.from("clients").insert({
+            barber_id: barbeiroId,
+            name: clientName,
+            email: emailLower,
+            whatsapp: whatsappDigits,
+            user_id: uid,
+            barbershop_id: barbershopId,
+          });
+        }
+      } catch {
+        // não bloquear o agendamento se o cadastro falhar
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
