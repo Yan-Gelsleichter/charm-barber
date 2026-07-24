@@ -128,8 +128,11 @@ function AgendarPage() {
       if (!session) throw new Error("Entre na sua conta para agendar");
       if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
       if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
-      const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
-      const barbershopId = barberQ.data?.barbershop_id ?? (await getBarbershopIdByBarberId(barbeiroId));
+      const { getBarbershopIdByBarberId, getMyBarbershopId } = await import("@/lib/barbershop");
+      const barbershopId =
+        barberQ.data?.barbershop_id ??
+        (await getBarbershopIdByBarberId(barbeiroId)) ??
+        (await getMyBarbershopId());
       const newAppointment = {
         barber_id: barbeiroId,
         service_id: service.id,
