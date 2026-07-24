@@ -129,10 +129,17 @@ function AgendarPage() {
       if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
       if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
       const { getBarbershopIdByBarberId, getMyBarbershopId } = await import("@/lib/barbershop");
+      let inviteShopId: string | null = null;
+      try {
+        inviteShopId = sessionStorage.getItem("invite_barbershop_id");
+      } catch {
+        /* ignore */
+      }
       const barbershopId =
         barberQ.data?.barbershop_id ??
         (await getBarbershopIdByBarberId(barbeiroId)) ??
-        (await getMyBarbershopId());
+        (await getMyBarbershopId()) ??
+        inviteShopId;
       const newAppointment = {
         barber_id: barbeiroId,
         service_id: service.id,
@@ -211,11 +218,11 @@ function AgendarPage() {
             user_id: uid,
             barbershop_id: barbershopId,
           });
-        } else if (barbershopId && !(existing as { barbershop_id?: string | null }).barbershop_id) {
-          await supabase
-            .from("clients")
-            .update({ barbershop_id: barbershopId, user_id: uid })
-            .eq("id", (existing as { id: string }).id);
+        } else {
+          const ex = existing as { id: string; barbershop_id?: string | null };
+          const patch: { user_id: string; barbershop_id?: string } = { user_id: uid };
+          if (!ex.barbershop_id && barbershopId) patch.barbershop_id = barbershopId;
+          await supabase.from("clients").update(patch).eq("id", ex.id);
         }
       } catch {
         // não bloquear o agendamento se o cadastro falhar
