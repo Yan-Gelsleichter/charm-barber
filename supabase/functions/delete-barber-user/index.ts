@@ -71,16 +71,24 @@ Deno.serve(async (req) => {
       return json({ error: "cannot delete yourself" }, 400);
     }
 
-    // Delete barber row first (FK-safe), then the auth user.
-    const { error: delErr } = await admin.from("barbers").delete().eq("id", target.id);
-    if (delErr) return json({ error: delErr.message }, 500);
-
+    // Delete the auth user FIRST so we never end up with a deleted barber row
+    // but an orphan auth.users record that blocks re-registration with the same e-mail.
     if (target.user_id) {
       const { error: authDelErr } = await admin.auth.admin.deleteUser(target.user_id);
       if (authDelErr && !/not.*found/i.test(authDelErr.message)) {
-        return json({ error: `barber removed, but auth delete failed: ${authDelErr.message}` }, 500);
+        return json(
+          {
+            error:
+              `auth delete failed (barber NOT removed): ${authDelErr.message}. ` +
+              `Verifique se a SUPABASE_SERVICE_ROLE_KEY nas Secrets do projeto corresponde a este projeto Supabase.`,
+          },
+          500,
+        );
       }
     }
+
+    const { error: delErr } = await admin.from("barbers").delete().eq("id", target.id);
+    if (delErr) return json({ error: delErr.message }, 500);
 
     return json({ ok: true });
   } catch (e) {
