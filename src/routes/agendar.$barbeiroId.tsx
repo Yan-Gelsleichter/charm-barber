@@ -218,11 +218,11 @@ function AgendarPage() {
             user_id: uid,
             barbershop_id: barbershopId,
           });
-        } else if (barbershopId && !(existing as { barbershop_id?: string | null }).barbershop_id) {
-          await supabase
-            .from("clients")
-            .update({ barbershop_id: barbershopId, user_id: uid })
-            .eq("id", (existing as { id: string }).id);
+        } else {
+          const ex = existing as { id: string; barbershop_id?: string | null };
+          const patch: Record<string, string> = { user_id: uid };
+          if (!ex.barbershop_id && barbershopId) patch.barbershop_id = barbershopId;
+          await supabase.from("clients").update(patch).eq("id", ex.id);
         }
       } catch {
         // não bloquear o agendamento se o cadastro falhar
