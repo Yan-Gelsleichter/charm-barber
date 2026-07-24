@@ -220,7 +220,7 @@ function AgendarPage() {
           });
         } else {
           const ex = existing as { id: string; barbershop_id?: string | null };
-          const patch: Record<string, string> = { user_id: uid };
+          const patch: { user_id: string; barbershop_id?: string } = { user_id: uid };
           if (!ex.barbershop_id && barbershopId) patch.barbershop_id = barbershopId;
           await supabase.from("clients").update(patch).eq("id", ex.id);
         }
