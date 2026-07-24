@@ -194,7 +194,7 @@ function AgendarPage() {
         if (whatsappDigits) filters.push(`whatsapp.eq.${whatsappDigits}`);
         const { data: existing } = await supabase
           .from("clients")
-          .select("id")
+          .select("id, barbershop_id")
           .eq("barber_id", barbeiroId)
           .or(filters.join(","))
           .limit(1)
@@ -208,6 +208,11 @@ function AgendarPage() {
             user_id: uid,
             barbershop_id: barbershopId,
           });
+        } else if (barbershopId && !(existing as { barbershop_id?: string | null }).barbershop_id) {
+          await supabase
+            .from("clients")
+            .update({ barbershop_id: barbershopId, user_id: uid })
+            .eq("id", (existing as { id: string }).id);
         }
       } catch {
         // não bloquear o agendamento se o cadastro falhar
