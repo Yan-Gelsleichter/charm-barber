@@ -199,18 +199,25 @@ function AgendarPage() {
         const uid = session.user.id;
         const emailLower = (session.user.email ?? "").trim().toLowerCase() || null;
         const whatsappDigits = phoneDigits(clientPhone) || null;
+
+        // Buscar por qualquer registro já existente deste cliente NO MESMO barbeiro
+        // (por user_id, email ou whatsapp). Usamos list + [0] em vez de maybeSingle
+        // para não quebrar quando houver mais de uma linha correspondente.
         const filters: string[] = [`user_id.eq.${uid}`];
         if (emailLower) filters.push(`email.eq.${emailLower}`);
         if (whatsappDigits) filters.push(`whatsapp.eq.${whatsappDigits}`);
-        const { data: existing } = await supabase
+        const { data: existingList } = await supabase
           .from("clients")
-          .select("id, barbershop_id")
+          .select("id, barbershop_id, user_id")
           .eq("barber_id", barbeiroId)
           .or(filters.join(","))
-          .limit(1)
-          .maybeSingle();
+          .limit(1);
+        const existing = (existingList ?? [])[0] as
+          | { id: string; barbershop_id?: string | null; user_id?: string | null }
+          | undefined;
+
         if (!existing) {
-          await supabase.from("clients").insert({
+          const { error: insertClientError } = await supabase.from("clients").insert({
             barber_id: barbeiroId,
             name: clientName,
             email: emailLower,
@@ -218,14 +225,18 @@ function AgendarPage() {
             user_id: uid,
             barbershop_id: barbershopId,
           });
+          if (insertClientError) console.warn("[clients] insert falhou:", insertClientError.message);
         } else {
-          const ex = existing as { id: string; barbershop_id?: string | null };
-          const patch: { user_id: string; barbershop_id?: string } = { user_id: uid };
-          if (!ex.barbershop_id && barbershopId) patch.barbershop_id = barbershopId;
-          await supabase.from("clients").update(patch).eq("id", ex.id);
+          const patch: { user_id?: string; barbershop_id?: string; name?: string } = {};
+          if (!existing.user_id) patch.user_id = uid;
+          if (!existing.barbershop_id && barbershopId) patch.barbershop_id = barbershopId;
+          if (Object.keys(patch).length > 0) {
+            await supabase.from("clients").update(patch).eq("id", existing.id);
+          }
         }
-      } catch {
+      } catch (err) {
         // não bloquear o agendamento se o cadastro falhar
+        console.warn("[clients] auto-registro falhou:", err);
       }
     },
     onSuccess: () => {
