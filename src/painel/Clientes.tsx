@@ -59,11 +59,13 @@ export function ClientesTab({ barber }: { barber: Barber }) {
         barbershop_id: barbershopId,
       };
       if (editing) {
-        const { error } = await supabase
-          .from("clients")
-          .update(payload)
-          .eq("id", editing.id)
-          .eq("barber_id", barber.id);
+        // Admin pode editar qualquer cliente da barbearia; barbeiro comum só os próprios
+        const updatePayload = isAdmin
+          ? { name: payload.name, email: payload.email, whatsapp: payload.whatsapp }
+          : payload;
+        let q2 = supabase.from("clients").update(updatePayload).eq("id", editing.id);
+        if (!isAdmin) q2 = q2.eq("barber_id", barber.id);
+        const { error } = await q2;
         if (error) throw error;
       } else {
         const { error } = await supabase.from("clients").insert(payload);
@@ -73,23 +75,21 @@ export function ClientesTab({ barber }: { barber: Barber }) {
     onSuccess: () => {
       toast.success(editing ? "Cliente atualizado" : "Cliente cadastrado");
       reset();
-      qc.invalidateQueries({ queryKey: ["clients", barber.id] });
+      qc.invalidateQueries({ queryKey: ["clients", scopeKey] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("clients")
-        .delete()
-        .eq("id", id)
-        .eq("barber_id", barber.id);
+      let q2 = supabase.from("clients").delete().eq("id", id);
+      if (!isAdmin) q2 = q2.eq("barber_id", barber.id);
+      const { error } = await q2;
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Cliente removido");
-      qc.invalidateQueries({ queryKey: ["clients", barber.id] });
+      qc.invalidateQueries({ queryKey: ["clients", scopeKey] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
