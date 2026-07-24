@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SERVICE = Deno.env.get("SERVICE_ROLE_KEY")!;
 
     // Client that impersonates the caller so RLS applies.
     const asUser = createClient(SUPABASE_URL, ANON, {
