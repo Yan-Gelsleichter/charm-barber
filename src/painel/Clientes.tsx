@@ -19,14 +19,21 @@ export function ClientesTab({ barber }: { barber: Barber }) {
   const [editing, setEditing] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
 
+  const isAdmin = !!barber.is_admin;
+  const scopeKey = isAdmin ? `shop:${barber.barbershop_id ?? "none"}` : `barber:${barber.id}`;
+
   const q = useQuery({
-    queryKey: ["clients", barber.id],
+    queryKey: ["clients", scopeKey],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*")
-        .eq("barber_id", barber.id)
-        .order("name");
+      let query = supabase.from("clients").select("*").order("name");
+      if (isAdmin && barber.barbershop_id) {
+        // Admin vê todos os clientes da barbearia
+        query = query.eq("barbershop_id", barber.barbershop_id);
+      } else {
+        // Barbeiro comum vê apenas seus próprios clientes
+        query = query.eq("barber_id", barber.id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as Client[];
     },
