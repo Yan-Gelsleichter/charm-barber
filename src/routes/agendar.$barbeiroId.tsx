@@ -194,29 +194,32 @@ function AgendarPage() {
       const { error } = await supabase.from("appointments").insert(newAppointment);
       if (error) throw error;
 
-      // Registrar cliente automaticamente na base do barbeiro (se ainda não existir)
+      // Registrar cliente automaticamente na base DESTE barbeiro específico.
+      // Cada barbeiro tem sua própria lista de clientes: mesmo que o cliente
+      // já exista para outro barbeiro, precisamos inserir uma nova linha para
+      // este barber_id. Nunca fazemos busca "global".
       try {
         const uid = session.user.id;
         const emailLower = (session.user.email ?? "").trim().toLowerCase() || null;
         const whatsappDigits = phoneDigits(clientPhone) || null;
 
-        // Buscar por qualquer registro já existente deste cliente NO MESMO barbeiro
-        // (por user_id, email ou whatsapp). Usamos list + [0] em vez de maybeSingle
-        // para não quebrar quando houver mais de uma linha correspondente.
+        // Busca ESCOPADA a este barbeiro (identificando por user_id, email ou whatsapp).
         const filters: string[] = [`user_id.eq.${uid}`];
         if (emailLower) filters.push(`email.eq.${emailLower}`);
         if (whatsappDigits) filters.push(`whatsapp.eq.${whatsappDigits}`);
-        const { data: existingList } = await supabase
+        const { data: existingList, error: lookupError } = await supabase
           .from("clients")
           .select("id, barbershop_id, user_id")
           .eq("barber_id", barbeiroId)
           .or(filters.join(","))
           .limit(1);
+        if (lookupError) console.warn("[clients] lookup falhou:", lookupError.message);
         const existing = (existingList ?? [])[0] as
           | { id: string; barbershop_id?: string | null; user_id?: string | null }
           | undefined;
 
         if (!existing) {
+          // Sem registro para ESTE barbeiro → insert obrigatório.
           const { error: insertClientError } = await supabase.from("clients").insert({
             barber_id: barbeiroId,
             name: clientName,
@@ -225,7 +228,12 @@ function AgendarPage() {
             user_id: uid,
             barbershop_id: barbershopId,
           });
-          if (insertClientError) console.warn("[clients] insert falhou:", insertClientError.message);
+          if (insertClientError) {
+            console.warn("[clients] insert falhou:", insertClientError.message);
+            toast.warning("Agendamento criado, mas o cadastro do cliente falhou", {
+              description: insertClientError.message,
+            });
+          }
         } else {
           const patch: { user_id?: string; barbershop_id?: string; name?: string } = {};
           if (!existing.user_id) patch.user_id = uid;
@@ -235,9 +243,9 @@ function AgendarPage() {
           }
         }
       } catch (err) {
-        // não bloquear o agendamento se o cadastro falhar
         console.warn("[clients] auto-registro falhou:", err);
       }
+
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
