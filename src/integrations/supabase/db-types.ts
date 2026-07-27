@@ -63,6 +63,7 @@ export type Appointment = {
   service_id: string;
   customer_name: string;
   customer_phone: string;
+  email: string | null;
   appointment_time: string;
   status: string;
   barbershop_id?: string | null;
@@ -73,6 +74,7 @@ export type AppointmentInsert = {
   service_id: string;
   customer_name: string;
   customer_phone: string;
+  email?: string | null;
   appointment_time: string;
   status?: string;
   barbershop_id?: string | null;
