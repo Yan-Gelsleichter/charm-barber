@@ -146,6 +146,7 @@ function AgendarPage() {
         service_id: service.id,
         customer_name: clientName,
         customer_phone: phoneDigits(clientPhone),
+        email: clientEmail,
         appointment_time: slotIso,
         status: "confirmado",
         barbershop_id: barbershopId,
