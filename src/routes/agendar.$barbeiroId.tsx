@@ -37,6 +37,7 @@ function AgendarPage() {
   const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
   const clientName = (meta.name || meta.full_name || session?.user.email || "").toString().trim();
   const clientPhone = (meta.whatsapp_digits || meta.whatsapp || "").toString();
+  const clientEmail = (session?.user.email ?? meta.email ?? "").toString().trim().toLowerCase() || null;
 
   useEffect(() => {
     if (!loadingSession && !session) {
@@ -145,6 +146,7 @@ function AgendarPage() {
         service_id: service.id,
         customer_name: clientName,
         customer_phone: phoneDigits(clientPhone),
+        email: clientEmail,
         appointment_time: slotIso,
         status: "confirmado",
         barbershop_id: barbershopId,
