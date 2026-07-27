@@ -135,12 +135,10 @@ function AuthPage() {
       if (data.session && data.user) {
         await supabase.auth.updateUser({ data: metaBase });
         await supabase.from("barbers").delete().eq("user_id", data.user.id);
-        if (invitedShopId) {
-          await supabase
-            .from("clients")
-            .update({ barbershop_id: invitedShopId })
-            .eq("user_id", data.user.id);
-        }
+        // Nenhum registro em `clients` é criado/atualizado aqui: o cliente só é
+        // cadastrado no momento do agendamento, sempre com o barber_id do
+        // profissional escolhido.
+
         try {
           sessionStorage.removeItem("invite_barbershop_id");
         } catch {
