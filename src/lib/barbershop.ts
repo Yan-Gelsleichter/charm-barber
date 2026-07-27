@@ -57,6 +57,7 @@ export async function getMyBarbershopId(): Promise<string | null> {
     .from("clients")
     .select("barbershop_id")
     .or(filters.join(","))
+    .not("barber_id", "is", null)
     .not("barbershop_id", "is", null)
     .limit(1)
     .maybeSingle();
