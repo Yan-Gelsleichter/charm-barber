@@ -37,6 +37,7 @@ function AgendarPage() {
   const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
   const clientName = (meta.name || meta.full_name || session?.user.email || "").toString().trim();
   const clientPhone = (meta.whatsapp_digits || meta.whatsapp || "").toString();
+  const clientEmail = (session?.user.email ?? meta.email ?? "").toString().trim().toLowerCase() || null;
 
   useEffect(() => {
     if (!loadingSession && !session) {
