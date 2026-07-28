@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { supabase } from "@/integrations/supabase/client";
 import { isClientAccount } from "@/hooks/use-auth";
+import { useShopConfig } from "@/hooks/use-shop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
