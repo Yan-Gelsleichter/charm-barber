@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { supabase } from "@/integrations/supabase/client";
 import { isClientAccount } from "@/hooks/use-auth";
+import { useShopConfig } from "@/hooks/use-shop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,7 @@ function AuthPage() {
     if (sid) {
       try {
         sessionStorage.setItem("invite_barbershop_id", sid);
+        localStorage.setItem("last_barbershop_id", sid);
       } catch {
         /* ignore */
       }
@@ -50,13 +52,19 @@ function AuthPage() {
       setMode("signup");
     } else {
       try {
-        const stored = sessionStorage.getItem("invite_barbershop_id");
+        const stored =
+          sessionStorage.getItem("invite_barbershop_id") ||
+          localStorage.getItem("last_barbershop_id");
         if (stored) setInvitedShopId(stored);
       } catch {
         /* ignore */
       }
     }
   }, []);
+
+  const { data: shop } = useShopConfig(invitedShopId);
+  const shopName = shop?.business_name?.trim() || null;
+
 
   async function routeByRole(userId: string) {
     const { data: userData } = await supabase.auth.getUser();
@@ -172,7 +180,7 @@ function AuthPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-10">
       <div className="text-center">
-        <BrandTitle />
+        <BrandTitle>{shopName ?? "VIP BARBER"}</BrandTitle>
         <p className="mt-2 text-sm text-muted-foreground">
           {isSignup ? "Criar conta de cliente" : "Entrar na sua conta"}
         </p>

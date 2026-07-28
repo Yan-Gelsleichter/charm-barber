@@ -1,6 +1,12 @@
 import { cn } from "@/lib/utils";
 
-export function BrandTitle({ className }: { className?: string }) {
+export function BrandTitle({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
   return (
     <h1
       className={cn(
@@ -8,7 +14,7 @@ export function BrandTitle({ className }: { className?: string }) {
         className,
       )}
     >
-      VIP BARBER
+      {children ?? "VIP BARBER"}
     </h1>
   );
 }
