@@ -113,7 +113,7 @@ function Home() {
 
 
       <section className="mt-10 text-center">
-        <BrandTitle />
+        <BrandTitle>{shop?.business_name?.trim() || "VIP BARBER"}</BrandTitle>
         <p className="mt-3 text-base text-muted-foreground">
           Escolha seu barbeiro e agende em poucos toques.
         </p>
