@@ -43,6 +43,7 @@ function AuthPage() {
     if (sid) {
       try {
         sessionStorage.setItem("invite_barbershop_id", sid);
+        localStorage.setItem("last_barbershop_id", sid);
       } catch {
         /* ignore */
       }
@@ -50,13 +51,19 @@ function AuthPage() {
       setMode("signup");
     } else {
       try {
-        const stored = sessionStorage.getItem("invite_barbershop_id");
+        const stored =
+          sessionStorage.getItem("invite_barbershop_id") ||
+          localStorage.getItem("last_barbershop_id");
         if (stored) setInvitedShopId(stored);
       } catch {
         /* ignore */
       }
     }
   }, []);
+
+  const { data: shop } = useShopConfig(invitedShopId);
+  const shopName = shop?.business_name?.trim() || null;
+
 
   async function routeByRole(userId: string) {
     const { data: userData } = await supabase.auth.getUser();
