@@ -180,7 +180,7 @@ function AuthPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-10">
       <div className="text-center">
-        <BrandTitle />
+        <BrandTitle>{shopName ?? "VIP BARBER"}</BrandTitle>
         <p className="mt-2 text-sm text-muted-foreground">
           {isSignup ? "Criar conta de cliente" : "Entrar na sua conta"}
         </p>
