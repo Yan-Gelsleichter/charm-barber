@@ -1,9 +1,32 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
+import { cn } from "@/lib/utils";
+
+type Periodo = "semana" | "mes" | "ano";
+
+const PERIODOS: { key: Periodo; label: string }[] = [
+  { key: "semana", label: "Semanal" },
+  { key: "mes", label: "Mensal" },
+  { key: "ano", label: "Anual" },
+];
+
+function inicioDoPeriodo(p: Periodo): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  if (p === "semana") {
+    d.setDate(d.getDate() - d.getDay());
+  } else if (p === "mes") {
+    d.setDate(1);
+  } else {
+    d.setMonth(0, 1);
+  }
+  return d;
+}
 
 export function HistoricoTab({ barber }: { barber: Barber }) {
   const q = useQuery({
