@@ -49,20 +49,67 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
     },
   });
 
+  const [periodo, setPeriodo] = useState<Periodo>("semana");
+
   const svMap = new Map((q.data?.sv ?? []).map((s) => [s.id, s]));
-  const historico = [
-    ...filterActiveAppointments(q.data?.ag ?? []),
-    ...(q.data?.ag ?? []).filter((a) => a.status === "cancelado" && !isCancellationMarker(a)),
-  ].sort((a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime());
+  const todos = useMemo(
+    () =>
+      [
+        ...filterActiveAppointments(q.data?.ag ?? []),
+        ...(q.data?.ag ?? []).filter((a) => a.status === "cancelado" && !isCancellationMarker(a)),
+      ].sort(
+        (a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime(),
+      ),
+    [q.data?.ag],
+  );
+
+  const contagens = useMemo(() => {
+    const c: Record<Periodo, number> = { semana: 0, mes: 0, ano: 0 };
+    for (const p of PERIODOS) {
+      const ini = inicioDoPeriodo(p.key).getTime();
+      c[p.key] = todos.filter(
+        (a) =>
+          new Date(a.appointment_time).getTime() >= ini &&
+          (a.status || "").trim().toLowerCase() !== "cancelado",
+      ).length;
+    }
+    return c;
+  }, [todos]);
+
+  const historico = useMemo(() => {
+    const ini = inicioDoPeriodo(periodo).getTime();
+    return todos.filter((a) => new Date(a.appointment_time).getTime() >= ini);
+  }, [todos, periodo]);
 
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
         Atendimentos passados
       </h2>
+
+      <div className="grid grid-cols-3 gap-2">
+        {PERIODOS.map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => setPeriodo(p.key)}
+            className={cn(
+              "surface flex flex-col items-center gap-1 p-3 transition-colors",
+              periodo === p.key ? "border-primary ring-1 ring-primary" : "opacity-80",
+            )}
+          >
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">
+              {p.label}
+            </span>
+            <span className="brand-text text-2xl font-bold">{contagens[p.key]}</span>
+            <span className="text-[10px] text-muted-foreground">atendimentos</span>
+          </button>
+        ))}
+      </div>
+
       {historico.length === 0 ? (
         <div className="surface p-6 text-center text-sm text-muted-foreground">
-          Sem atendimentos no histórico.
+          Sem atendimentos neste período.
         </div>
       ) : (
         <div className="grid gap-2">
