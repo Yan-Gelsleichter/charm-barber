@@ -53,8 +53,16 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const ganhosSemana = sum(startWeek);
   const ganhosMes = sum(startMonth);
 
+  const startTomorrow = new Date(startDay);
+  startTomorrow.setDate(startTomorrow.getDate() + 1);
+
+  const hoje = appointments.filter((a) => {
+    const t = new Date(a.appointment_time);
+    return t >= startDay && t < startTomorrow;
+  });
+
   const proximos = appointments
-    .filter((a) => new Date(a.appointment_time) >= now)
+    .filter((a) => new Date(a.appointment_time) >= startTomorrow)
     .slice(0, 5);
 
   const clientesUnicos = new Set(appointments.map((a) => a.customer_phone)).size;
@@ -66,6 +74,34 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         <Stat icon={TrendingUp} label="Esta semana" value={brl(ganhosSemana)} />
         <Stat icon={CalendarCheck} label="Este mês" value={brl(ganhosMes)} />
         <Stat icon={Users} label="Clientes (30d)" value={String(clientesUnicos)} />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Agendamentos de hoje
+        </h2>
+        {hoje.length === 0 ? (
+          <div className="surface p-6 text-center text-sm text-muted-foreground">
+            Sem agendamentos hoje.
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            {hoje.map((a) => {
+              const sv = q.data?.services.find((s) => s.id === a.service_id);
+              return (
+                <div key={a.id} className="surface flex items-center justify-between p-4">
+                  <div>
+                    <p className="font-semibold">{a.customer_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {sv?.name ?? "Serviço"} · {fmtTime(a.appointment_time)}
+                    </p>
+                  </div>
+                  <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section>
