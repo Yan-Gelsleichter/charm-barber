@@ -107,6 +107,8 @@ export function buildSlots(params: {
     .filter((a) => isAppointmentActive(a, inactiveIds))
     .map((a) => {
       const s = new Date(a.appointment_time).getTime();
+      const block = blockInfo(a);
+      if (block) return [s, block.end.getTime()] as [number, number];
       const sv = servicesMap.get(a.service_id);
       const d = sv?.duration_minutes ?? dur;
       return [s, s + d * 60_000] as [number, number];
