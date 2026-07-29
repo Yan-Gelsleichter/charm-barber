@@ -38,6 +38,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
   const [businessName, setBusinessName] = useState(barber.business_name ?? "");
   const [photoUrl, setPhotoUrl] = useState(barber.logo_url ?? "");
   const [color, setColor] = useState(barber.primary_color ?? "#3b82f6");
+  const [uploading, setUploading] = useState(false);
   const { dark, setDark } = useDarkMode();
 
   useEffect(() => {
