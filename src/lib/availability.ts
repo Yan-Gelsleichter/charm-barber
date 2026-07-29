@@ -23,9 +23,9 @@ export function blockInfo(appointment: {
   const name = (appointment.customer_name ?? "").trim();
   if (!name.startsWith(BLOCK_PREFIX)) return null;
   const rest = name.slice(BLOCK_PREFIX.length);
-  const sep = rest.indexOf(":", rest.indexOf("T"));
-  const iso = sep === -1 ? rest : rest.slice(0, sep);
-  const reason = sep === -1 ? "" : rest.slice(sep + 1);
+  const z = rest.indexOf("Z");
+  const iso = z === -1 ? rest : rest.slice(0, z + 1);
+  const reason = z === -1 ? "" : rest.slice(z + 2);
   const end = new Date(iso);
   if (Number.isNaN(end.getTime())) return null;
   return { end, reason };
