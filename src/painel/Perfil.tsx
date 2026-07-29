@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/PasswordInput";
+import { Switch } from "@/components/ui/switch";
+import { useDarkMode } from "@/lib/theme";
 
 const PRESET_COLORS = [
   "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899",
@@ -37,6 +39,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
   const [photoUrl, setPhotoUrl] = useState(barber.logo_url ?? "");
   const [color, setColor] = useState(barber.primary_color ?? "#3b82f6");
   const [uploading, setUploading] = useState(false);
+  const { dark, setDark } = useDarkMode();
 
   useEffect(() => {
     setBusinessName(barber.business_name ?? "");
@@ -216,6 +219,21 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
           >
             Prévia do tema
           </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 p-3">
+          <div className="flex items-center gap-3">
+            {dark ? (
+              <Moon className="text-muted-foreground" size={18} />
+            ) : (
+              <Sun className="text-muted-foreground" size={18} />
+            )}
+            <div>
+              <p className="text-sm font-medium">Tema escuro</p>
+              <p className="text-xs text-muted-foreground">{dark ? "Ativado" : "Desativado"}</p>
+            </div>
+          </div>
+          <Switch checked={dark} onCheckedChange={setDark} aria-label="Alternar tema escuro" />
         </div>
 
         <Button
