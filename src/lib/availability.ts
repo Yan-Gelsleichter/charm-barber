@@ -5,6 +5,31 @@ export type Slot = { start: Date; end: Date; available: boolean };
 const SLOT_STEP_MIN = 15;
 const INACTIVE_STATUSES = new Set(["cancelado", "cancelada", "cancelled", "remarcado", "remarcando"]);
 const CANCELLATION_MARKER_PREFIX = "CANCELADO:";
+const BLOCK_PREFIX = "BLOQUEIO:";
+
+/** Nome usado para marcar um bloqueio de agenda (compromisso fora da barbearia). */
+export function blockMarkerName(end: Date, reason: string): string {
+  return `${BLOCK_PREFIX}${end.toISOString()}:${reason.trim()}`;
+}
+
+export function isBlock(appointment: { customer_name?: string | null }): boolean {
+  return (appointment.customer_name ?? "").trim().startsWith(BLOCK_PREFIX);
+}
+
+export function blockInfo(appointment: {
+  customer_name?: string | null;
+  appointment_time: string;
+}): { end: Date; reason: string } | null {
+  const name = (appointment.customer_name ?? "").trim();
+  if (!name.startsWith(BLOCK_PREFIX)) return null;
+  const rest = name.slice(BLOCK_PREFIX.length);
+  const z = rest.indexOf("Z");
+  const iso = z === -1 ? rest : rest.slice(0, z + 1);
+  const reason = z === -1 ? "" : rest.slice(z + 2);
+  const end = new Date(iso);
+  if (Number.isNaN(end.getTime())) return null;
+  return { end, reason };
+}
 
 export function isInactiveStatus(status: string | null | undefined): boolean {
   const normalized = (status || "confirmado").trim().toLowerCase();
@@ -82,6 +107,8 @@ export function buildSlots(params: {
     .filter((a) => isAppointmentActive(a, inactiveIds))
     .map((a) => {
       const s = new Date(a.appointment_time).getTime();
+      const block = blockInfo(a);
+      if (block) return [s, block.end.getTime()] as [number, number];
       const sv = servicesMap.get(a.service_id);
       const d = sv?.duration_minutes ?? dur;
       return [s, s + d * 60_000] as [number, number];

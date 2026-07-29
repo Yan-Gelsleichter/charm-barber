@@ -1,16 +1,21 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, WorkingHour, Service } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { getBarbershopIdByBarberId } from "@/lib/barbershop";
 import {
   buildSlots,
   cancelledAppointmentIds,
   filterActiveAppointments,
   isCancellationMarker,
+  isBlock,
+  blockInfo,
+  blockMarkerName,
 } from "@/lib/availability";
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -67,6 +72,58 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockStart, setBlockStart] = useState("12:00");
+  const [blockEnd, setBlockEnd] = useState("13:00");
+  const [blockReason, setBlockReason] = useState("");
+
+  function timeOnDate(hhmm: string) {
+    const [h, m] = hhmm.split(":").map(Number);
+    const d = new Date(date);
+    d.setHours(h || 0, m || 0, 0, 0);
+    return d;
+  }
+
+  const createBlock = useMutation({
+    mutationFn: async () => {
+      const start = timeOnDate(blockStart);
+      const end = timeOnDate(blockEnd);
+      if (end.getTime() <= start.getTime()) throw new Error("O horário final deve ser maior que o inicial.");
+      const serviceId = q.data?.services[0]?.id;
+      if (!serviceId) throw new Error("Cadastre um serviço antes de bloquear a agenda.");
+      const barbershopId = await getBarbershopIdByBarberId(barber.id);
+      const { error } = await supabase.from("appointments").insert({
+        barber_id: barber.id,
+        service_id: serviceId,
+        customer_name: blockMarkerName(end, blockReason || "Compromisso"),
+        customer_phone: "-",
+        appointment_time: start.toISOString(),
+        status: "bloqueado",
+        barbershop_id: barbershopId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Agenda bloqueada");
+      setBlockOpen(false);
+      setBlockReason("");
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeBlock = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("appointments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Bloqueio removido");
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const servicesMap = useMemo(
     () => new Map<string, Service>((q.data?.services ?? []).map((s) => [s.id, s])),
     [q.data?.services],
@@ -92,12 +149,14 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   }
 
   const allAppts = q.data?.appointments ?? [];
-  const ativos = filterActiveAppointments(allAppts);
+  const ativosAll = filterActiveAppointments(allAppts);
+  const ativos = ativosAll.filter((a) => !isBlock(a));
+  const bloqueios = ativosAll.filter((a) => isBlock(a));
   const cancelMarkerTargets = cancelledAppointmentIds(
     allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
   );
   const cancelados = allAppts.filter((a) => {
-    if (isCancellationMarker(a)) return false;
+    if (isCancellationMarker(a) || isBlock(a)) return false;
     const status = (a.status || "").trim().toLowerCase();
     if (status === "remarcado" || status.startsWith("cancelado:")) return false;
     return status === "cancelado" || cancelMarkerTargets.has(a.id);
@@ -123,6 +182,83 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <ChevronRight />
         </Button>
       </div>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Bloqueios
+          </h2>
+          <Button variant="outline" size="sm" onClick={() => setBlockOpen((v) => !v)}>
+            <Lock className="mr-1 size-4" />
+            {blockOpen ? "Fechar" : "Bloquear agenda"}
+          </Button>
+        </div>
+
+        {blockOpen && (
+          <div className="surface grid gap-3 p-4">
+            <p className="text-xs text-muted-foreground">
+              Bloqueie um período deste dia para compromissos fora da barbearia. Os horários ficam
+              indisponíveis para os clientes.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Início
+                <Input
+                  type="time"
+                  value={blockStart}
+                  onChange={(e) => setBlockStart(e.target.value)}
+                />
+              </label>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Fim
+                <Input type="time" value={blockEnd} onChange={(e) => setBlockEnd(e.target.value)} />
+              </label>
+            </div>
+            <label className="grid gap-1 text-xs text-muted-foreground">
+              Motivo (opcional)
+              <Input
+                value={blockReason}
+                placeholder="Ex.: consulta médica"
+                onChange={(e) => setBlockReason(e.target.value)}
+              />
+            </label>
+            <Button onClick={() => createBlock.mutate()} disabled={createBlock.isPending}>
+              {createBlock.isPending ? "Bloqueando..." : "Confirmar bloqueio"}
+            </Button>
+          </div>
+        )}
+
+        {bloqueios.length > 0 && (
+          <div className="grid gap-2">
+            {bloqueios.map((a) => {
+              const info = blockInfo(a);
+              return (
+                <div key={a.id} className="surface flex items-center justify-between p-4">
+                  <div>
+                    <p className="font-semibold">
+                      {fmtTime(a.appointment_time)}
+                      {info ? ` – ${fmtTime(info.end)}` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {info?.reason || "Compromisso"}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (confirm("Remover este bloqueio?")) removeBlock.mutate(a.id);
+                    }}
+                  >
+                    <X className="text-destructive" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
 
       <section>
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
