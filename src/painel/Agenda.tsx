@@ -183,6 +183,83 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         </Button>
       </div>
 
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Bloqueios
+          </h2>
+          <Button variant="outline" size="sm" onClick={() => setBlockOpen((v) => !v)}>
+            <Lock className="mr-1 size-4" />
+            {blockOpen ? "Fechar" : "Bloquear agenda"}
+          </Button>
+        </div>
+
+        {blockOpen && (
+          <div className="surface grid gap-3 p-4">
+            <p className="text-xs text-muted-foreground">
+              Bloqueie um período deste dia para compromissos fora da barbearia. Os horários ficam
+              indisponíveis para os clientes.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Início
+                <Input
+                  type="time"
+                  value={blockStart}
+                  onChange={(e) => setBlockStart(e.target.value)}
+                />
+              </label>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Fim
+                <Input type="time" value={blockEnd} onChange={(e) => setBlockEnd(e.target.value)} />
+              </label>
+            </div>
+            <label className="grid gap-1 text-xs text-muted-foreground">
+              Motivo (opcional)
+              <Input
+                value={blockReason}
+                placeholder="Ex.: consulta médica"
+                onChange={(e) => setBlockReason(e.target.value)}
+              />
+            </label>
+            <Button onClick={() => createBlock.mutate()} disabled={createBlock.isPending}>
+              {createBlock.isPending ? "Bloqueando..." : "Confirmar bloqueio"}
+            </Button>
+          </div>
+        )}
+
+        {bloqueios.length > 0 && (
+          <div className="grid gap-2">
+            {bloqueios.map((a) => {
+              const info = blockInfo(a);
+              return (
+                <div key={a.id} className="surface flex items-center justify-between p-4">
+                  <div>
+                    <p className="font-semibold">
+                      {fmtTime(a.appointment_time)}
+                      {info ? ` – ${fmtTime(info.end)}` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {info?.reason || "Compromisso"}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (confirm("Remover este bloqueio?")) removeBlock.mutate(a.id);
+                    }}
+                  >
+                    <X className="text-destructive" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+
       <section>
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Agendamentos
