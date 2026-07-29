@@ -97,12 +97,14 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   }
 
   const allAppts = q.data?.appointments ?? [];
-  const ativos = filterActiveAppointments(allAppts);
+  const ativosAll = filterActiveAppointments(allAppts);
+  const ativos = ativosAll.filter((a) => !isBlock(a));
+  const bloqueios = ativosAll.filter((a) => isBlock(a));
   const cancelMarkerTargets = cancelledAppointmentIds(
     allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
   );
   const cancelados = allAppts.filter((a) => {
-    if (isCancellationMarker(a)) return false;
+    if (isCancellationMarker(a) || isBlock(a)) return false;
     const status = (a.status || "").trim().toLowerCase();
     if (status === "remarcado" || status.startsWith("cancelado:")) return false;
     return status === "cancelado" || cancelMarkerTargets.has(a.id);
