@@ -72,6 +72,58 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockStart, setBlockStart] = useState("12:00");
+  const [blockEnd, setBlockEnd] = useState("13:00");
+  const [blockReason, setBlockReason] = useState("");
+
+  function timeOnDate(hhmm: string) {
+    const [h, m] = hhmm.split(":").map(Number);
+    const d = new Date(date);
+    d.setHours(h || 0, m || 0, 0, 0);
+    return d;
+  }
+
+  const createBlock = useMutation({
+    mutationFn: async () => {
+      const start = timeOnDate(blockStart);
+      const end = timeOnDate(blockEnd);
+      if (end.getTime() <= start.getTime()) throw new Error("O horário final deve ser maior que o inicial.");
+      const serviceId = q.data?.services[0]?.id;
+      if (!serviceId) throw new Error("Cadastre um serviço antes de bloquear a agenda.");
+      const barbershopId = await getBarbershopIdByBarberId(barber.id);
+      const { error } = await supabase.from("appointments").insert({
+        barber_id: barber.id,
+        service_id: serviceId,
+        customer_name: blockMarkerName(end, blockReason || "Compromisso"),
+        customer_phone: "-",
+        appointment_time: start.toISOString(),
+        status: "bloqueado",
+        barbershop_id: barbershopId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Agenda bloqueada");
+      setBlockOpen(false);
+      setBlockReason("");
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeBlock = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("appointments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Bloqueio removido");
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const servicesMap = useMemo(
     () => new Map<string, Service>((q.data?.services ?? []).map((s) => [s.id, s])),
     [q.data?.services],
