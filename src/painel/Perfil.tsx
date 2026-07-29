@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
