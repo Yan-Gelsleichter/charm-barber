@@ -218,6 +218,21 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
           </div>
         </div>
 
+        <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 p-3">
+          <div className="flex items-center gap-3">
+            {dark ? (
+              <Moon className="text-muted-foreground" size={18} />
+            ) : (
+              <Sun className="text-muted-foreground" size={18} />
+            )}
+            <div>
+              <p className="text-sm font-medium">Tema escuro</p>
+              <p className="text-xs text-muted-foreground">{dark ? "Ativado" : "Desativado"}</p>
+            </div>
+          </div>
+          <Switch checked={dark} onCheckedChange={setDark} aria-label="Alternar tema escuro" />
+        </div>
+
         <Button
           variant="hero"
           onClick={() => saveAppearance.mutate()}
