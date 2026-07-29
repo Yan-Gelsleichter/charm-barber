@@ -53,8 +53,16 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const ganhosSemana = sum(startWeek);
   const ganhosMes = sum(startMonth);
 
+  const startTomorrow = new Date(startDay);
+  startTomorrow.setDate(startTomorrow.getDate() + 1);
+
+  const hoje = appointments.filter((a) => {
+    const t = new Date(a.appointment_time);
+    return t >= startDay && t < startTomorrow;
+  });
+
   const proximos = appointments
-    .filter((a) => new Date(a.appointment_time) >= now)
+    .filter((a) => new Date(a.appointment_time) >= startTomorrow)
     .slice(0, 5);
 
   const clientesUnicos = new Set(appointments.map((a) => a.customer_phone)).size;
