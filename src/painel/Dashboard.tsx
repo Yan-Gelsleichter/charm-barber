@@ -78,6 +78,34 @@ export function DashboardTab({ barber }: { barber: Barber }) {
 
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Agendamentos de hoje
+        </h2>
+        {hoje.length === 0 ? (
+          <div className="surface p-6 text-center text-sm text-muted-foreground">
+            Sem agendamentos hoje.
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            {hoje.map((a) => {
+              const sv = q.data?.services.find((s) => s.id === a.service_id);
+              return (
+                <div key={a.id} className="surface flex items-center justify-between p-4">
+                  <div>
+                    <p className="font-semibold">{a.customer_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {sv?.name ?? "Serviço"} · {fmtTime(a.appointment_time)}
+                    </p>
+                  </div>
+                  <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Próximos agendamentos
         </h2>
         {proximos.length === 0 ? (
