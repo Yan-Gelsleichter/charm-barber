@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 function Calendar({
+  locale = ptBR,
   className,
   classNames,
   showOutsideDays = true,
