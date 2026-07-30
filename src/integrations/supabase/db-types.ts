@@ -100,6 +100,24 @@ export type ClientInsert = {
   barbershop_id?: string | null;
 };
 
+export type ScheduleBlock = {
+  id: string;
+  barber_id: string;
+  barbershop_id: string | null;
+  start_time: string;
+  end_time: string;
+  reason: string | null;
+  created_at?: string;
+};
+export type ScheduleBlockInsert = {
+  id?: string;
+  barber_id: string;
+  barbershop_id?: string | null;
+  start_time: string;
+  end_time: string;
+  reason?: string | null;
+};
+
 type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
 
 export type Database = {
@@ -110,6 +128,7 @@ export type Database = {
       working_hours: Table<WorkingHour, WorkingHourInsert>;
       appointments: Table<Appointment, AppointmentInsert>;
       clients: Table<Client, ClientInsert>;
+      schedule_blocks: Table<ScheduleBlock, ScheduleBlockInsert>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

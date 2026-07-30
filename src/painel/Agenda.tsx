@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, X, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Appointment, Barber, WorkingHour, Service } from "@/integrations/supabase/db-types";
+import type { Appointment, Barber, WorkingHour, Service, ScheduleBlock } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getBarbershopIdByBarberId } from "@/lib/barbershop";
@@ -14,8 +14,6 @@ import {
   filterActiveAppointments,
   isCancellationMarker,
   isBlock,
-  blockInfo,
-  blockMarkerName,
 } from "@/lib/availability";
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -35,7 +33,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     queryFn: async () => {
       const end = new Date(date);
       end.setDate(end.getDate() + 1);
-      const [a, h, s] = await Promise.all([
+      const [a, h, s, b] = await Promise.all([
         supabase
           .from("appointments")
           .select("*")
@@ -45,14 +43,23 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           .order("appointment_time"),
         supabase.from("working_hours").select("*").eq("barber_id", barber.id),
         supabase.from("services").select("*").eq("barber_id", barber.id),
+        supabase
+          .from("schedule_blocks")
+          .select("*")
+          .eq("barber_id", barber.id)
+          .gte("start_time", date.toISOString())
+          .lt("start_time", end.toISOString())
+          .order("start_time"),
       ]);
       if (a.error) throw a.error;
       if (h.error) throw h.error;
       if (s.error) throw s.error;
+      if (b.error) throw b.error;
       return {
         appointments: a.data as Appointment[],
         hours: h.data as WorkingHour[],
         services: s.data as Service[],
+        blocks: b.data as ScheduleBlock[],
       };
     },
   });
@@ -89,17 +96,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       const start = timeOnDate(blockStart);
       const end = timeOnDate(blockEnd);
       if (end.getTime() <= start.getTime()) throw new Error("O horário final deve ser maior que o inicial.");
-      const serviceId = q.data?.services[0]?.id;
-      if (!serviceId) throw new Error("Cadastre um serviço antes de bloquear a agenda.");
       const barbershopId = await getBarbershopIdByBarberId(barber.id);
-      const { error } = await supabase.from("appointments").insert({
+      const { error } = await supabase.from("schedule_blocks").insert({
         barber_id: barber.id,
-        service_id: serviceId,
-        customer_name: blockMarkerName(end, blockReason || "Compromisso"),
-        customer_phone: "-",
-        appointment_time: start.toISOString(),
-        status: "bloqueado",
         barbershop_id: barbershopId,
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        reason: blockReason.trim() || "Compromisso",
       });
       if (error) throw error;
     },
@@ -114,7 +117,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
   const removeBlock = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("appointments").delete().eq("id", id);
+      const { error } = await supabase.from("schedule_blocks").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -139,6 +142,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       hours: q.data.hours,
       appointments: q.data.appointments,
       servicesMap,
+      blocks: q.data.blocks,
     });
   }, [date, refService, q.data, servicesMap]);
 
@@ -151,7 +155,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   const allAppts = q.data?.appointments ?? [];
   const ativosAll = filterActiveAppointments(allAppts);
   const ativos = ativosAll.filter((a) => !isBlock(a));
-  const bloqueios = ativosAll.filter((a) => isBlock(a));
+  const bloqueios = q.data?.blocks ?? [];
   const cancelMarkerTargets = cancelledAppointmentIds(
     allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
   );
@@ -231,16 +235,14 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         {bloqueios.length > 0 && (
           <div className="grid gap-2">
             {bloqueios.map((a) => {
-              const info = blockInfo(a);
               return (
                 <div key={a.id} className="surface flex items-center justify-between p-4">
                   <div>
                     <p className="font-semibold">
-                      {fmtTime(a.appointment_time)}
-                      {info ? ` – ${fmtTime(info.end)}` : ""}
+                      {fmtTime(a.start_time)} – {fmtTime(a.end_time)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {info?.reason || "Compromisso"}
+                      {a.reason || "Compromisso"}
                     </p>
                   </div>
                   <Button

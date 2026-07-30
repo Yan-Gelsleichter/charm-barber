@@ -101,7 +101,17 @@ function AgendarPage() {
         .gte("appointment_time", start.toISOString())
         .lt("appointment_time", end.toISOString());
       if (error) throw error;
-      return data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status" | "customer_phone" | "customer_name">[];
+      const blocks = await supabase
+        .from("schedule_blocks")
+        .select("start_time, end_time")
+        .eq("barber_id", barbeiroId)
+        .gte("start_time", start.toISOString())
+        .lt("start_time", end.toISOString());
+      if (blocks.error) throw blocks.error;
+      return {
+        appointments: data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status" | "customer_phone" | "customer_name">[],
+        blocks: (blocks.data ?? []) as Array<{ start_time: string; end_time: string }>,
+      };
     },
   });
 
@@ -113,13 +123,14 @@ function AgendarPage() {
 
   const slots = useMemo(() => {
     if (!date || !service || !hoursQ.data) return [];
-    const appointments = filterActiveAppointments(agendaQ.data ?? []).filter((a) => a.id !== remarcar);
+    const appointments = filterActiveAppointments(agendaQ.data?.appointments ?? []).filter((a) => a.id !== remarcar);
     return buildSlots({
       date,
       service,
       hours: hoursQ.data,
       appointments,
       servicesMap,
+      blocks: agendaQ.data?.blocks ?? [],
     });
   }, [date, service, hoursQ.data, agendaQ.data, servicesMap, remarcar]);
 

@@ -94,8 +94,9 @@ export function buildSlots(params: {
   service: Service;
   appointments: Array<Pick<Appointment, "id" | "appointment_time" | "service_id" | "status"> & Partial<Pick<Appointment, "customer_name">>>;
   servicesMap: Map<string, Service>;
+  blocks?: Array<{ start_time: string; end_time: string }>;
 }): Slot[] {
-  const { date, hours, service, appointments, servicesMap } = params;
+  const { date, hours, service, appointments, servicesMap, blocks = [] } = params;
   const dow = date.getDay();
   const works = hours.filter((h) => Number(h.weekday) === dow);
   if (works.length === 0) return [];
@@ -113,6 +114,11 @@ export function buildSlots(params: {
       const d = sv?.duration_minutes ?? dur;
       return [s, s + d * 60_000] as [number, number];
     });
+
+  for (const b of blocks) {
+    busy.push([new Date(b.start_time).getTime(), new Date(b.end_time).getTime()]);
+  }
+
 
   const slots: Slot[] = [];
   const now = Date.now();
