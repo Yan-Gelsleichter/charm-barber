@@ -128,6 +128,7 @@ export type Database = {
       working_hours: Table<WorkingHour, WorkingHourInsert>;
       appointments: Table<Appointment, AppointmentInsert>;
       clients: Table<Client, ClientInsert>;
+      schedule_blocks: Table<ScheduleBlock, ScheduleBlockInsert>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
