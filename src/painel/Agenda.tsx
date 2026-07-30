@@ -33,7 +33,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     queryFn: async () => {
       const end = new Date(date);
       end.setDate(end.getDate() + 1);
-      const [a, h, s] = await Promise.all([
+      const [a, h, s, b] = await Promise.all([
         supabase
           .from("appointments")
           .select("*")
@@ -43,14 +43,23 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           .order("appointment_time"),
         supabase.from("working_hours").select("*").eq("barber_id", barber.id),
         supabase.from("services").select("*").eq("barber_id", barber.id),
+        supabase
+          .from("schedule_blocks")
+          .select("*")
+          .eq("barber_id", barber.id)
+          .gte("start_time", date.toISOString())
+          .lt("start_time", end.toISOString())
+          .order("start_time"),
       ]);
       if (a.error) throw a.error;
       if (h.error) throw h.error;
       if (s.error) throw s.error;
+      if (b.error) throw b.error;
       return {
         appointments: a.data as Appointment[],
         hours: h.data as WorkingHour[],
         services: s.data as Service[],
+        blocks: b.data as ScheduleBlock[],
       };
     },
   });
