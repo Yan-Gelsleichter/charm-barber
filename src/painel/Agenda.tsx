@@ -235,16 +235,14 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         {bloqueios.length > 0 && (
           <div className="grid gap-2">
             {bloqueios.map((a) => {
-              const info = blockInfo(a);
               return (
                 <div key={a.id} className="surface flex items-center justify-between p-4">
                   <div>
                     <p className="font-semibold">
-                      {fmtTime(a.appointment_time)}
-                      {info ? ` – ${fmtTime(info.end)}` : ""}
+                      {fmtTime(a.start_time)} – {fmtTime(a.end_time)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {info?.reason || "Compromisso"}
+                      {a.reason || "Compromisso"}
                     </p>
                   </div>
                   <Button
