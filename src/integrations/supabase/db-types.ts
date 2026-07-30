@@ -100,6 +100,24 @@ export type ClientInsert = {
   barbershop_id?: string | null;
 };
 
+export type ScheduleBlock = {
+  id: string;
+  barber_id: string;
+  barbershop_id: string | null;
+  start_time: string;
+  end_time: string;
+  reason: string | null;
+  created_at?: string;
+};
+export type ScheduleBlockInsert = {
+  id?: string;
+  barber_id: string;
+  barbershop_id?: string | null;
+  start_time: string;
+  end_time: string;
+  reason?: string | null;
+};
+
 type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
 
 export type Database = {
