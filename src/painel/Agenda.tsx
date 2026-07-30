@@ -96,17 +96,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       const start = timeOnDate(blockStart);
       const end = timeOnDate(blockEnd);
       if (end.getTime() <= start.getTime()) throw new Error("O horário final deve ser maior que o inicial.");
-      const serviceId = q.data?.services[0]?.id;
-      if (!serviceId) throw new Error("Cadastre um serviço antes de bloquear a agenda.");
       const barbershopId = await getBarbershopIdByBarberId(barber.id);
-      const { error } = await supabase.from("appointments").insert({
+      const { error } = await supabase.from("schedule_blocks").insert({
         barber_id: barber.id,
-        service_id: serviceId,
-        customer_name: blockMarkerName(end, blockReason || "Compromisso"),
-        customer_phone: "-",
-        appointment_time: start.toISOString(),
-        status: "bloqueado",
         barbershop_id: barbershopId,
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        reason: blockReason.trim() || "Compromisso",
       });
       if (error) throw error;
     },
@@ -121,7 +117,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
   const removeBlock = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("appointments").delete().eq("id", id);
+      const { error } = await supabase.from("schedule_blocks").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -146,6 +142,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       hours: q.data.hours,
       appointments: q.data.appointments,
       servicesMap,
+      blocks: q.data.blocks,
     });
   }, [date, refService, q.data, servicesMap]);
 
@@ -158,7 +155,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   const allAppts = q.data?.appointments ?? [];
   const ativosAll = filterActiveAppointments(allAppts);
   const ativos = ativosAll.filter((a) => !isBlock(a));
-  const bloqueios = ativosAll.filter((a) => isBlock(a));
+  const bloqueios = q.data?.blocks ?? [];
   const cancelMarkerTargets = cancelledAppointmentIds(
     allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
   );
