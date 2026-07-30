@@ -274,8 +274,17 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <div className="grid gap-2">
             {ativos.map((a) => {
               const sv = servicesMap.get(a.service_id);
+              const fim =
+                new Date(a.appointment_time).getTime() + (sv?.duration_minutes ?? 30) * 60_000;
+              const atendido = fim <= Date.now();
               return (
-                <div key={a.id} className="surface flex items-center justify-between p-4">
+                <div
+                  key={a.id}
+                  className={cn(
+                    "surface flex items-center justify-between p-4",
+                    atendido && "opacity-70",
+                  )}
+                >
                   <div>
                     <p className="font-semibold">
                       {fmtTime(a.appointment_time)} · {a.customer_name}
@@ -286,6 +295,11 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {atendido && (
+                      <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                        Atendido
+                      </span>
+                    )}
                     <span className="brand-text font-bold">{sv ? brl(sv.price) : ""}</span>
                     <Button
                       variant="ghost"
