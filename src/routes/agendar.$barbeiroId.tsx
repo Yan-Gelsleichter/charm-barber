@@ -272,15 +272,21 @@ function AgendarPage() {
         console.warn("[clients] auto-registro falhou:", err);
       }
 
+      return createdId;
     },
-    onSuccess: () => {
+    onSuccess: (appointmentId) => {
       qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
       qc.invalidateQueries({ queryKey: ["my-appointments"] });
       toast.success("Agendamento confirmado!", {
         description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });
-      navigate({ to: "/meus-agendamentos" });
+      if (appointmentId) {
+        navigate({ to: "/pagamento/$appointmentId", params: { appointmentId } });
+      } else {
+        navigate({ to: "/meus-agendamentos" });
+      }
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
 
