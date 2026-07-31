@@ -177,7 +177,7 @@ function AgendarPage() {
           .select("id")
           .maybeSingle();
         if (updateError) throw updateError;
-        if (updated) return;
+        if (updated) return updated.id as string;
 
         const { data: previous, error: previousError } = await supabase
           .from("appointments")
@@ -189,23 +189,36 @@ function AgendarPage() {
         if (!previous) {
           throw new Error("Não foi possível remarcar este agendamento. Cancele o horário anterior e tente novamente.");
         }
-        const { error: replaceError } = await supabase.from("appointments").insert([
-          {
-            barber_id: previous.barber_id,
-            service_id: previous.service_id,
-            customer_name: cancellationMarkerName(previous.id, previous.customer_name),
-            customer_phone: previous.customer_phone,
-            appointment_time: cancellationMarkerTime(previous.appointment_time),
-            status: "remarcado",
-            barbershop_id: previous.barbershop_id ?? barbershopId,
-          },
-          newAppointment,
-        ]);
+        const { data: replaced, error: replaceError } = await supabase
+          .from("appointments")
+          .insert([
+            {
+              barber_id: previous.barber_id,
+              service_id: previous.service_id,
+              customer_name: cancellationMarkerName(previous.id, previous.customer_name),
+              customer_phone: previous.customer_phone,
+              appointment_time: cancellationMarkerTime(previous.appointment_time),
+              status: "remarcado",
+              barbershop_id: previous.barbershop_id ?? barbershopId,
+            },
+            newAppointment,
+          ])
+          .select("id, status");
         if (replaceError) throw replaceError;
-        return;
+        return (
+          ((replaced ?? []) as Array<{ id: string; status: string }>).find(
+            (r) => r.status === "confirmado",
+          )?.id ?? null
+        );
       }
-      const { error } = await supabase.from("appointments").insert(newAppointment);
+      const { data: created, error } = await supabase
+        .from("appointments")
+        .insert(newAppointment)
+        .select("id")
+        .single();
       if (error) throw error;
+      const createdId = (created as { id: string } | null)?.id ?? null;
+
 
       // Registrar cliente automaticamente na base DESTE barbeiro específico.
       // Cada barbeiro tem sua própria lista de clientes: mesmo que o cliente
@@ -259,15 +272,21 @@ function AgendarPage() {
         console.warn("[clients] auto-registro falhou:", err);
       }
 
+      return createdId;
     },
-    onSuccess: () => {
+    onSuccess: (appointmentId) => {
       qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
       qc.invalidateQueries({ queryKey: ["my-appointments"] });
       toast.success("Agendamento confirmado!", {
         description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });
-      navigate({ to: "/meus-agendamentos" });
+      if (appointmentId) {
+        navigate({ to: "/pagamento/$appointmentId", params: { appointmentId } });
+      } else {
+        navigate({ to: "/meus-agendamentos" });
+      }
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
 

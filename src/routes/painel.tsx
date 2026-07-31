@@ -12,6 +12,7 @@ import {
   Copy,
   RefreshCw,
   UserRound,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +32,7 @@ import { BarbeirosTab } from "@/painel/Barbeiros";
 import { HistoricoTab } from "@/painel/Historico";
 import { ClientesTab } from "@/painel/Clientes";
 import { PerfilTab } from "@/painel/Perfil";
+import { PagamentosTab } from "@/painel/Pagamentos";
 
 type Tab =
   | "dashboard"
@@ -40,6 +42,7 @@ type Tab =
   | "barbeiros"
   | "clientes"
   | "perfil"
+  | "pagamentos"
   | "historico";
 
 const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
@@ -50,6 +53,7 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "horarios", label: "Horários", icon: Clock4 },
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
+  { id: "pagamentos", label: "Pagamentos", icon: CreditCard, adminOnly: true },
   { id: "perfil", label: "Perfil", icon: UserRound },
 ];
 
@@ -58,6 +62,8 @@ export const Route = createFileRoute("/painel")({
   head: () => ({ meta: [{ title: "Painel — VIP BARBER" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     tab: (s.tab as Tab) || ("dashboard" as Tab),
+    mp: typeof s.mp === "string" ? s.mp : undefined,
+    mp_msg: typeof s.mp_msg === "string" ? s.mp_msg : undefined,
   }),
   component: PainelPage,
 });
@@ -65,13 +71,18 @@ export const Route = createFileRoute("/painel")({
 function PainelPage() {
   const navigate = useNavigate();
   const loc = useLocation();
-  const { tab } = Route.useSearch();
+  const { tab, mp, mp_msg } = Route.useSearch();
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [signingOut, setSigningOut] = useState(false);
   const { data: shop } = useShopConfig(barber?.barbershop_id ?? null);
   const shopLogo = barber?.logo_url ?? shop?.logo_url ?? null;
   const shopName = shop?.business_name ?? barber?.business_name ?? null;
   useApplyPrimaryColor(barber?.primary_color ?? shop?.primary_color ?? null);
+
+  useEffect(() => {
+    if (mp === "ok") toast.success("Mercado Pago conectado!");
+    if (mp === "erro") toast.error("Falha ao conectar o Mercado Pago", { description: mp_msg });
+  }, [mp, mp_msg]);
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
@@ -271,6 +282,7 @@ WHERE user_id = '${currentUid}';`;
         {tab === "horarios" && <HorariosTab barber={barber} />}
         {tab === "historico" && <HistoricoTab barber={barber} />}
         {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
+        {tab === "pagamentos" && barber.is_admin && <PagamentosTab barber={barber} />}
         {tab === "clientes" && <ClientesTab barber={barber} />}
         {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
 
