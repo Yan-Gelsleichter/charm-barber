@@ -9,7 +9,9 @@ import { filterActiveAppointments } from "@/lib/availability";
 export function DashboardTab({ barber }: { barber: Barber }) {
   const q = useQuery({
     queryKey: ["dash", barber.id],
+    refetchInterval: 20_000,
     queryFn: async () => {
+
       const monthAgo = new Date();
       monthAgo.setDate(monthAgo.getDate() - 31);
       const [agRes, svRes] = await Promise.all([
