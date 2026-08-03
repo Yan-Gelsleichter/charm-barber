@@ -16,6 +16,7 @@ import { Route as PainelRouteImport } from './routes/painel'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
+import { Route as ApiPublicMercadopagoPixRouteImport } from './routes/api/public/mercadopago-pix'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -53,6 +54,11 @@ const ApiPublicMercadopagoOauthRoute =
     path: '/api/public/mercadopago-oauth',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMercadopagoPixRoute = ApiPublicMercadopagoPixRouteImport.update({
+  id: '/api/public/mercadopago-pix',
+  path: '/api/public/mercadopago-pix',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -62,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
+  '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByTo {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
+  '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -81,6 +89,7 @@ export interface FileRoutesById {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
+  '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -92,6 +101,7 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/pagamento/$appointmentId'
     | '/api/public/mercadopago-oauth'
+    | '/api/public/mercadopago-pix'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -101,6 +111,7 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/pagamento/$appointmentId'
     | '/api/public/mercadopago-oauth'
+    | '/api/public/mercadopago-pix'
   id:
     | '__root__'
     | '/'
@@ -110,6 +121,7 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/pagamento/$appointmentId'
     | '/api/public/mercadopago-oauth'
+    | '/api/public/mercadopago-pix'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -120,6 +132,7 @@ export interface RootRouteChildren {
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
+  ApiPublicMercadopagoPixRoute: typeof ApiPublicMercadopagoPixRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -173,6 +186,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMercadopagoOauthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mercadopago-pix': {
+      id: '/api/public/mercadopago-pix'
+      path: '/api/public/mercadopago-pix'
+      fullPath: '/api/public/mercadopago-pix'
+      preLoaderRoute: typeof ApiPublicMercadopagoPixRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -184,17 +204,8 @@ const rootRouteChildren: RootRouteChildren = {
   AgendarBarbeiroIdRoute: AgendarBarbeiroIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
+  ApiPublicMercadopagoPixRoute: ApiPublicMercadopagoPixRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
