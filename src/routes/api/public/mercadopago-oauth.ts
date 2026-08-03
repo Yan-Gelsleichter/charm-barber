@@ -22,8 +22,8 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           if (errorParam) return backTo(appUrl, { mp: "erro", mp_msg: errorParam });
           if (!code || !state) return backTo(appUrl, { mp: "erro", mp_msg: "code/state ausente" });
 
-          const redirectUri =
-            process.env["MP_REDIRECT_URI"] || `${appUrl}/api/public/mercadopago-oauth`;
+          const redirectUri = `${appUrl}/api/public/mercadopago-oauth`;
+
 
           const tokenRes = await fetch("https://api.mercadopago.com/oauth/token", {
             method: "POST",
