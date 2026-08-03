@@ -43,8 +43,9 @@ export function mapPaymentStatus(mpStatus?: string | null): string {
 }
 
 /** Atualiza o pagamento sem quebrar caso as colunas ainda não existam. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function savePayment(
-  admin: ReturnType<typeof createClient>,
+  admin: { from: (table: string) => any },
   enabled: boolean,
   appointmentId: string,
   values: Record<string, unknown>,
