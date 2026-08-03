@@ -29,9 +29,11 @@ export function PagamentosTab({ barber }: { barber: Barber }) {
   const [clientId, setClientId] = useState(() => envClientId() || storedClientId());
 
   const redirectUri = useMemo(() => {
-    const base = (import.meta.env.VITE_SUPABASE_URL as string) ?? "";
-    return `${base}/functions/v1/mercadopago-oauth`;
+    const base =
+      typeof window !== "undefined" ? window.location.origin : "https://charm-barber.lovable.app";
+    return `${base}/api/public/mercadopago-oauth`;
   }, []);
+
 
   const statusQ = useQuery({
     queryKey: ["mp-status", shopId],
