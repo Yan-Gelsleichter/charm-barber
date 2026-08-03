@@ -1,0 +1,10 @@
+project_id = "axuvfztbyfmswpcveujo"
+
+[functions.mercadopago-oauth]
+verify_jwt = false
+
+[functions.mercadopago-pix]
+verify_jwt = true
+
+[functions.delete-barber-user]
+verify_jwt = true
