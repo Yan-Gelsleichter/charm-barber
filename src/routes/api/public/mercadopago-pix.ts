@@ -42,6 +42,19 @@ export function mapPaymentStatus(mpStatus?: string | null): string {
   }
 }
 
+/** Atualiza o pagamento sem quebrar caso as colunas ainda não existam. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function savePayment(
+  admin: { from: (table: string) => any },
+  enabled: boolean,
+  appointmentId: string,
+  values: Record<string, unknown>,
+) {
+  if (!enabled) return;
+  const { error } = await admin.from("appointments").update(values).eq("id", appointmentId);
+  if (error) console.error("Mercado Pago PIX: falha ao salvar status do pagamento", error);
+}
+
 export const Route = createFileRoute("/api/public/mercadopago-pix")({
   server: {
     handlers: {
@@ -85,16 +98,39 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           const admin = createClient(supabaseUrl, serviceKey, {
             auth: { persistSession: false, autoRefreshToken: false },
           });
-          const { data: appointment, error: appointmentError } = await admin
+          const BASE_COLUMNS = "id, service_id, barbershop_id, customer_name, email";
+          const PAYMENT_COLUMNS = `${BASE_COLUMNS}, payment_status, mp_payment_id`;
+
+          // As colunas de pagamento podem ainda não existir no banco: cai para as básicas.
+          let appointmentQuery = await admin
             .from("appointments")
-            .select(
-              "id, service_id, barbershop_id, customer_name, email, payment_status, mp_payment_id",
-            )
+            .select(PAYMENT_COLUMNS)
             .eq("id", parsed.data.appointment_id)
             .maybeSingle();
+          let paymentColumnsAvailable = true;
+          if (appointmentQuery.error) {
+            paymentColumnsAvailable = false;
+            appointmentQuery = await admin
+              .from("appointments")
+              .select(BASE_COLUMNS)
+              .eq("id", parsed.data.appointment_id)
+              .maybeSingle();
+          }
 
-          if (appointmentError) {
-            console.error("Mercado Pago PIX: falha ao buscar agendamento", appointmentError);
+          const appointment = appointmentQuery.data as
+            | {
+                id: string;
+                service_id: string;
+                barbershop_id: string | null;
+                customer_name: string | null;
+                email: string | null;
+                payment_status?: string | null;
+                mp_payment_id?: string | null;
+              }
+            | null;
+
+          if (appointmentQuery.error) {
+            console.error("Mercado Pago PIX: falha ao buscar agendamento", appointmentQuery.error);
             return json({ error: "Não foi possível localizar o agendamento." }, 500);
           }
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
@@ -137,15 +173,12 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             }
 
             const paymentStatus = mapPaymentStatus(payment.status);
-            await admin
-              .from("appointments")
-              .update({
-                payment_status: paymentStatus,
-                payment_method: "pix",
-                mp_payment_id: String(parsed.data.payment_id),
-                paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
-              })
-              .eq("id", appointment.id);
+            await savePayment(admin, paymentColumnsAvailable, appointment.id, {
+              payment_status: paymentStatus,
+              payment_method: "pix",
+              mp_payment_id: String(parsed.data.payment_id),
+              paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
+            });
 
             return json({
               status: payment.status,
@@ -251,15 +284,12 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             return json({ error: payment.message ?? "Falha ao criar o pagamento PIX." }, 400);
           }
 
-          await admin
-            .from("appointments")
-            .update({
-              payment_status: mapPaymentStatus(payment.status),
-              payment_method: "pix",
-              mp_payment_id: String(payment.id),
-              paid_at: null,
-            })
-            .eq("id", appointment.id);
+          await savePayment(admin, paymentColumnsAvailable, appointment.id, {
+            payment_status: mapPaymentStatus(payment.status),
+            payment_method: "pix",
+            mp_payment_id: String(payment.id),
+            paid_at: null,
+          });
 
           const transaction = payment.point_of_interaction?.transaction_data;
           return json({

@@ -90,12 +90,21 @@ function PagamentoPage() {
     queryKey: ["appointment-pay", appointmentId],
     refetchInterval: paid ? false : 10_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // As colunas de pagamento podem ainda não existir: cai para as básicas.
+      let res = await supabase
         .from("appointments")
-        .select("id, appointment_time, service_id, customer_name, payment_status, mp_payment_id")
+        .select("id, appointment_time, service_id, customer_name, payment_status")
         .eq("id", appointmentId)
         .maybeSingle();
-      if (error) throw error;
+      if (res.error) {
+        res = await supabase
+          .from("appointments")
+          .select("id, appointment_time, service_id, customer_name")
+          .eq("id", appointmentId)
+          .maybeSingle();
+      }
+      const data = res.data;
+      if (res.error) throw res.error;
       if (!data) return null;
       const svc = await supabase
         .from("services")
