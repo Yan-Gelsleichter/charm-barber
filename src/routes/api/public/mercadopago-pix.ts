@@ -6,6 +6,7 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("create"),
     appointment_id: z.string().uuid(),
+    force_new: z.boolean().optional(),
   }),
   z.object({
     action: z.literal("status"),
@@ -19,6 +20,26 @@ function json(body: unknown, status = 200) {
     status,
     headers: { "cache-control": "no-store" },
   });
+}
+
+/** Traduz o status do Mercado Pago para o status usado no app. */
+export function mapPaymentStatus(mpStatus?: string | null): string {
+  switch ((mpStatus ?? "").toLowerCase()) {
+    case "approved":
+    case "authorized":
+      return "pago";
+    case "cancelled":
+      return "cancelado";
+    case "expired":
+      return "expirado";
+    case "rejected":
+      return "falhou";
+    case "refunded":
+    case "charged_back":
+      return "estornado";
+    default:
+      return "pendente";
+  }
 }
 
 export const Route = createFileRoute("/api/public/mercadopago-pix")({
@@ -66,7 +87,9 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           });
           const { data: appointment, error: appointmentError } = await admin
             .from("appointments")
-            .select("id, service_id, barbershop_id, customer_name, email")
+            .select(
+              "id, service_id, barbershop_id, customer_name, email, payment_status, mp_payment_id",
+            )
             .eq("id", parsed.data.appointment_id)
             .maybeSingle();
 
@@ -112,9 +135,26 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               console.error("Mercado Pago PIX: consulta recusada", paymentResponse.status, payment);
               return json({ error: payment.message ?? "Falha ao consultar o pagamento." }, 400);
             }
-            return json({ status: payment.status, status_detail: payment.status_detail });
+
+            const paymentStatus = mapPaymentStatus(payment.status);
+            await admin
+              .from("appointments")
+              .update({
+                payment_status: paymentStatus,
+                payment_method: "pix",
+                mp_payment_id: String(parsed.data.payment_id),
+                paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
+              })
+              .eq("id", appointment.id);
+
+            return json({
+              status: payment.status,
+              status_detail: payment.status_detail,
+              payment_status: paymentStatus,
+            });
           }
 
+          // ---- action === "create" ----
           const { data: service, error: serviceError } = await admin
             .from("services")
             .select("name, price")
@@ -124,21 +164,69 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             return json({ error: "Serviço do agendamento não encontrado." }, 404);
           }
 
+          if (appointment.payment_status === "pago") {
+            return json({ error: "Este agendamento já está pago.", payment_status: "pago" }, 409);
+          }
+
           const amount = Number(service.price ?? 0);
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
+          // Reaproveita o PIX anterior se ainda estiver válido (pendente e não expirado).
+          if (!parsed.data.force_new && appointment.mp_payment_id) {
+            const previousResponse = await fetch(
+              `https://api.mercadopago.com/v1/payments/${encodeURIComponent(appointment.mp_payment_id)}`,
+              { headers: { Authorization: `Bearer ${shop.mp_access_token}` } },
+            );
+            const previous = (await previousResponse.json().catch(() => ({}))) as {
+              id?: number | string;
+              status?: string;
+              date_of_expiration?: string;
+              point_of_interaction?: {
+                transaction_data?: {
+                  qr_code?: string;
+                  qr_code_base64?: string;
+                  ticket_url?: string;
+                };
+              };
+            };
+            const stillValid =
+              previousResponse.ok &&
+              previous.status === "pending" &&
+              (!previous.date_of_expiration ||
+                new Date(previous.date_of_expiration).getTime() > Date.now() + 60_000);
+            if (stillValid && previous.id) {
+              const tx = previous.point_of_interaction?.transaction_data;
+              return json({
+                payment_id: previous.id,
+                status: previous.status ?? "pending",
+                payment_status: "pendente",
+                amount,
+                reused: true,
+                expires_at: previous.date_of_expiration ?? null,
+                qr_code: tx?.qr_code ?? null,
+                qr_code_base64: tx?.qr_code_base64 ?? null,
+                ticket_url: tx?.ticket_url ?? null,
+              });
+            }
+          }
+
+          // Novo PIX: chave de idempotência única por tentativa, sempre no mesmo agendamento.
+          const attemptKey = `appointment-${appointment.id}-${Date.now()}`;
+          const expiresAt = new Date(Date.now() + 30 * 60_000);
           const paymentResponse = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${shop.mp_access_token}`,
               "content-type": "application/json",
-              "X-Idempotency-Key": `appointment-${appointment.id}`,
+              "X-Idempotency-Key": attemptKey,
             },
             body: JSON.stringify({
               transaction_amount: Number(amount.toFixed(2)),
               description: `${service.name ?? "Serviço"} — agendamento`,
               payment_method_id: "pix",
               external_reference: appointment.id,
+              date_of_expiration: expiresAt.toISOString(),
+              metadata: { appointment_id: appointment.id },
               payer: {
                 email: userEmail,
                 first_name: String(appointment.customer_name ?? "Cliente").split(" ")[0],
@@ -149,6 +237,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             id?: number | string;
             status?: string;
             message?: string;
+            date_of_expiration?: string;
             point_of_interaction?: {
               transaction_data?: {
                 qr_code?: string;
@@ -162,11 +251,24 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             return json({ error: payment.message ?? "Falha ao criar o pagamento PIX." }, 400);
           }
 
+          await admin
+            .from("appointments")
+            .update({
+              payment_status: mapPaymentStatus(payment.status),
+              payment_method: "pix",
+              mp_payment_id: String(payment.id),
+              paid_at: null,
+            })
+            .eq("id", appointment.id);
+
           const transaction = payment.point_of_interaction?.transaction_data;
           return json({
             payment_id: payment.id,
             status: payment.status ?? "pending",
+            payment_status: mapPaymentStatus(payment.status),
             amount,
+            reused: false,
+            expires_at: payment.date_of_expiration ?? expiresAt.toISOString(),
             qr_code: transaction?.qr_code ?? null,
             qr_code_base64: transaction?.qr_code_base64 ?? null,
             ticket_url: transaction?.ticket_url ?? null,
