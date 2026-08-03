@@ -17,6 +17,24 @@ type PixData = {
   ticket_url: string | null;
 };
 
+async function callPixApi(body: Record<string, unknown>) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Sua sessão expirou. Faça login novamente.");
+
+  const response = await fetch("/api/public/mercadopago-pix", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json().catch(() => ({}))) as { error?: string } & Partial<PixData>;
+  if (!response.ok) throw new Error(data.error ?? "Falha ao processar o pagamento PIX.");
+  return data;
+}
+
 export const Route = createFileRoute("/pagamento/$appointmentId")({
   head: () => ({
     meta: [
@@ -67,14 +85,8 @@ function PagamentoPage() {
 
   const createPix = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("mercadopago-pix", {
-        body: { appointment_id: appointmentId },
-      });
-      if (error) {
-        const msg = await extractError(error);
-        throw new Error(msg);
-      }
-      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+      const data = await callPixApi({ action: "create", appointment_id: appointmentId });
+      if (!data.payment_id) throw new Error("O Mercado Pago não retornou os dados do PIX.");
       return data as PixData;
     },
     onSuccess: (d) => setPix(d),
@@ -85,15 +97,20 @@ function PagamentoPage() {
   useEffect(() => {
     if (!pix?.payment_id || paid) return;
     const timer = setInterval(async () => {
-      const { data } = await supabase.functions.invoke("mercadopago-pix", {
-        body: { action: "status", payment_id: pix.payment_id, appointment_id: appointmentId },
-      });
-      const status = (data as { status?: string } | null)?.status;
-      if (status === "approved") {
-        setPaid(true);
-        clearInterval(timer);
-        toast.success("Pagamento confirmado!");
-        setTimeout(() => navigate({ to: "/meus-agendamentos" }), 1500);
+      try {
+        const data = await callPixApi({
+          action: "status",
+          payment_id: pix.payment_id,
+          appointment_id: appointmentId,
+        });
+        if (data.status === "approved") {
+          setPaid(true);
+          clearInterval(timer);
+          toast.success("Pagamento confirmado!");
+          setTimeout(() => navigate({ to: "/meus-agendamentos" }), 1500);
+        }
+      } catch (error) {
+        console.error("Falha ao consultar o pagamento PIX", error);
       }
     }, 5000);
     return () => clearInterval(timer);
@@ -191,7 +208,8 @@ function PagamentoPage() {
                 variant="outline"
                 className="w-full"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(pix.qr_code!);
+                  if (!pix.qr_code) return;
+                  await navigator.clipboard.writeText(pix.qr_code);
                   toast.success("Código PIX copiado");
                 }}
               >
@@ -209,17 +227,4 @@ function PagamentoPage() {
       )}
     </main>
   );
-}
-
-async function extractError(error: unknown): Promise<string> {
-  const ctx = (error as { context?: Response })?.context;
-  if (ctx && typeof ctx.json === "function") {
-    try {
-      const body = await ctx.json();
-      if (body?.error) return String(body.error);
-    } catch {
-      /* ignore */
-    }
-  }
-  return (error as Error)?.message ?? "Erro desconhecido";
 }
