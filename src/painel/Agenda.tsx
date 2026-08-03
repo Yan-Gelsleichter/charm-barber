@@ -30,7 +30,9 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
   const q = useQuery({
     queryKey: ["agenda-painel", barber.id, dayKey],
+    refetchInterval: 20_000,
     queryFn: async () => {
+
       const end = new Date(date);
       end.setDate(end.getDate() + 1);
       const [a, h, s, b] = await Promise.all([
