@@ -30,7 +30,9 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
   const q = useQuery({
     queryKey: ["agenda-painel", barber.id, dayKey],
+    refetchInterval: 20_000,
     queryFn: async () => {
+
       const end = new Date(date);
       end.setDate(end.getDate() + 1);
       const [a, h, s, b] = await Promise.all([
@@ -295,12 +297,18 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {a.payment_status === "pago" && (
+                      <span className="rounded-full border border-[color:var(--success)]/40 bg-[color:var(--success)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--success)]">
+                        Pago
+                      </span>
+                    )}
                     {atendido && (
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                         Atendido
                       </span>
                     )}
                     <span className="brand-text font-bold">{sv ? brl(sv.price) : ""}</span>
+
                     <Button
                       variant="ghost"
                       size="icon"

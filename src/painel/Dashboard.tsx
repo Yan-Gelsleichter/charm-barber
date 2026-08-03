@@ -9,7 +9,9 @@ import { filterActiveAppointments } from "@/lib/availability";
 export function DashboardTab({ barber }: { barber: Barber }) {
   const q = useQuery({
     queryKey: ["dash", barber.id],
+    refetchInterval: 20_000,
     queryFn: async () => {
+
       const monthAgo = new Date();
       monthAgo.setDate(monthAgo.getDate() - 31);
       const [agRes, svRes] = await Promise.all([
@@ -104,12 +106,18 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {a.payment_status === "pago" && (
+                      <span className="rounded-full border border-[color:var(--success)]/40 bg-[color:var(--success)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--success)]">
+                        Pago
+                      </span>
+                    )}
                     {atendido && (
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                         Atendido
                       </span>
                     )}
                     <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
+
                   </div>
                 </div>
               );
@@ -140,9 +148,15 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                       {fmtTime(a.appointment_time)}
                     </p>
                   </div>
-                  <span className="brand-text font-bold">
-                    {sv ? brl(sv.price) : "—"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {a.payment_status === "pago" && (
+                      <span className="rounded-full border border-[color:var(--success)]/40 bg-[color:var(--success)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--success)]">
+                        Pago
+                      </span>
+                    )}
+                    <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
+                  </div>
+
                 </div>
               );
             })}
