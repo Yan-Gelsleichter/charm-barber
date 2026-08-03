@@ -50,11 +50,24 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
             });
           }
 
-          const admin = createClient(
-            process.env["SUPABASE_URL"]!,
-            process.env["SUPABASE_SERVICE_ROLE_KEY"]!,
-            { auth: { persistSession: false, autoRefreshToken: false } },
-          );
+          const supabaseUrl =
+            process.env["SUPABASE_URL"] ||
+            process.env["SB_URL"] ||
+            process.env["VITE_SUPABASE_URL"];
+          const supabaseKey =
+            process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
+            process.env["SB_SERVICE_ROLE_KEY"] ||
+            process.env["SERVICE_ROLE_KEY"];
+          if (!supabaseUrl || !supabaseKey) {
+            return backTo(appUrl, {
+              mp: "erro",
+              mp_msg: "Credenciais do banco ausentes no servidor (SB_URL / SB_SERVICE_ROLE_KEY)",
+            });
+          }
+
+          const admin = createClient(supabaseUrl, supabaseKey, {
+            auth: { persistSession: false, autoRefreshToken: false },
+          });
 
           const { error } = await admin
             .from("barbershops")
