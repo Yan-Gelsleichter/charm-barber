@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Loader2, LogOut, RefreshCw, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, Loader2, LogOut, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -174,7 +174,14 @@ function MeusAgendamentosPage() {
                       <span className="font-semibold">{fmtTime(d)}</span>
                     </p>
                   </div>
-                  {s && <span className="brand-text font-bold">{brl(s.price)}</span>}
+                  <div className="flex flex-col items-end gap-1">
+                    {a.payment_status === "pago" && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--success)]/40 bg-[color:var(--success)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--success)]">
+                        <CheckCircle2 className="size-3" /> Pago
+                      </span>
+                    )}
+                    {s && <span className="brand-text font-bold">{brl(s.price)}</span>}
+                  </div>
                 </div>
                 {isUpcoming && (
                   <div className="mt-3 flex justify-end gap-2">
