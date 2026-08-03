@@ -67,6 +67,10 @@ export type Appointment = {
   appointment_time: string;
   status: string;
   barbershop_id?: string | null;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  mp_payment_id?: string | null;
+  paid_at?: string | null;
 };
 export type AppointmentInsert = {
   id?: string;
@@ -78,7 +82,12 @@ export type AppointmentInsert = {
   appointment_time: string;
   status?: string;
   barbershop_id?: string | null;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  mp_payment_id?: string | null;
+  paid_at?: string | null;
 };
+
 
 export type Client = {
   id: string;
