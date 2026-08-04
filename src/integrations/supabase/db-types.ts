@@ -10,6 +10,8 @@ export type Barber = {
   logo_url: string | null;
   primary_color: string | null;
   barbershop_id?: string | null;
+  mp_user_id?: string | null;
+  commission_percent?: number | null;
 };
 export type BarberInsert = {
   id?: string;
