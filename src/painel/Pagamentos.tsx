@@ -53,7 +53,9 @@ export function PagamentosTab({ barber }: { barber: Barber }) {
 
 /** Tela do barbeiro (funcionário): conecta a própria conta no modo split. */
 function MeuMercadoPago({ barber }: { barber: Barber }) {
+  const qc = useQueryClient();
   const [clientId, setClientId] = useState(() => envClientId() || storedClientId());
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const meQ = useQuery({
     queryKey: ["mp-status-barber", barber.id],
     queryFn: async () => {
@@ -67,6 +69,31 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
     },
   });
   const connected = !!meQ.data?.mp_user_id;
+
+  const disconnect = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("barbers")
+        .update({
+          mp_user_id: null,
+          mp_access_token: null,
+          mp_refresh_token: null,
+        } as never)
+        .eq("id", barber.id)
+        .select("id, mp_user_id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Sem permissão para desconectar esta conta");
+      return data as { mp_user_id?: string | null };
+    },
+    onSuccess: () => {
+      setConfirmOpen(false);
+      toast.success("Conta Mercado Pago desconectada");
+      qc.invalidateQueries({ queryKey: ["mp-status-barber", barber.id] });
+    },
+    onError: (e: Error) =>
+      toast.error("Não foi possível desconectar", { description: e.message }),
+  });
 
   function connect() {
     const id = clientId.trim();
@@ -96,6 +123,10 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
             <p className="font-medium">Minha conta Mercado Pago</p>
             {meQ.isLoading ? (
               <p className="text-xs text-muted-foreground">Verificando…</p>
+            ) : meQ.isError ? (
+              <p className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="size-3" /> Erro ao verificar a conexão
+              </p>
             ) : connected ? (
               <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
                 <CheckCircle2 className="size-3" /> Conectada (conta {meQ.data?.mp_user_id})
@@ -125,11 +156,54 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
           <p className="break-all rounded-lg bg-secondary p-3 font-mono text-xs">{mpRedirectUri()}</p>
         </div>
 
-        <Button variant="hero" onClick={connect} disabled={meQ.isLoading}>
-          {meQ.isFetching ? <Loader2 className="animate-spin" /> : <ExternalLink />}
-          {connected ? "Reconectar Mercado Pago" : "Conectar Mercado Pago"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="hero" onClick={connect} disabled={meQ.isLoading || disconnect.isPending}>
+            {meQ.isFetching ? <Loader2 className="animate-spin" /> : <ExternalLink />}
+            {connected ? "Reconectar Mercado Pago" : "Conectar Mercado Pago"}
+          </Button>
+
+          {connected && (
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(true)}
+              disabled={disconnect.isPending}
+            >
+              {disconnect.isPending ? <Loader2 className="animate-spin" /> : <Unlink />}
+              Desconectar
+            </Button>
+          )}
+        </div>
+
+        {meQ.isError && (
+          <Button variant="ghost" size="sm" onClick={() => meQ.refetch()}>
+            Tentar novamente
+          </Button>
+        )}
       </section>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desconectar Mercado Pago?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você deixará de receber sua parte automaticamente pelo split até conectar a conta
+              novamente. Os pagamentos passarão a cair na conta principal da barbearia.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={disconnect.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                disconnect.mutate();
+              }}
+              disabled={disconnect.isPending}
+            >
+              {disconnect.isPending ? "Desconectando…" : "Desconectar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
