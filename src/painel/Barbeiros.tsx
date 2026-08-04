@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, ShieldCheck, ShieldOff, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  CreditCard,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 import { useMeBarber } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
@@ -11,6 +20,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmailInput } from "@/components/EmailInput";
 import { getMyBarbershopId } from "@/lib/barbershop";
+import { usePayoutMode } from "@/hooks/use-payout-mode";
+import { cn } from "@/lib/utils";
+import {
+  envClientId,
+  mpAuthUrl,
+  mpRedirectUri,
+  saveClientId,
+  storedClientId,
+} from "@/lib/mercadopago";
+
+type BarberRow = Barber & { mp_user_id?: string | null };
 
 export function BarbeirosTab() {
   const qc = useQueryClient();
@@ -19,6 +39,10 @@ export function BarbeirosTab() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [admin, setAdmin] = useState(false);
+  const [sub, setSub] = useState<"equipe" | "pagamentos">("equipe");
+  const { data: payoutMode } = usePayoutMode(me?.barbershop_id ?? null);
+  const splitOn = payoutMode === "split";
+
 
   const q = useQuery({
     queryKey: ["barbers-painel", me?.barbershop_id ?? null],
