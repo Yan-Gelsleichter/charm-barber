@@ -310,8 +310,6 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               },
             }),
           });
-
-          });
           const payment = (await paymentResponse.json().catch(() => ({}))) as {
             id?: number | string;
             status?: string;
