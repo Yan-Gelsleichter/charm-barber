@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMeBarber } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
+import { usePayoutMode } from "@/hooks/use-payout-mode";
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "horarios", label: "Horários", icon: Clock4 },
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
-  { id: "pagamentos", label: "Pagamentos", icon: CreditCard, adminOnly: true },
+  { id: "pagamentos", label: "Pagamentos", icon: CreditCard },
   { id: "perfil", label: "Perfil", icon: UserRound },
 ];
 
@@ -78,6 +79,8 @@ function PainelPage() {
   const shopLogo = barber?.logo_url ?? shop?.logo_url ?? null;
   const shopName = shop?.business_name ?? barber?.business_name ?? null;
   useApplyPrimaryColor(barber?.primary_color ?? shop?.primary_color ?? null);
+  const { data: payoutMode } = usePayoutMode(barber?.barbershop_id ?? null);
+  const splitOn = payoutMode === "split";
 
   useEffect(() => {
     if (mp === "ok") toast.success("Mercado Pago conectado!");
@@ -235,7 +238,12 @@ WHERE user_id = '${currentUid}';`;
     );
   }
 
-  const items = NAV.filter((n) => !n.adminOnly || barber.is_admin);
+  const items = NAV.filter(
+    (n) =>
+      (!n.adminOnly || barber.is_admin) &&
+      // Barbeiro comum só vê Pagamentos quando o admin ativa o split por subcontas.
+      (n.id !== "pagamentos" || barber.is_admin || splitOn),
+  );
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -282,7 +290,7 @@ WHERE user_id = '${currentUid}';`;
         {tab === "horarios" && <HorariosTab barber={barber} />}
         {tab === "historico" && <HistoricoTab barber={barber} />}
         {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
-        {tab === "pagamentos" && barber.is_admin && <PagamentosTab barber={barber} />}
+        {tab === "pagamentos" && (barber.is_admin || splitOn) && <PagamentosTab barber={barber} />}
         {tab === "clientes" && <ClientesTab barber={barber} />}
         {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
 

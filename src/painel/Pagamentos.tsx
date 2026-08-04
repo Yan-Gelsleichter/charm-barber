@@ -41,12 +41,100 @@ const MODES: { id: PayoutMode; title: string; desc: string; icon: React.ElementT
   {
     id: "split",
     title: "Split por subcontas",
-    desc: "Cada barbeiro conecta a própria conta do Mercado Pago (aba Pagamentos em Barbeiros) e recebe sua parte direto no split.",
+    desc: "Cada barbeiro conecta a própria conta do Mercado Pago no painel dele e recebe sua parte direto no split.",
     icon: Split,
   },
 ];
 
 export function PagamentosTab({ barber }: { barber: Barber }) {
+  if (!barber.is_admin) return <MeuMercadoPago barber={barber} />;
+  return <AdminPagamentos barber={barber} />;
+}
+
+/** Tela do barbeiro (funcionário): conecta a própria conta no modo split. */
+function MeuMercadoPago({ barber }: { barber: Barber }) {
+  const [clientId, setClientId] = useState(() => envClientId() || storedClientId());
+  const meQ = useQuery({
+    queryKey: ["mp-status-barber", barber.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("barbers")
+        .select("id, mp_user_id")
+        .eq("id", barber.id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as { mp_user_id?: string | null } | null) ?? null;
+    },
+  });
+  const connected = !!meQ.data?.mp_user_id;
+
+  function connect() {
+    const id = clientId.trim();
+    if (!id) {
+      toast.error("Informe o Client ID da aplicação no Mercado Pago");
+      return;
+    }
+    saveClientId(id);
+    window.location.href = mpAuthUrl(id, `barber:${barber.id}`);
+  }
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-lg font-semibold">Pagamentos</h1>
+        <p className="text-sm text-muted-foreground">
+          Conecte sua conta do Mercado Pago para receber sua parte diretamente pelo split.
+        </p>
+      </header>
+
+      <section className="surface space-y-4 p-4">
+        <div className="flex items-center gap-3">
+          <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-xl text-white">
+            <CreditCard className="size-5" />
+          </div>
+          <div className="flex-1">
+            <p className="font-medium">Minha conta Mercado Pago</p>
+            {meQ.isLoading ? (
+              <p className="text-xs text-muted-foreground">Verificando…</p>
+            ) : connected ? (
+              <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
+                <CheckCircle2 className="size-3" /> Conectada (conta {meQ.data?.mp_user_id})
+              </p>
+            ) : (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <AlertCircle className="size-3" /> Não conectada
+              </p>
+            )}
+          </div>
+        </div>
+
+        {!envClientId() && (
+          <div className="space-y-1">
+            <Label htmlFor="mpclientbarber">Client ID da aplicação Mercado Pago</Label>
+            <Input
+              id="mpclientbarber"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              placeholder="Ex.: 1234567890123456"
+            />
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <Label>Redirect URI</Label>
+          <p className="break-all rounded-lg bg-secondary p-3 font-mono text-xs">{mpRedirectUri()}</p>
+        </div>
+
+        <Button variant="hero" onClick={connect} disabled={meQ.isLoading}>
+          {meQ.isFetching ? <Loader2 className="animate-spin" /> : <ExternalLink />}
+          {connected ? "Reconectar Mercado Pago" : "Conectar Mercado Pago"}
+        </Button>
+      </section>
+    </div>
+  );
+}
+
+function AdminPagamentos({ barber }: { barber: Barber }) {
   const shopId = barber.barbershop_id ?? null;
   const qc = useQueryClient();
   const [clientId, setClientId] = useState(() => envClientId() || storedClientId());
@@ -181,8 +269,8 @@ export function PagamentosTab({ barber }: { barber: Barber }) {
 
         {mode === "split" && (
           <p className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs text-muted-foreground">
-            Ativo: a aba <span className="font-semibold text-foreground">Pagamentos</span> na tela de
-            Barbeiros permite conectar a conta Mercado Pago de cada profissional.
+            Ativo: cada barbeiro vê a aba <span className="font-semibold text-foreground">Pagamentos</span>{" "}
+            no próprio painel e conecta a conta Mercado Pago dele por lá.
           </p>
         )}
       </section>
