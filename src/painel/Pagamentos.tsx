@@ -8,7 +8,18 @@ import {
   AlertCircle,
   Wallet,
   Split,
+  Unlink,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
