@@ -161,6 +161,26 @@ export function BarbeirosTab() {
 
   return (
     <div className="space-y-6">
+      {splitOn && (
+        <div className="flex gap-1 rounded-xl bg-secondary p-1">
+          {(["equipe", "pagamentos"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setSub(t)}
+              className={cn(
+                "flex-1 rounded-lg px-3 py-2 text-sm font-medium capitalize transition-colors",
+                sub === t ? "bg-background shadow-sm" : "text-muted-foreground",
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {sub === "equipe" && (
+        <>
       <section className="surface p-4">
         <h2 className="mb-3 font-semibold">Cadastrar novo barbeiro</h2>
         <div className="grid gap-3 sm:grid-cols-2">
