@@ -73,7 +73,7 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           const isBarber = state.startsWith("barber:");
           const table = isBarber ? "barbers" : "barbershops";
           const rowId = isBarber ? state.slice("barber:".length) : state;
-          const tab = isBarber ? "barbeiros" : "pagamentos";
+          const tab = "pagamentos";
 
           const { error } = await admin
             .from(table)
