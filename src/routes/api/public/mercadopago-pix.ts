@@ -284,32 +284,53 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           const shopFee = barberSplit
             ? Number(((amount * (100 - barberSplit.commissionPercent)) / 100).toFixed(2))
             : 0;
-          const paymentResponse = await fetch("https://api.mercadopago.com/v1/payments", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "content-type": "application/json",
-              "X-Idempotency-Key": attemptKey,
+          const paymentBody: Record<string, unknown> = {
+            transaction_amount: Number(amount.toFixed(2)),
+            description: `${service.name ?? "Serviço"} — agendamento`,
+            payment_method_id: "pix",
+            external_reference: appointment.id,
+            date_of_expiration: expiresAt.toISOString(),
+            metadata: {
+              appointment_id: appointment.id,
+              payout_mode: barberSplit ? "split" : "unica",
+              barber_id: appointment.barber_id ?? null,
+              commission_percent: barberSplit?.commissionPercent ?? null,
             },
-            body: JSON.stringify({
-              transaction_amount: Number(amount.toFixed(2)),
-              description: `${service.name ?? "Serviço"} — agendamento`,
-              payment_method_id: "pix",
-              external_reference: appointment.id,
-              date_of_expiration: expiresAt.toISOString(),
-              metadata: {
-                appointment_id: appointment.id,
-                payout_mode: barberSplit ? "split" : "unica",
-                barber_id: appointment.barber_id ?? null,
-                commission_percent: barberSplit?.commissionPercent ?? null,
+            payer: {
+              email: userEmail,
+              first_name: String(appointment.customer_name ?? "Cliente").split(" ")[0],
+            },
+          };
+          // API atual do Mercado Pago: a taxa da plataforma é `application_fee`
+          // (`marketplace_fee` foi descontinuado e é rejeitado como parâmetro inválido).
+          if (shopFee > 0) paymentBody["application_fee"] = shopFee;
+
+          const createPayment = (body: Record<string, unknown>, key: string) =>
+            fetch("https://api.mercadopago.com/v1/payments", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "content-type": "application/json",
+                "X-Idempotency-Key": key,
               },
-              ...(shopFee > 0 ? { application_fee: shopFee, marketplace_fee: shopFee } : {}),
-              payer: {
-                email: userEmail,
-                first_name: String(appointment.customer_name ?? "Cliente").split(" ")[0],
-              },
-            }),
-          });
+              body: JSON.stringify(body),
+            });
+
+          let paymentResponse = await createPayment(paymentBody, attemptKey);
+          if (!paymentResponse.ok && shopFee > 0) {
+            const clone = await paymentResponse
+              .clone()
+              .json()
+              .catch(() => ({}) as Record<string, unknown>);
+            const msg = JSON.stringify(clone);
+            // Conta sem marketplace habilitado: refaz sem a taxa para não bloquear o pagamento.
+            if (msg.includes("application_fee") || msg.includes("marketplace")) {
+              console.warn("Mercado Pago PIX: application_fee recusado, recriando sem split", msg);
+              delete paymentBody["application_fee"];
+              paymentResponse = await createPayment(paymentBody, `${attemptKey}-nofee`);
+            }
+          }
+
           const payment = (await paymentResponse.json().catch(() => ({}))) as {
             id?: number | string;
             status?: string;
