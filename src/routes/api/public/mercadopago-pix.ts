@@ -194,7 +194,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           if (parsed.data.action === "status") {
             const paymentResponse = await fetch(
               `https://api.mercadopago.com/v1/payments/${encodeURIComponent(String(parsed.data.payment_id))}`,
-              { headers: { Authorization: `Bearer ${shop.mp_access_token}` } },
+              { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const payment = (await paymentResponse.json().catch(() => ({}))) as {
               status?: string;
@@ -242,7 +242,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           if (!parsed.data.force_new && appointment.mp_payment_id) {
             const previousResponse = await fetch(
               `https://api.mercadopago.com/v1/payments/${encodeURIComponent(appointment.mp_payment_id)}`,
-              { headers: { Authorization: `Bearer ${shop.mp_access_token}` } },
+              { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const previous = (await previousResponse.json().catch(() => ({}))) as {
               id?: number | string;
@@ -283,7 +283,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           const paymentResponse = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${shop.mp_access_token}`,
+              Authorization: `Bearer ${accessToken}`,
               "content-type": "application/json",
               "X-Idempotency-Key": attemptKey,
             },
