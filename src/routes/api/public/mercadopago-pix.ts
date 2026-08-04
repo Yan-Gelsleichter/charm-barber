@@ -280,6 +280,10 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           // Novo PIX: chave de idempotência única por tentativa, sempre no mesmo agendamento.
           const attemptKey = `appointment-${appointment.id}-${Date.now()}`;
           const expiresAt = new Date(Date.now() + 30 * 60_000);
+          // No split, a barbearia fica com (100 - comissão do barbeiro).
+          const shopFee = barberSplit
+            ? Number(((amount * (100 - barberSplit.commissionPercent)) / 100).toFixed(2))
+            : 0;
           const paymentResponse = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
@@ -293,12 +297,20 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               payment_method_id: "pix",
               external_reference: appointment.id,
               date_of_expiration: expiresAt.toISOString(),
-              metadata: { appointment_id: appointment.id },
+              metadata: {
+                appointment_id: appointment.id,
+                payout_mode: barberSplit ? "split" : "unica",
+                barber_id: appointment.barber_id ?? null,
+                commission_percent: barberSplit?.commissionPercent ?? null,
+              },
+              ...(shopFee > 0 ? { application_fee: shopFee, marketplace_fee: shopFee } : {}),
               payer: {
                 email: userEmail,
                 first_name: String(appointment.customer_name ?? "Cliente").split(" ")[0],
               },
             }),
+          });
+
           });
           const payment = (await paymentResponse.json().catch(() => ({}))) as {
             id?: number | string;
