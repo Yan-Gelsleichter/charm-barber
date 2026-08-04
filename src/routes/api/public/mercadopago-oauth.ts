@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 
-function backTo(appUrl: string, params: Record<string, string>) {
+function backTo(appUrl: string, params: Record<string, string>, tab = "pagamentos") {
   const target = new URL(`${appUrl}/painel`);
-  target.searchParams.set("tab", "pagamentos");
+  target.searchParams.set("tab", tab);
   for (const [k, v] of Object.entries(params)) target.searchParams.set(k, v);
   return Response.redirect(target.toString(), 302);
 }
@@ -69,17 +69,23 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
             auth: { persistSession: false, autoRefreshToken: false },
           });
 
+          // state = "<barbershop_id>" (conta única) ou "barber:<barber_id>" (split por subcontas)
+          const isBarber = state.startsWith("barber:");
+          const table = isBarber ? "barbers" : "barbershops";
+          const rowId = isBarber ? state.slice("barber:".length) : state;
+          const tab = isBarber ? "barbeiros" : "pagamentos";
+
           const { error } = await admin
-            .from("barbershops")
+            .from(table)
             .update({
               mp_access_token: token.access_token,
               mp_refresh_token: token.refresh_token ?? null,
               mp_user_id: token.user_id ? String(token.user_id) : null,
             })
-            .eq("id", state);
-          if (error) return backTo(appUrl, { mp: "erro", mp_msg: error.message });
+            .eq("id", rowId);
+          if (error) return backTo(appUrl, { mp: "erro", mp_msg: error.message }, tab);
 
-          return backTo(appUrl, { mp: "ok" });
+          return backTo(appUrl, { mp: "ok" }, tab);
         } catch (e) {
           return backTo(appUrl, { mp: "erro", mp_msg: (e as Error).message });
         }
