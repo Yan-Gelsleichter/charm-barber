@@ -98,7 +98,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           const admin = createClient(supabaseUrl, serviceKey, {
             auth: { persistSession: false, autoRefreshToken: false },
           });
-          const BASE_COLUMNS = "id, service_id, barbershop_id, customer_name, email";
+          const BASE_COLUMNS = "id, service_id, barber_id, barbershop_id, customer_name, email";
           const PAYMENT_COLUMNS = `${BASE_COLUMNS}, payment_status, mp_payment_id`;
 
           // As colunas de pagamento podem ainda não existir no banco: cai para as básicas.
@@ -121,6 +121,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             | {
                 id: string;
                 service_id: string;
+                barber_id: string | null;
                 barbershop_id: string | null;
                 customer_name: string | null;
                 email: string | null;
@@ -146,21 +147,54 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
 
           const { data: shop, error: shopError } = await admin
             .from("barbershops")
-            .select("mp_access_token")
+            .select("mp_access_token, payout_mode")
             .eq("id", appointment.barbershop_id)
             .maybeSingle();
           if (shopError) {
             console.error("Mercado Pago PIX: falha ao buscar barbearia", shopError);
             return json({ error: "Não foi possível carregar a conta de pagamento." }, 500);
           }
-          if (!shop?.mp_access_token) {
-            return json({ error: "Esta barbearia ainda não conectou o Mercado Pago." }, 400);
+
+          // Split por subcontas: cobra na conta do próprio barbeiro e repassa a
+          // parte da barbearia via application_fee.
+          let barberSplit: { accessToken: string; commissionPercent: number } | null = null;
+          if (shop?.payout_mode === "split" && appointment.barber_id) {
+            const { data: barber, error: barberError } = await admin
+              .from("barbers")
+              .select("mp_access_token, commission_percent")
+              .eq("id", appointment.barber_id)
+              .maybeSingle();
+            if (barberError) {
+              console.error("Mercado Pago PIX: falha ao buscar barbeiro", barberError);
+            } else if ((barber as { mp_access_token?: string | null } | null)?.mp_access_token) {
+              const raw = Number(
+                (barber as { commission_percent?: number | null }).commission_percent ?? 0,
+              );
+              barberSplit = {
+                accessToken: (barber as { mp_access_token: string }).mp_access_token,
+                commissionPercent: Math.min(100, Math.max(0, Number.isFinite(raw) ? raw : 0)),
+              };
+            }
           }
+
+          const accessToken = barberSplit?.accessToken ?? shop?.mp_access_token;
+          if (!accessToken) {
+            return json(
+              {
+                error:
+                  shop?.payout_mode === "split"
+                    ? "Este profissional ainda não conectou o Mercado Pago."
+                    : "Esta barbearia ainda não conectou o Mercado Pago.",
+              },
+              400,
+            );
+          }
+
 
           if (parsed.data.action === "status") {
             const paymentResponse = await fetch(
               `https://api.mercadopago.com/v1/payments/${encodeURIComponent(String(parsed.data.payment_id))}`,
-              { headers: { Authorization: `Bearer ${shop.mp_access_token}` } },
+              { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const payment = (await paymentResponse.json().catch(() => ({}))) as {
               status?: string;
@@ -208,7 +242,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           if (!parsed.data.force_new && appointment.mp_payment_id) {
             const previousResponse = await fetch(
               `https://api.mercadopago.com/v1/payments/${encodeURIComponent(appointment.mp_payment_id)}`,
-              { headers: { Authorization: `Bearer ${shop.mp_access_token}` } },
+              { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const previous = (await previousResponse.json().catch(() => ({}))) as {
               id?: number | string;
@@ -246,10 +280,14 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           // Novo PIX: chave de idempotência única por tentativa, sempre no mesmo agendamento.
           const attemptKey = `appointment-${appointment.id}-${Date.now()}`;
           const expiresAt = new Date(Date.now() + 30 * 60_000);
+          // No split, a barbearia fica com (100 - comissão do barbeiro).
+          const shopFee = barberSplit
+            ? Number(((amount * (100 - barberSplit.commissionPercent)) / 100).toFixed(2))
+            : 0;
           const paymentResponse = await fetch("https://api.mercadopago.com/v1/payments", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${shop.mp_access_token}`,
+              Authorization: `Bearer ${accessToken}`,
               "content-type": "application/json",
               "X-Idempotency-Key": attemptKey,
             },
@@ -259,7 +297,13 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               payment_method_id: "pix",
               external_reference: appointment.id,
               date_of_expiration: expiresAt.toISOString(),
-              metadata: { appointment_id: appointment.id },
+              metadata: {
+                appointment_id: appointment.id,
+                payout_mode: barberSplit ? "split" : "unica",
+                barber_id: appointment.barber_id ?? null,
+                commission_percent: barberSplit?.commissionPercent ?? null,
+              },
+              ...(shopFee > 0 ? { application_fee: shopFee, marketplace_fee: shopFee } : {}),
               payer: {
                 email: userEmail,
                 first_name: String(appointment.customer_name ?? "Cliente").split(" ")[0],
