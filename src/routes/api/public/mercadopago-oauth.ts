@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 
-function backTo(appUrl: string, params: Record<string, string>) {
+function backTo(appUrl: string, params: Record<string, string>, tab = "pagamentos") {
   const target = new URL(`${appUrl}/painel`);
-  target.searchParams.set("tab", "pagamentos");
+  target.searchParams.set("tab", tab);
   for (const [k, v] of Object.entries(params)) target.searchParams.set(k, v);
   return Response.redirect(target.toString(), 302);
 }
