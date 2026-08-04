@@ -82,24 +82,38 @@ export function PagamentosTab({ barber }: { barber: Barber }) {
   const saveMode = useMutation({
     mutationFn: async (next: PayoutMode) => {
       if (!shopId) throw new Error("Sua conta não está vinculada a uma barbearia");
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("barbershops" as never)
         .update({ payout_mode: next } as never)
-        .eq("id", shopId);
+        .eq("id", shopId)
+        .select("id, payout_mode")
+        .maybeSingle();
       if (error) throw error;
+      // Sem linha retornada = update bloqueado por RLS (nada foi salvo).
+      if (!data) throw new Error("Sem permissão para alterar esta barbearia");
+      return (data as ShopRow).payout_mode === "split" ? "split" : "unica";
     },
-    onSuccess: (_d, next) => {
+    onSuccess: (saved: PayoutMode) => {
+      setMode(saved);
       toast.success(
-        next === "split" ? "Split por subcontas ativado" : "Modelo de conta única ativado",
+        saved === "split" ? "Split por subcontas ativado" : "Modelo de conta única ativado",
+      );
+      qc.setQueryData(["payout-mode", shopId], saved);
+      qc.setQueryData(["mp-status", shopId], (prev: ShopRow | null | undefined) =>
+        prev ? { ...prev, payout_mode: saved } : prev,
       );
       qc.invalidateQueries({ queryKey: ["mp-status", shopId] });
       qc.invalidateQueries({ queryKey: ["payout-mode"] });
     },
-    onError: (e: Error) =>
+    onError: (e: Error) => {
+      const saved = statusQ.data?.payout_mode;
+      setMode(saved === "split" ? "split" : "unica");
       toast.error("Não foi possível salvar o modelo", {
         description: `${e.message}. Rode docs/add-payout-mode.sql no Supabase.`,
-      }),
+      });
+    },
   });
+
 
   const connected = !!statusQ.data?.mp_user_id;
 
