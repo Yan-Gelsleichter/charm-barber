@@ -360,6 +360,9 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
         )}
       </section>
 
+      {mode === "split" && <ComissoesBarbeiros shopId={shopId} />}
+
+
       <section className="surface space-y-4 p-4">
         <div className="flex items-center gap-3">
           <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-xl text-white">
