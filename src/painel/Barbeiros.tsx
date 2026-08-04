@@ -251,6 +251,89 @@ export function BarbeirosTab() {
           ))}
         </div>
       </section>
+        </>
+      )}
+
+      {sub === "pagamentos" && splitOn && (
+        <BarbeirosPagamentos barbers={(q.data ?? []) as BarberRow[]} loading={q.isLoading} />
+      )}
+    </div>
+  );
+}
+
+function BarbeirosPagamentos({
+  barbers,
+  loading,
+}: {
+  barbers: BarberRow[];
+  loading: boolean;
+}) {
+  const [clientId, setClientId] = useState(() => envClientId() || storedClientId());
+
+  function connect(b: BarberRow) {
+    const id = clientId.trim();
+    if (!id) {
+      toast.error("Informe o Client ID da aplicação no Mercado Pago");
+      return;
+    }
+    saveClientId(id);
+    window.location.href = mpAuthUrl(id, `barber:${b.id}`);
+  }
+
+  return (
+    <div className="space-y-4">
+      <section className="surface space-y-3 p-4">
+        <div>
+          <p className="font-medium">Split por subcontas</p>
+          <p className="text-xs text-muted-foreground">
+            Cada profissional conecta a própria conta do Mercado Pago para receber sua parte
+            diretamente. Redirect URI: <span className="font-mono">{mpRedirectUri()}</span>
+          </p>
+        </div>
+        {!envClientId() && (
+          <div className="space-y-1">
+            <Label>Client ID da aplicação Mercado Pago</Label>
+            <Input
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              placeholder="Ex.: 1234567890123456"
+            />
+          </div>
+        )}
+      </section>
+
+      {loading && <Loader2 className="animate-spin" />}
+
+      <div className="grid gap-2">
+        {barbers.map((b) => {
+          const connected = !!b.mp_user_id;
+          return (
+            <div key={b.id} className="surface flex items-center justify-between gap-3 p-4">
+              <div className="flex items-center gap-3">
+                <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white">
+                  {b.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold">{b.name}</p>
+                  {connected ? (
+                    <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
+                      <CheckCircle2 className="size-3" /> Conectado (conta {b.mp_user_id})
+                    </p>
+                  ) : (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <AlertCircle className="size-3" /> Não conectado
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => connect(b)}>
+                <CreditCard />
+                {connected ? "Reconectar" : "Conectar Mercado Pago"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
