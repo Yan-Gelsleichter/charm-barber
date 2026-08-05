@@ -239,6 +239,52 @@ type Collector = {
   shopFee: number;
 };
 
+/**
+ * Public key da conta conectada via OAuth.
+ * Se a barbearia/barbeiro não preencheu a chave manualmente, obtemos a chave
+ * direto do Mercado Pago usando as credenciais da conexão OAuth (refresh_token)
+ * e guardamos para as próximas cobranças.
+ */
+async function resolvePublicKey(
+  admin: ReturnType<typeof createClient>,
+  table: "barbershops" | "barbers",
+  rowId: string,
+  current: string | null,
+  refreshToken: string | null,
+): Promise<string | null> {
+  if (current) return current;
+  const clientId = process.env["MP_CLIENT_ID"];
+  const clientSecret = process.env["MP_CLIENT_SECRET"];
+  if (!refreshToken || !clientId || !clientSecret) return null;
+
+  try {
+    const res = await fetch("https://api.mercadopago.com/oauth/token", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }),
+    });
+    const token = (await res.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+      public_key?: string;
+    };
+    if (!res.ok || !token.public_key) return null;
+
+    const payload: Record<string, unknown> = { mp_public_key: token.public_key };
+    if (token.access_token) payload["mp_access_token"] = token.access_token;
+    if (token.refresh_token) payload["mp_refresh_token"] = token.refresh_token;
+    await admin.from(table).update(payload).eq("id", rowId);
+    return token.public_key;
+  } catch {
+    return null;
+  }
+}
+
 export const Route = createFileRoute("/api/public/mercadopago-cards")({
   server: {
     handlers: {
