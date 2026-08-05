@@ -41,6 +41,43 @@ function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "cache-control": "no-store" } });
 }
 
+const BRAND_BINS: Array<[string, RegExp]> = [
+  ["Amex", /^3[47]/],
+  ["Diners", /^3(?:0[0-5]|[68])/],
+  ["Elo", /^(4011|4312|4389|4514|4576|5041|5066|5090|6277|6362|6363|650|6516|6550)/],
+  ["Hipercard", /^(606282|3841)/],
+  ["Visa", /^4/],
+  ["Mastercard", /^(5[1-5]|2(2[2-9]|[3-6]|7[01]|720))/],
+  ["Discover", /^(6011|64[4-9]|65)/],
+  ["JCB", /^35(2[89]|[3-8])/],
+];
+
+const BRAND_ALIASES: Array<[string, RegExp]> = [
+  ["Amex", /amex|american/i],
+  ["Diners", /diners/i],
+  ["Elo", /elo/i],
+  ["Hipercard", /hiper/i],
+  ["Visa", /visa/i],
+  ["Mastercard", /master|mc$/i],
+  ["Discover", /discover/i],
+  ["JCB", /jcb/i],
+];
+
+/** Normaliza a bandeira: usa o nome vindo do Mercado Pago e cai para o BIN. */
+function normalizeBrand(name?: string | null, cardNumber?: string | null): string | null {
+  const raw = (name ?? "").trim();
+  if (raw) {
+    const alias = BRAND_ALIASES.find(([, re]) => re.test(raw));
+    if (alias) return alias[0];
+  }
+  const pan = (cardNumber ?? "").replace(/\D/g, "");
+  if (pan) {
+    const bin = BRAND_BINS.find(([, re]) => re.test(pan));
+    if (bin) return bin[0];
+  }
+  return raw || null;
+}
+
 /** Algoritmo de Luhn — nunca registramos o número, apenas validamos. */
 function luhnValid(raw: string): boolean {
   const pan = raw.replace(/\D/g, "");
@@ -532,6 +569,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               appointment.barbershop_id,
               customerId,
               parsed.data.card_token,
+              parsed.data.card_number,
             );
             if ("error" in saved) return json({ error: saved.error }, 400);
             return json({ card: saved.card });
@@ -648,6 +686,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               appointment.barbershop_id,
               customerId,
               parsed.data.card_token,
+              parsed.data.card_number,
             ).catch(() => null);
           }
 
@@ -702,6 +741,7 @@ async function saveCard(
   barbershopId: string,
   customerId: string,
   cardToken: string,
+  cardNumber?: string | null,
 ) {
   const response = await fetch(
     `https://api.mercadopago.com/v1/customers/${encodeURIComponent(customerId)}/cards`,
@@ -732,7 +772,10 @@ async function saveCard(
     mp_customer_id: customerId,
     mp_card_id: card.id,
     last_four: card.last_four_digits ?? null,
-    brand: card.payment_method?.name ?? card.payment_method?.id ?? null,
+    brand: normalizeBrand(
+      card.payment_method?.name ?? card.payment_method?.id ?? null,
+      cardNumber,
+    ),
     cardholder_name: card.cardholder?.name ?? null,
     expiration_month: card.expiration_month ?? null,
     expiration_year: card.expiration_year ?? null,
