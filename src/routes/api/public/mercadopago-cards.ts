@@ -131,6 +131,116 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ ok: true });
           }
 
+          // ---- todos os cartões salvos do cliente (tela do painel) ----
+          if (parsed.data.action === "my_cards") {
+            const { data, error } = await admin
+              .from("saved_cards")
+              .select(
+                "id, last_four, brand, cardholder_name, expiration_month, expiration_year, is_default, created_at",
+              )
+              .eq("user_id", user.id)
+              .order("created_at", { ascending: false });
+            if (error) return json({ cards: [] });
+            return json({ cards: data ?? [] });
+          }
+
+          // ---- definir cartão padrão ----
+          if (parsed.data.action === "set_default") {
+            const { data: card } = await admin
+              .from("saved_cards")
+              .select("id, user_id, mp_customer_id, mp_card_id, mp_collector_id, barbershop_id")
+              .eq("id", parsed.data.saved_card_id)
+              .maybeSingle();
+            const row = card as {
+              user_id: string;
+              mp_customer_id: string;
+              mp_card_id: string;
+              mp_collector_id: string;
+              barbershop_id: string | null;
+            } | null;
+            if (!row || row.user_id !== user.id) {
+              return json({ error: "Cartão não encontrado." }, 404);
+            }
+            const { error: clearError } = await admin
+              .from("saved_cards")
+              .update({ is_default: false })
+              .eq("user_id", user.id);
+            if (clearError) {
+              return json({ error: "Rode o SQL de cartão padrão no Supabase." }, 400);
+            }
+            await admin
+              .from("saved_cards")
+              .update({ is_default: true })
+              .eq("id", parsed.data.saved_card_id);
+
+            const token = await tokenForCollector(admin, row.mp_collector_id, row.barbershop_id);
+            if (token) {
+              await fetch(
+                `https://api.mercadopago.com/v1/customers/${encodeURIComponent(row.mp_customer_id)}`,
+                {
+                  method: "PUT",
+                  headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+                  body: JSON.stringify({ default_card: row.mp_card_id }),
+                },
+              ).catch(() => null);
+            }
+            return json({ ok: true });
+          }
+
+          // ---- atualizar dados do cartão salvo ----
+          if (parsed.data.action === "update") {
+            const { data: card } = await admin
+              .from("saved_cards")
+              .select("id, user_id, mp_customer_id, mp_card_id, mp_collector_id, barbershop_id")
+              .eq("id", parsed.data.saved_card_id)
+              .maybeSingle();
+            const row = card as {
+              user_id: string;
+              mp_customer_id: string;
+              mp_card_id: string;
+              mp_collector_id: string;
+              barbershop_id: string | null;
+            } | null;
+            if (!row || row.user_id !== user.id) {
+              return json({ error: "Cartão não encontrado." }, 404);
+            }
+            const patch: Record<string, unknown> = {};
+            if (parsed.data.cardholder_name) patch["cardholder_name"] = parsed.data.cardholder_name;
+            if (parsed.data.expiration_month) patch["expiration_month"] = parsed.data.expiration_month;
+            if (parsed.data.expiration_year) patch["expiration_year"] = parsed.data.expiration_year;
+            if (Object.keys(patch).length === 0) return json({ error: "Nada para atualizar." }, 400);
+
+            const token = await tokenForCollector(admin, row.mp_collector_id, row.barbershop_id);
+            if (token) {
+              await fetch(
+                `https://api.mercadopago.com/v1/customers/${encodeURIComponent(row.mp_customer_id)}/cards/${encodeURIComponent(row.mp_card_id)}`,
+                {
+                  method: "PUT",
+                  headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+                  body: JSON.stringify({
+                    ...(parsed.data.expiration_month
+                      ? { expiration_month: parsed.data.expiration_month }
+                      : {}),
+                    ...(parsed.data.expiration_year
+                      ? { expiration_year: parsed.data.expiration_year }
+                      : {}),
+                    ...(parsed.data.cardholder_name
+                      ? { cardholder: { name: parsed.data.cardholder_name } }
+                      : {}),
+                  }),
+                },
+              ).catch(() => null);
+            }
+            const { error: updateError } = await admin
+              .from("saved_cards")
+              .update(patch)
+              .eq("id", parsed.data.saved_card_id);
+            if (updateError) return json({ error: "Não foi possível atualizar o cartão." }, 400);
+            return json({ ok: true });
+          }
+
+
+
           // ---- agendamento + conta que recebe ----
           const { data: appointmentRow, error: appointmentError } = await admin
             .from("appointments")
