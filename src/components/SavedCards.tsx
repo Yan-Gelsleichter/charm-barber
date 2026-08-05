@@ -367,11 +367,15 @@ export function SavedCards({
     },
     onSuccess: (data) => {
       setCvv("");
+      setPayError(null);
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
     },
-    onError: (e: Error) => toast.error("Não foi possível pagar", { description: e.message }),
+    onError: (e: Error) => {
+      setPayError(e.message);
+      toast.error("Não foi possível pagar", { description: e.message, duration: 8000 });
+    },
   });
 
   const payWithNew = useMutation({
