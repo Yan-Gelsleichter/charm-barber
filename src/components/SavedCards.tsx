@@ -707,7 +707,7 @@ export function SavedCards({
         );
       })}
 
-      {cards.length > 1 && (
+      {!newCardOpen && cards.length > 1 && (
         <p className="text-[11px] text-muted-foreground">
           Toque em outro cartão para trocar o método antes de pagar — seu agendamento continua
           reservado.
