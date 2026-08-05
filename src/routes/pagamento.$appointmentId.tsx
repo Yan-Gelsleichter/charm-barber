@@ -315,16 +315,25 @@ function PagamentoPage() {
         </div>
       )}
 
-      {!pix && !paid && (
-        <SavedCards
-          appointmentId={appointmentId}
-          openNewCardSignal={cardSignal}
-          onPaid={(status) => {
-            setPayStatus(status);
-            apptQ.refetch();
-          }}
-        />
-      )}
+      <Dialog open={cardOpen} onOpenChange={setCardOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pagar com cartão de crédito</DialogTitle>
+            <DialogDescription>
+              Seus dados são enviados com segurança e o pagamento acontece dentro do app.
+            </DialogDescription>
+          </DialogHeader>
+          <SavedCards
+            appointmentId={appointmentId}
+            openNewCardSignal={cardSignal}
+            onPaid={(status) => {
+              setPayStatus(status);
+              apptQ.refetch();
+              if (status === "pago") setCardOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {pix && !paid && (
         <section className="surface mt-5 space-y-4 p-4 text-center">
