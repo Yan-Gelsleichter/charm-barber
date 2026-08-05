@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   QrCode,
+  CreditCard,
   Store,
   Loader2,
   Copy,
