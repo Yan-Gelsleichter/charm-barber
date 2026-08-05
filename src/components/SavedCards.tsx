@@ -78,6 +78,38 @@ function loadMpSdk(): Promise<void> {
   });
 }
 
+/**
+ * Carrega o security.js do Mercado Pago e devolve o device fingerprint
+ * (MP_DEVICE_SESSION_ID). Reduz recusas/"em análise" por antifraude.
+ */
+function loadDeviceId(): Promise<string | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  const current = (window as unknown as { MP_DEVICE_SESSION_ID?: string }).MP_DEVICE_SESSION_ID;
+  if (current) return Promise.resolve(current);
+  return new Promise((resolve) => {
+    const done = () => {
+      const id = (window as unknown as { MP_DEVICE_SESSION_ID?: string }).MP_DEVICE_SESSION_ID;
+      resolve(id ?? null);
+    };
+    const existing = document.querySelector<HTMLScriptElement>("script[data-mp-device]");
+    if (existing) {
+      existing.addEventListener("load", () => setTimeout(done, 300));
+      existing.addEventListener("error", () => resolve(null));
+      setTimeout(done, 1500);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://www.mercadopago.com/v2/security.js";
+    script.setAttribute("view", "checkout");
+    script.async = true;
+    script.dataset["mpDevice"] = "1";
+    script.onload = () => setTimeout(done, 300);
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+    setTimeout(done, 2500);
+  });
+}
+
 function digits(value: string) {
   return value.replace(/\D/g, "");
 }
@@ -426,13 +458,20 @@ export function SavedCards({
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
-    validateCvv(form.cvv, null, form.number),
+    validateCvv(form.cvv, null, form.number) ||
+    digits(form.doc).length !== 11,
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
   useEffect(() => {
     setCvvTouched(false);
   }, [selectedCardId]);
+
+  // Pré-carrega o fingerprint antifraude assim que o checkout abre.
+  useEffect(() => {
+    void loadDeviceId();
+  }, []);
+
 
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
@@ -441,6 +480,8 @@ export function SavedCards({
       const invalid = validateCvv(cvv, card.brand, null);
       if (invalid) throw new Error(invalid);
       const securityCode = digits(cvv);
+      const deviceId = await loadDeviceId();
+      const doc = digits(form.doc);
 
       if (!mp) {
         return callCardsApi<{ payment_status: string }>({
@@ -448,6 +489,8 @@ export function SavedCards({
           appointment_id: appointmentId,
           saved_card_id: card.id,
           security_code: securityCode,
+          ...(deviceId ? { device_id: deviceId } : {}),
+          ...(doc ? { identification_number: doc } : {}),
         });
       }
 
@@ -458,6 +501,8 @@ export function SavedCards({
         appointment_id: appointmentId,
         card_token: token.id,
         saved_card_id: card.id,
+        ...(deviceId ? { device_id: deviceId } : {}),
+        ...(doc ? { identification_number: doc } : {}),
       });
     },
     onSuccess: (data) => {
@@ -489,9 +534,12 @@ export function SavedCards({
       if (invalidExpiry) throw new Error(invalidExpiry);
       const invalidCvv = validateCvv(form.cvv, null, form.number);
       if (invalidCvv) throw new Error(invalidCvv);
+      const doc = digits(form.doc);
+      if (doc.length !== 11) throw new Error("Informe o CPF do titular (11 dígitos).");
       const [month, year] = form.expiry.split("/");
       if (!month || !year) throw new Error("Informe a validade no formato MM/AA.");
       const fullYear = Number(digits(year).length === 2 ? `20${digits(year)}` : digits(year));
+      const deviceId = await loadDeviceId();
 
       if (!mp) {
         return callCardsApi<{ payment_status: string }>({
@@ -503,7 +551,8 @@ export function SavedCards({
           expiration_year: fullYear,
           security_code: digits(form.cvv),
           cardholder_name: form.name.trim(),
-          ...(digits(form.doc) ? { identification_number: digits(form.doc) } : {}),
+          identification_number: doc,
+          ...(deviceId ? { device_id: deviceId } : {}),
         });
       }
 
@@ -514,7 +563,7 @@ export function SavedCards({
         cardExpirationYear: String(fullYear),
         securityCode: digits(form.cvv),
         identificationType: "CPF",
-        identificationNumber: digits(form.doc),
+        identificationNumber: doc,
       });
       if (!token.id) throw new Error("Dados do cartão inválidos.");
       return callCardsApi<{ payment_status: string }>({
@@ -525,6 +574,9 @@ export function SavedCards({
         card_number: digits(form.number),
         expiration_month: Number(digits(month)),
         expiration_year: fullYear,
+        cardholder_name: form.name.trim(),
+        identification_number: doc,
+        ...(deviceId ? { device_id: deviceId } : {}),
       });
     },
     onSuccess: (data) => {
@@ -833,10 +885,13 @@ export function SavedCards({
           </div>
           <Input
             inputMode="numeric"
-            placeholder="CPF do titular"
+            placeholder="CPF do titular (obrigatório)"
             value={form.doc}
             onChange={(e) => setForm((f) => ({ ...f, doc: digits(e.target.value).slice(0, 11) }))}
           />
+          {form.doc.length > 0 && form.doc.length < 11 && (
+            <p className="text-xs text-destructive">Informe o CPF completo (11 dígitos).</p>
+          )}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
