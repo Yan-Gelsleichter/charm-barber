@@ -62,9 +62,18 @@ async function resolveAccessToken(
   return null;
 }
 
+function isMissingTable(error: { message?: string; code?: string } | null) {
+  return !!error && (error.code === "42P01" || /relation .* does not exist/i.test(error.message ?? ""));
+}
+
+function isDuplicate(error: { code?: string; message?: string } | null) {
+  return !!error && (error.code === "23505" || /duplicate key/i.test(error.message ?? ""));
+}
+
 async function handleNotification(request: Request) {
   const url = new URL(request.url);
   const raw = (await request.json().catch(() => ({}))) as {
+    id?: number | string;
     type?: string;
     topic?: string;
     action?: string;
@@ -81,6 +90,12 @@ async function handleNotification(request: Request) {
     raw.data?.id ?? url.searchParams.get("data.id") ?? url.searchParams.get("id") ?? "",
   ).trim();
   if (!paymentId) return new Response("no payment id", { status: 200 });
+
+  const action = raw.action ?? url.searchParams.get("action") ?? topic ?? "payment";
+  const eventId = String(
+    raw.id ?? url.searchParams.get("id_event") ?? `${paymentId}:${action}`,
+  ).trim();
+
 
   const supabaseUrl =
     process.env["SUPABASE_URL"] || process.env["SB_URL"] || process.env["VITE_SUPABASE_URL"];
@@ -126,6 +141,29 @@ async function handleNotification(request: Request) {
 
   // aprovado -> pago | pendente | estornado (refunded/charged_back) | cancelado/expirado/falhou
   const paymentStatus = mapPaymentStatus(payment.status);
+
+  // Idempotência: registra o evento antes de aplicar. Se já existe, o Mercado Pago
+  // reenviou a mesma notificação e nada é atualizado de novo.
+  let claimed = false;
+  const { error: claimError } = await admin.from("mp_webhook_events").insert({
+    event_id: eventId,
+    payment_id: paymentId,
+    appointment_id: appointmentId,
+    status: paymentStatus,
+  });
+  if (claimError) {
+    if (isDuplicate(claimError)) {
+      return new Response("duplicate", { status: 200 });
+    }
+    if (isMissingTable(claimError)) {
+      console.warn("Webhook MP: tabela mp_webhook_events ausente; rode docs/add-webhook-events.sql");
+    } else {
+      console.error("Webhook MP: falha ao registrar evento", claimError);
+    }
+  } else {
+    claimed = true;
+  }
+
   const values: Record<string, unknown> = {
     payment_status: paymentStatus,
     payment_method: payment.payment_method_id ?? "pix",
@@ -140,7 +178,12 @@ async function handleNotification(request: Request) {
     } else {
       console.error("Webhook MP: falha ao atualizar agendamento", error);
     }
+    // libera o evento para que um reenvio possa tentar novamente
+    if (claimed) {
+      await admin.from("mp_webhook_events").delete().eq("event_id", eventId);
+    }
   }
+
 
   return new Response("ok", { status: 200 });
 }
