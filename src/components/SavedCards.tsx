@@ -443,10 +443,27 @@ export function SavedCards({
     [configQ.isLoading, publicKey],
   );
 
+  const charging = payWithSaved.isPending || payWithNew.isPending;
+  const busy = charging || removeCard.isPending;
+
   if (unavailable) return null;
 
   return (
-    <section className="surface mt-5 space-y-3 p-4">
+    <section className="surface relative mt-5 space-y-3 p-4" aria-busy={busy}>
+      {charging && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-background/80 px-6 text-center backdrop-blur-sm"
+        >
+          <Loader2 className="size-6 animate-spin text-[var(--brand-from)]" />
+          <p className="text-sm font-semibold">Processando pagamento…</p>
+          <p className="text-xs text-muted-foreground">
+            Não feche nem atualize esta tela. Aguarde o resultado da cobrança.
+          </p>
+        </div>
+      )}
+
       <h2 className="flex items-center gap-2 text-sm font-semibold">
         <Zap className="size-4" /> Pagar em 1 clique
       </h2>
@@ -456,6 +473,7 @@ export function SavedCards({
           <Loader2 className="animate-spin" />
         </div>
       )}
+
 
       {payError && (
         <div
