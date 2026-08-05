@@ -553,7 +553,7 @@ export function SavedCards({
       )}
 
       <h2 className="flex items-center gap-2 text-sm font-semibold">
-        <Zap className="size-4" /> Pagar em 1 clique
+        <Zap className="size-4" /> Pagar com cartão nesta página
       </h2>
 
       {(configQ.isLoading || cardsQ.isLoading) && (
