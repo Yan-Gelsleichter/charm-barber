@@ -347,7 +347,14 @@ export function SavedCards({
     }
   }, [appointmentId, selectedCardId, newCardOpen, form.name]);
 
-
+  // Pedido externo (botão "Pagar com cartão"): abre o formulário aqui mesmo.
+  useEffect(() => {
+    if (!openNewCardSignal) return;
+    setSelectedCardId(null);
+    setPayError(null);
+    setNewCardOpen(true);
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [openNewCardSignal]);
 
 
   const configQ = useQuery({
