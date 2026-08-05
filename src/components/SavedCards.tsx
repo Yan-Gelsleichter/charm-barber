@@ -841,7 +841,7 @@ export function SavedCards({
             />
             Salvar este cartão para pagar em 1 clique depois
           </label>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className={noSavedCards ? "grid gap-2" : "grid gap-2 sm:grid-cols-2"}>
             <Button
               onClick={() => {
                 setNumberTouched(true);
@@ -855,9 +855,11 @@ export function SavedCards({
               {payWithNew.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
               {payWithNew.isPending ? "Processando…" : "Pagar"}
             </Button>
-            <Button variant="ghost" disabled={busy} onClick={() => setNewCardOpen(false)}>
-              Cancelar
-            </Button>
+            {!noSavedCards && (
+              <Button variant="ghost" disabled={busy} onClick={() => setNewCardOpen(false)}>
+                Cancelar
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -870,6 +872,7 @@ export function SavedCards({
           <CreditCard /> Usar outro cartão
         </Button>
       )}
+
     </section>
   );
 }
