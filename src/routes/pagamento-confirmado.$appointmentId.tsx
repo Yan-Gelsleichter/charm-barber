@@ -10,8 +10,6 @@ import { brl, fmtDate, fmtTime } from "@/lib/format";
 const METHOD_LABEL: Record<string, string> = {
   pix: "PIX",
   card: "Cartão de crédito",
-  credit_card: "Cartão de crédito",
-  debit_card: "Cartão de débito",
   cartao: "Cartão de crédito",
   presencial: "Presencial na barbearia",
 };
@@ -34,25 +32,14 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    pago: search["pago"] === "1" || search["pago"] === true ? true : undefined,
-    metodo: typeof search["metodo"] === "string" ? (search["metodo"] as string) : undefined,
-  }),
   component: ConfirmacaoPage,
 });
 
 function ConfirmacaoPage() {
   const { appointmentId } = Route.useParams();
-  const { pago: pagoHint, metodo: metodoHint } = Route.useSearch();
 
   const q = useQuery({
     queryKey: ["appointment-confirmation", appointmentId],
-    // O webhook/banco pode demorar um instante a refletir: segue consultando.
-    refetchInterval: (query) => {
-      const row = (query.state.data as { appointment?: { payment_status?: string | null } } | null)
-        ?.appointment;
-      return row?.payment_status === "pago" ? false : 4000;
-    },
     queryFn: async () => {
       let res = await supabase
         .from("appointments")
@@ -93,8 +80,8 @@ function ConfirmacaoPage() {
   const appointment = q.data?.appointment ?? null;
   const service = q.data?.service ?? null;
   const orderNumber = `#${appointmentId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
-  const paid = appointment?.payment_status === "pago" || pagoHint === true;
-  const method = appointment?.payment_method ?? metodoHint ?? null;
+  const paid = appointment?.payment_status === "pago";
+  const method = appointment?.payment_method ?? null;
 
   async function copyOrder() {
     await navigator.clipboard.writeText(orderNumber);
