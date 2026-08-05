@@ -304,6 +304,17 @@ function PagamentoPage() {
         </div>
       )}
 
+      {!pix && !paid && (
+        <SavedCards
+          appointmentId={appointmentId}
+          onPaid={(status) => {
+            setPayStatus(status);
+            apptQ.refetch();
+          }}
+        />
+      )}
+
+
       {pix && !paid && (
         <section className="surface mt-5 space-y-4 p-4 text-center">
           {failed ? (
