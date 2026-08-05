@@ -239,6 +239,56 @@ type Collector = {
   shopFee: number;
 };
 
+/**
+ * Public key da conta conectada via OAuth.
+ * Se a barbearia/barbeiro não preencheu a chave manualmente, obtemos a chave
+ * direto do Mercado Pago usando as credenciais da conexão OAuth (refresh_token)
+ * e guardamos para as próximas cobranças.
+ */
+async function resolvePublicKey(
+  admin: { from: (t: string) => unknown },
+  table: "barbershops" | "barbers",
+  rowId: string,
+  current: string | null,
+  refreshToken: string | null,
+): Promise<string | null> {
+  if (current) return current;
+  const clientId = process.env["MP_CLIENT_ID"];
+  const clientSecret = process.env["MP_CLIENT_SECRET"];
+  if (!refreshToken || !clientId || !clientSecret) return null;
+
+  try {
+    const res = await fetch("https://api.mercadopago.com/oauth/token", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }),
+    });
+    const token = (await res.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+      public_key?: string;
+    };
+    if (!res.ok || !token.public_key) return null;
+
+    const payload: Record<string, unknown> = { mp_public_key: token.public_key };
+    if (token.access_token) payload["mp_access_token"] = token.access_token;
+    if (token.refresh_token) payload["mp_refresh_token"] = token.refresh_token;
+    await (admin.from(table) as unknown as {
+      update: (p: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+    })
+      .update(payload)
+      .eq("id", rowId);
+    return token.public_key;
+  } catch {
+    return null;
+  }
+}
+
 export const Route = createFileRoute("/api/public/mercadopago-cards")({
   server: {
     handlers: {
@@ -459,13 +509,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
           const { data: shop } = await admin
             .from("barbershops")
-            .select("id, mp_access_token, mp_public_key, mp_user_id, payout_mode")
+            .select(
+              "id, mp_access_token, mp_public_key, mp_refresh_token, mp_user_id, payout_mode",
+            )
             .eq("id", appointment.barbershop_id)
             .maybeSingle();
           const shopRow = shop as {
             id: string;
             mp_access_token?: string | null;
             mp_public_key?: string | null;
+            mp_refresh_token?: string | null;
             mp_user_id?: string | null;
             payout_mode?: string | null;
           } | null;
@@ -474,13 +527,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (shopRow?.payout_mode === "split" && appointment.barber_id) {
             const { data: barber } = await admin
               .from("barbers")
-              .select("id, mp_access_token, mp_public_key, mp_user_id, commission_percent")
+              .select(
+                "id, mp_access_token, mp_public_key, mp_refresh_token, mp_user_id, commission_percent",
+              )
               .eq("id", appointment.barber_id)
               .maybeSingle();
             const b = barber as {
               id: string;
               mp_access_token?: string | null;
               mp_public_key?: string | null;
+              mp_refresh_token?: string | null;
               mp_user_id?: string | null;
               commission_percent?: number | null;
             } | null;
@@ -489,7 +545,13 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               const pct = Math.min(100, Math.max(0, Number.isFinite(raw) ? raw : 0));
               collector = {
                 accessToken: b.mp_access_token,
-                publicKey: b.mp_public_key ?? null,
+                publicKey: await resolvePublicKey(
+                  admin,
+                  "barbers",
+                  b.id,
+                  b.mp_public_key ?? null,
+                  b.mp_refresh_token ?? null,
+                ),
                 collectorId: b.mp_user_id ?? `barber:${b.id}`,
                 shopFee: Number(((amount * (100 - pct)) / 100).toFixed(2)),
               };
@@ -498,7 +560,13 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (!collector && shopRow?.mp_access_token) {
             collector = {
               accessToken: shopRow.mp_access_token,
-              publicKey: shopRow.mp_public_key ?? null,
+              publicKey: await resolvePublicKey(
+                admin,
+                "barbershops",
+                shopRow.id,
+                shopRow.mp_public_key ?? null,
+                shopRow.mp_refresh_token ?? null,
+              ),
               collectorId: shopRow.mp_user_id ?? `shop:${shopRow.id}`,
               shopFee: 0,
             };
@@ -506,6 +574,17 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (!collector) {
             return json({ error: "Esta barbearia ainda não conectou o Mercado Pago." }, 400);
           }
+
+          if (!collector.publicKey && parsed.data.action === "config") {
+            return json(
+              {
+                error:
+                  "Não foi possível obter a chave pública da conta Mercado Pago conectada. Reconecte a conta no painel (Pagamentos) para renovar a autorização.",
+              },
+              400,
+            );
+          }
+
 
           // ---- configuração para tokenizar no navegador ----
           if (parsed.data.action === "config") {
