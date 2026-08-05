@@ -9,6 +9,9 @@ const requestSchema = z.discriminatedUnion("action", [
     action: z.literal("save"),
     appointment_id: z.string().uuid(),
     card_token: z.string().min(10).max(120),
+    card_number: z.string().min(12).max(25).optional(),
+    expiration_month: z.number().int().min(1).max(12).optional(),
+    expiration_year: z.number().int().min(2000).max(2100).optional(),
   }),
   z.object({
     action: z.literal("pay"),
@@ -17,7 +20,11 @@ const requestSchema = z.discriminatedUnion("action", [
     saved_card_id: z.string().uuid().optional(),
     installments: z.number().int().min(1).max(12).optional(),
     save_card: z.boolean().optional(),
+    card_number: z.string().min(12).max(25).optional(),
+    expiration_month: z.number().int().min(1).max(12).optional(),
+    expiration_year: z.number().int().min(2000).max(2100).optional(),
   }),
+
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
   z.object({ action: z.literal("my_cards") }),
   z.object({ action: z.literal("set_default"), saved_card_id: z.string().uuid() }),
