@@ -268,7 +268,7 @@ function PagamentoPage() {
       {paid && (
         <div className="surface mt-5 flex items-center gap-3 p-4 text-sm">
           <CheckCircle2 className="size-5 text-[color:var(--success)]" />
-          Pagamento aprovado! Redirecionando para os seus agendamentos…
+          Pagamento aprovado! Abrindo a confirmação do pedido…
         </div>
       )}
 
@@ -300,7 +300,10 @@ function PagamentoPage() {
             className="w-full"
             onClick={() => {
               toast.success("Combinado! Pague presencialmente na barbearia.");
-              navigate({ to: "/meus-agendamentos" });
+              navigate({
+                to: "/pagamento-confirmado/$appointmentId",
+                params: { appointmentId },
+              });
             }}
           >
             <Store /> Pagar presencialmente
