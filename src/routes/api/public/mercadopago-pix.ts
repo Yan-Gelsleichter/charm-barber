@@ -44,7 +44,7 @@ export function mapPaymentStatus(mpStatus?: string | null): string {
 }
 
 /** Atualiza o pagamento sem quebrar caso as colunas ainda não existam. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 async function savePayment(
   admin: { from: (table: string) => any },
   enabled: boolean,
@@ -118,18 +118,16 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               .maybeSingle();
           }
 
-          const appointment = appointmentQuery.data as
-            | {
-                id: string;
-                service_id: string;
-                barber_id: string | null;
-                barbershop_id: string | null;
-                customer_name: string | null;
-                email: string | null;
-                payment_status?: string | null;
-                mp_payment_id?: string | null;
-              }
-            | null;
+          const appointment = appointmentQuery.data as {
+            id: string;
+            service_id: string;
+            barber_id: string | null;
+            barbershop_id: string | null;
+            customer_name: string | null;
+            email: string | null;
+            payment_status?: string | null;
+            mp_payment_id?: string | null;
+          } | null;
 
           if (appointmentQuery.error) {
             console.error("Mercado Pago PIX: falha ao buscar agendamento", appointmentQuery.error);
@@ -138,7 +136,9 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
           const userEmail = userData.user.email?.trim().toLowerCase();
-          const appointmentEmail = String(appointment.email ?? "").trim().toLowerCase();
+          const appointmentEmail = String(appointment.email ?? "")
+            .trim()
+            .toLowerCase();
           if (!userEmail || !appointmentEmail || userEmail !== appointmentEmail) {
             return json({ error: "Você não tem acesso a este agendamento." }, 403);
           }
@@ -190,7 +190,6 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               400,
             );
           }
-
 
           if (parsed.data.action === "status") {
             const paymentResponse = await fetch(

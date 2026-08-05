@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { SavedCards } from "@/components/SavedCards";
 import { brl, fmtTime } from "@/lib/format";
 
-
 type PixData = {
   payment_id: number | string;
   status: string;
@@ -56,7 +55,6 @@ async function callPixApi(body: Record<string, unknown>) {
   const data = (await response.json().catch(() => ({}))) as {
     error?: string;
     payment_status?: string;
-    
   } & Partial<PixData>;
   if (!response.ok) throw new Error(data.error ?? "Falha ao processar o pagamento.");
   return data;
@@ -153,12 +151,9 @@ function PagamentoPage() {
   // Cartão de crédito: Checkout Transparente, tudo dentro do app (sem redirecionamento).
   const [cardSignal, setCardSignal] = useState(0);
 
-
-
   const finish = useCallback(() => {
     setTimeout(
-      () =>
-        navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } }),
+      () => navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } }),
       1200,
     );
   }, [navigate, appointmentId]);
@@ -195,8 +190,7 @@ function PagamentoPage() {
   const busy = createPix.isPending;
   const service = apptQ.data?.service ?? null;
   const appointment = apptQ.data?.appointment ?? null;
-  const expired =
-    !!pix?.expires_at && new Date(pix.expires_at).getTime() < Date.now() && !paid;
+  const expired = !!pix?.expires_at && new Date(pix.expires_at).getTime() < Date.now() && !paid;
   const failed = ["expirado", "cancelado", "falhou"].includes(payStatus) || expired;
 
   function downloadQr() {
@@ -329,7 +323,6 @@ function PagamentoPage() {
         />
       )}
 
-
       {pix && !paid && (
         <section className="surface mt-5 space-y-4 p-4 text-center">
           {failed ? (
@@ -388,9 +381,7 @@ function PagamentoPage() {
                   </div>
                 </>
               )}
-              <p className="text-xs text-muted-foreground">
-                Aguardando confirmação do pagamento…
-              </p>
+              <p className="text-xs text-muted-foreground">Aguardando confirmação do pagamento…</p>
             </>
           )}
 
