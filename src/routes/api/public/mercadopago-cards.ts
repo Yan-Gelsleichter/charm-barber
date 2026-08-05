@@ -800,13 +800,20 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             .eq("id", appointment.id);
           if (updateError) {
             console.error("Cartão salvo: falha ao gravar status", updateError);
-            // Colunas extras podem não existir: garante ao menos o status.
-            const { error: fallbackError } = await admin
-              .from("appointments")
-              .update({ payment_status: paymentStatus })
-              .eq("id", appointment.id);
-            if (fallbackError)
+            // Colunas extras podem não existir: grava o que der, campo a campo.
+            const fallbacks: Record<string, unknown>[] = [
+              { payment_status: paymentStatus, payment_method: "credit_card" },
+              { payment_status: paymentStatus },
+              { payment_method: "credit_card" },
+            ];
+            for (const patch of fallbacks) {
+              const { error: fallbackError } = await admin
+                .from("appointments")
+                .update(patch)
+                .eq("id", appointment.id);
+              if (!fallbackError) break;
               console.error("Cartão salvo: fallback do status falhou", fallbackError);
+            }
           }
 
 
