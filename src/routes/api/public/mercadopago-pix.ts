@@ -8,6 +8,11 @@ const requestSchema = z.discriminatedUnion("action", [
     appointment_id: z.string().uuid(),
     force_new: z.boolean().optional(),
   }),
+  // Checkout com cartão de crédito (Checkout Pro), mesmo split do PIX.
+  z.object({
+    action: z.literal("card"),
+    appointment_id: z.string().uuid(),
+  }),
   z.object({
     action: z.literal("status"),
     appointment_id: z.string().uuid(),
