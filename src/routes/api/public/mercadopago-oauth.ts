@@ -40,9 +40,11 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
             access_token?: string;
             refresh_token?: string;
             user_id?: number | string;
+            public_key?: string;
             message?: string;
             error?: string;
           };
+
           if (!tokenRes.ok || !token.access_token) {
             return backTo(appUrl, {
               mp: "erro",
