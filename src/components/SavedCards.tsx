@@ -701,36 +701,6 @@ export function SavedCards({
                       : "3 dígitos no verso do cartão."}
                   </p>
                 )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {cards.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => {
-                        setSelectedCardId(null);
-                        setCvv("");
-                        setPayError(null);
-                        setNewCardOpen(false);
-                      }}
-                    >
-                      <RefreshCw className="size-3.5" /> Trocar cartão
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => {
-                      setSelectedCardId(null);
-                      setCvv("");
-                      setPayError(null);
-                      setNewCardOpen(true);
-                    }}
-                  >
-                    <CreditCard className="size-3.5" /> Usar outro cartão
-                  </Button>
-                </div>
               </div>
             )}
           </div>
