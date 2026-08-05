@@ -41,6 +41,76 @@ function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "cache-control": "no-store" } });
 }
 
+/** Algoritmo de Luhn — nunca registramos o número, apenas validamos. */
+function luhnValid(raw: string): boolean {
+  const pan = raw.replace(/\D/g, "");
+  if (pan.length < 12 || pan.length > 19) return false;
+  let sum = 0;
+  let double = false;
+  for (let i = pan.length - 1; i >= 0; i -= 1) {
+    let digit = Number(pan[i]);
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
+  }
+  return sum % 10 === 0;
+}
+
+/** Validade precisa existir e não pode estar vencida (fim do mês informado). */
+function expiryValid(month?: number | null, year?: number | null): boolean {
+  if (!month || !year) return false;
+  if (month < 1 || month > 12) return false;
+  const full = year < 100 ? 2000 + year : year;
+  const now = new Date();
+  const endOfMonth = new Date(Date.UTC(full, month, 1));
+  return endOfMonth.getTime() > now.getTime();
+}
+
+/** Confere no Mercado Pago os dados reais do token (validade e status). */
+async function inspectCardToken(accessToken: string, cardToken: string) {
+  const response = await fetch(
+    `https://api.mercadopago.com/v1/card_tokens/${encodeURIComponent(cardToken)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!response.ok) return null;
+  return (await response.json().catch(() => null)) as {
+    status?: string;
+    expiration_month?: number;
+    expiration_year?: number;
+    last_four_digits?: string;
+  } | null;
+}
+
+/** Validação de servidor: Luhn + validade, mesmo se o front falhar. */
+async function assertCardValid(
+  accessToken: string,
+  input: { card_token: string; card_number?: string; expiration_month?: number; expiration_year?: number },
+): Promise<string | null> {
+  if (input.card_number && !luhnValid(input.card_number)) {
+    return "Número de cartão inválido.";
+  }
+  if (
+    (input.expiration_month || input.expiration_year) &&
+    !expiryValid(input.expiration_month, input.expiration_year)
+  ) {
+    return "Cartão com validade vencida ou inválida.";
+  }
+  const token = await inspectCardToken(accessToken, input.card_token);
+  if (token) {
+    if (token.status && !["active", "pending"].includes(token.status.toLowerCase())) {
+      return "Cartão não autorizado. Tente novamente.";
+    }
+    if (!expiryValid(token.expiration_month, token.expiration_year)) {
+      return "Cartão com validade vencida ou inválida.";
+    }
+  }
+  return null;
+}
+
+
 function mapPaymentStatus(mpStatus?: string | null): string {
   switch ((mpStatus ?? "").toLowerCase()) {
     case "approved":
