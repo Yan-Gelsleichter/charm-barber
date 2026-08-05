@@ -304,11 +304,15 @@ function readDraft(appointmentId: string): CheckoutDraft | null {
 export function SavedCards({
   appointmentId,
   onPaid,
+  openNewCardSignal = 0,
 }: {
   appointmentId: string;
   onPaid: (status: string) => void;
+  /** Incrementa para abrir o formulário de cartão nesta página (sem redirecionamento). */
+  openNewCardSignal?: number;
 }) {
   const queryClient = useQueryClient();
+  const sectionRef = useRef<HTMLElement | null>(null);
   const draft = useMemo(() => readDraft(appointmentId), [appointmentId]);
   const [mp, setMp] = useState<MpInstance | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
