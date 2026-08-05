@@ -66,23 +66,128 @@ function digits(value: string) {
   return value.replace(/\D/g, "");
 }
 
-/** Amex usa 4 dígitos; as demais bandeiras usam 3. */
-export function cvvLengthFor(brand?: string | null, cardNumber?: string | null) {
-  const isAmex =
-    (brand ?? "").toLowerCase().includes("amex") ||
-    (brand ?? "").toLowerCase().includes("american") ||
-    /^3[47]/.test(digits(cardNumber ?? ""));
-  return isAmex ? 4 : 3;
+export type CardBrand = {
+  key: string;
+  label: string;
+  /** Comprimentos válidos do número. */
+  lengths: number[];
+  /** Tamanho do código de segurança. */
+  cvv: number;
+  /** Grupos da máscara. */
+  groups: number[];
+};
+
+const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
+  {
+    key: "amex",
+    label: "Amex",
+    lengths: [15],
+    cvv: 4,
+    groups: [4, 6, 5],
+    test: (d) => /^3[47]/.test(d),
+  },
+  {
+    key: "diners",
+    label: "Diners",
+    lengths: [14, 16],
+    cvv: 3,
+    groups: [4, 6, 4],
+    test: (d) => /^3(?:0[0-5]|[68])/.test(d),
+  },
+  {
+    key: "elo",
+    label: "Elo",
+    lengths: [16],
+    cvv: 3,
+    groups: [4, 4, 4, 4],
+    test: (d) =>
+      /^(4011|4312|4389|4514|4576|5041|5066|5090|6277|6362|6363|650|6516|6550)/.test(d),
+  },
+  {
+    key: "hipercard",
+    label: "Hipercard",
+    lengths: [16],
+    cvv: 3,
+    groups: [4, 4, 4, 4],
+    test: (d) => /^(606282|3841)/.test(d),
+  },
+  {
+    key: "visa",
+    label: "Visa",
+    lengths: [13, 16, 19],
+    cvv: 3,
+    groups: [4, 4, 4, 4, 3],
+    test: (d) => /^4/.test(d),
+  },
+  {
+    key: "mastercard",
+    label: "Mastercard",
+    lengths: [16],
+    cvv: 3,
+    groups: [4, 4, 4, 4],
+    test: (d) => /^(5[1-5]|2(2[2-9]|[3-6]|7[01]|720))/.test(d),
+  },
+  {
+    key: "discover",
+    label: "Discover",
+    lengths: [16, 19],
+    cvv: 3,
+    groups: [4, 4, 4, 4, 3],
+    test: (d) => /^(6011|64[4-9]|65)/.test(d),
+  },
+  {
+    key: "jcb",
+    label: "JCB",
+    lengths: [16, 19],
+    cvv: 3,
+    groups: [4, 4, 4, 4, 3],
+    test: (d) => /^35(2[89]|[3-8])/.test(d),
+  },
+];
+
+const UNKNOWN_BRAND: CardBrand = {
+  key: "unknown",
+  label: "",
+  lengths: [16, 19],
+  cvv: 3,
+  groups: [4, 4, 4, 4, 3],
+};
+
+/** Detecta a bandeira pelo número digitado (ou pelo nome salvo). */
+export function detectCardBrand(cardNumber?: string | null, brandName?: string | null): CardBrand {
+  const d = digits(cardNumber ?? "");
+  if (d) {
+    const match = BRANDS.find((b) => b.test(d));
+    if (match) return match;
+  }
+  const name = (brandName ?? "").toLowerCase();
+  if (name) {
+    const byName = BRANDS.find(
+      (b) => name.includes(b.key) || (b.key === "amex" && name.includes("american")),
+    );
+    if (byName) return byName;
+  }
+  return UNKNOWN_BRAND;
 }
 
-/** Formata o número do cartão em grupos (4-4-4-4, ou 4-6-5 para Amex). */
+/** Tamanho máximo do número para a bandeira detectada. */
+export function maxCardLength(cardNumber?: string | null) {
+  const brand = detectCardBrand(cardNumber);
+  return Math.max(...brand.lengths);
+}
+
+/** Amex usa 4 dígitos; as demais bandeiras usam 3. */
+export function cvvLengthFor(brand?: string | null, cardNumber?: string | null) {
+  return detectCardBrand(cardNumber, brand).cvv;
+}
+
+/** Formata o número do cartão conforme a bandeira detectada. */
 export function formatCardNumber(value: string) {
-  const d = digits(value).slice(0, 19);
-  const amex = /^3[47]/.test(d);
-  const groups = amex ? [4, 6, 5] : [4, 4, 4, 4, 3];
+  const brand = detectCardBrand(value);
+  const d = digits(value).slice(0, Math.max(...brand.lengths));
   const parts: string[] = [];
   let i = 0;
-  for (const size of groups) {
+  for (const size of brand.groups) {
     if (i >= d.length) break;
     parts.push(d.slice(i, i + size));
     i += size;
@@ -112,10 +217,17 @@ export function luhnValid(value: string) {
 export function validateCardNumber(value: string) {
   const d = digits(value);
   if (!d) return "Informe o número do cartão.";
-  const amex = /^3[47]/.test(d);
-  const expected = amex ? 15 : 16;
-  if (d.length < expected) return `O número do cartão deve ter ${expected} dígitos.`;
-  if (d.length > 19) return "Número do cartão inválido.";
+  const brand = detectCardBrand(d);
+  const min = Math.min(...brand.lengths);
+  const max = Math.max(...brand.lengths);
+  if (!brand.lengths.includes(d.length)) {
+    if (d.length < min) {
+      const label = brand.label ? `${brand.label}: o` : "O";
+      return `${label} número deve ter ${brand.lengths.join(" ou ")} dígitos.`;
+    }
+    if (d.length > max) return "Número do cartão inválido.";
+    return `O número do cartão deve ter ${brand.lengths.join(" ou ")} dígitos.`;
+  }
   if (!luhnValid(d)) return "Número do cartão inválido. Confira os dígitos.";
   return null;
 }
@@ -220,6 +332,7 @@ export function SavedCards({
   }, [cards]);
 
   const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
+  const newCardBrand = detectCardBrand(form.number);
   const savedCvvError = cvvTouched ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
   const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
   const numberError = numberTouched ? validateCardNumber(form.number) : null;
@@ -455,17 +568,28 @@ export function SavedCards({
       {newCardOpen ? (
         <div className="space-y-2 rounded-xl border border-border/60 p-3">
           <div>
-            <Input
-              inputMode="numeric"
-              placeholder="Número do cartão"
-              value={formatCardNumber(form.number)}
-              aria-invalid={Boolean(numberError)}
-              aria-describedby={numberError ? "card-number-error" : undefined}
-              onBlur={() => setNumberTouched(true)}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, number: digits(e.target.value).slice(0, 19) }))
-              }
-            />
+            <div className="relative">
+              <Input
+                inputMode="numeric"
+                placeholder="Número do cartão"
+                value={formatCardNumber(form.number)}
+                aria-invalid={Boolean(numberError)}
+                aria-describedby={numberError ? "card-number-error" : undefined}
+                onBlur={() => setNumberTouched(true)}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    number: digits(e.target.value).slice(0, maxCardLength(e.target.value)),
+                  }))
+                }
+                className={newCardBrand.label ? "pr-24" : undefined}
+              />
+              {newCardBrand.label && (
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {newCardBrand.label}
+                </span>
+              )}
+            </div>
             {numberError && (
               <p id="card-number-error" className="mt-1 text-[11px] text-destructive">
                 {numberError}
