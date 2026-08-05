@@ -466,6 +466,12 @@ export function SavedCards({
     setCvvTouched(false);
   }, [selectedCardId]);
 
+  // Pré-carrega o fingerprint antifraude assim que o checkout abre.
+  useEffect(() => {
+    void loadDeviceId();
+  }, []);
+
+
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
       if (!mp && !serverTokenize)
