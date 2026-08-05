@@ -937,7 +937,7 @@ async function saveCard(
     .maybeSingle();
   if (error) {
     console.error("Mercado Pago: falha ao gravar cartão salvo", error);
-    return { error: "Não foi possível salvar este cartão." } as const;
+    return { error: "Não foi possível salvar este cartão.", detail: error.message } as const;
   }
   return { card: data } as const;
 }

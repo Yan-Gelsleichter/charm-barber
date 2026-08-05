@@ -46,8 +46,14 @@ async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
     headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = (await response.json().catch(() => ({}))) as { error?: string } & T;
-  if (!response.ok) throw new Error(data.error ?? "Falha ao processar o cartão.");
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    detail?: string | null;
+  } & T;
+  if (!response.ok) {
+    const base = data.error ?? "Falha ao processar o cartão.";
+    throw new Error(data.detail ? `${base} (${data.detail})` : base);
+  }
   return data;
 }
 
