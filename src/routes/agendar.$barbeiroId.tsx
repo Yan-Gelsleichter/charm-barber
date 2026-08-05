@@ -15,7 +15,9 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/agendar/$barbeiroId")({
   head: () => ({ meta: [{ title: "Agendar — VIP BARBER" }] }),
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (
+    s: Record<string, unknown>,
+  ): { remarcar?: string; servico?: string; data?: string } => ({
     remarcar: typeof s.remarcar === "string" ? s.remarcar : undefined,
     servico: typeof s.servico === "string" ? s.servico : undefined,
     data: typeof s.data === "string" ? s.data : undefined,
