@@ -274,6 +274,7 @@ export function SavedCards({
   const [numberTouched, setNumberTouched] = useState(false);
   const [expiryTouched, setExpiryTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const [form, setForm] = useState({
     number: "",
     name: "",
