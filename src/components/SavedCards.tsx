@@ -484,7 +484,13 @@ export function SavedCards({
       setNewCardOpen(false);
       setPayError(null);
       setForm({ number: "", name: "", expiry: "", cvv: "", doc: "", save: true });
+      try {
+        sessionStorage.removeItem(draftKey(appointmentId));
+      } catch {
+        /* ignore */
+      }
       queryClient.invalidateQueries({ queryKey: ["mp-saved-cards", appointmentId] });
+
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
