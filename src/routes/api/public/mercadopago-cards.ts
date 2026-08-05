@@ -605,7 +605,13 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           };
           if (!response.ok || !payment.id) {
             console.error("Mercado Pago cartão salvo: recusado", response.status, payment);
-            return json({ error: payment.message ?? "Pagamento recusado pelo emissor." }, 400);
+            return json(
+              {
+                error: paymentErrorMessage(payment.status_detail, payment.status, payment.message),
+                status_detail: payment.status_detail ?? null,
+              },
+              400,
+            );
           }
 
           const paymentStatus = mapPaymentStatus(payment.status);
@@ -619,6 +625,19 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             })
             .eq("id", appointment.id);
           if (updateError) console.error("Cartão salvo: falha ao gravar status", updateError);
+
+          // Recusado/expirado/cancelado volta como erro claro para o cliente tentar de novo.
+          if (["falhou", "expirado", "cancelado"].includes(paymentStatus)) {
+            return json(
+              {
+                error: paymentErrorMessage(payment.status_detail, payment.status, null),
+                payment_status: paymentStatus,
+                status_detail: payment.status_detail ?? null,
+              },
+              400,
+            );
+          }
+
 
           // Salva o cartão novo só depois de aprovado, se o cliente pediu.
           if (parsed.data.save_card && !parsed.data.saved_card_id && paymentStatus === "pago") {
