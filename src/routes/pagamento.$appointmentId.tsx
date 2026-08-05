@@ -16,7 +16,9 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { SavedCards } from "@/components/SavedCards";
 import { brl, fmtTime } from "@/lib/format";
+
 
 type PixData = {
   payment_id: number | string;
@@ -301,6 +303,17 @@ function PagamentoPage() {
           </Button>
         </div>
       )}
+
+      {!pix && !paid && (
+        <SavedCards
+          appointmentId={appointmentId}
+          onPaid={(status) => {
+            setPayStatus(status);
+            apptQ.refetch();
+          }}
+        />
+      )}
+
 
       {pix && !paid && (
         <section className="surface mt-5 space-y-4 p-4 text-center">
