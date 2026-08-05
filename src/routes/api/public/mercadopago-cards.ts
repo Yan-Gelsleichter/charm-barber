@@ -19,6 +19,15 @@ const requestSchema = z.discriminatedUnion("action", [
     save_card: z.boolean().optional(),
   }),
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
+  z.object({ action: z.literal("my_cards") }),
+  z.object({ action: z.literal("set_default"), saved_card_id: z.string().uuid() }),
+  z.object({
+    action: z.literal("update"),
+    saved_card_id: z.string().uuid(),
+    cardholder_name: z.string().min(2).max(80).optional(),
+    expiration_month: z.number().int().min(1).max(12).optional(),
+    expiration_year: z.number().int().min(2024).max(2100).optional(),
+  }),
 ]);
 
 function json(body: unknown, status = 200) {
