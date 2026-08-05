@@ -597,14 +597,14 @@ export function SavedCards({
         </div>
       )}
 
-      {!cardsQ.isLoading && cards.length > 0 && !hasDefault && (
+      {!cardsQ.isLoading && !newCardOpen && cards.length > 0 && !hasDefault && (
         <p className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
           Você ainda não definiu um cartão padrão. Escolha abaixo qual cartão usar agora ou adicione
           um novo antes de pagar.
         </p>
       )}
 
-      {cards.map((card) => {
+      {!newCardOpen && cards.map((card) => {
         const selected = selectedCardId === card.id;
         return (
           <div
