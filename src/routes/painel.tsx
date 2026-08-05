@@ -61,7 +61,9 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
 
 export const Route = createFileRoute("/painel")({
   head: () => ({ meta: [{ title: "Painel — VIP BARBER" }] }),
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (
+    s: Record<string, unknown>,
+  ): { tab?: Tab; mp?: string; mp_msg?: string } => ({
     tab: (s.tab as Tab) || ("dashboard" as Tab),
     mp: typeof s.mp === "string" ? s.mp : undefined,
     mp_msg: typeof s.mp_msg === "string" ? s.mp_msg : undefined,

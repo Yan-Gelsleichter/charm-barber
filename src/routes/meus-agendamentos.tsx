@@ -15,7 +15,7 @@ import { PaymentBadge } from "@/components/PaymentBadge";
 
 export const Route = createFileRoute("/meus-agendamentos")({
   head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { cliente?: boolean } => ({
     cliente: s.cliente === "1" || s.cliente === true,
   }),
   component: MeusAgendamentosPage,

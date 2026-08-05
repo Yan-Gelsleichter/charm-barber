@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { mpSandbox } from "@/lib/mp-sandbox.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -601,6 +602,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               shopFee: 0,
             };
           }
+          // Modo de teste: usa as credenciais sandbox e desliga o split.
+          const sandbox = mpSandbox();
+          if (sandbox) {
+            collector = {
+              accessToken: sandbox.accessToken,
+              publicKey: sandbox.publicKey,
+              collectorId: collector?.collectorId ?? `sandbox:${appointment.barbershop_id}`,
+              shopFee: 0,
+            };
+          }
           if (!collector) {
             return json({ error: "Esta barbearia ainda não conectou o Mercado Pago." }, 400);
           }
@@ -650,6 +661,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
 
           if (
+            !sandbox &&
             isSandboxToken(collector.accessToken) &&
             (parsed.data.action === "pay" || parsed.data.action === "save")
           ) {
