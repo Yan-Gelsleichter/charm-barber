@@ -847,16 +847,6 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               payer: {
                 first_name: firstName,
                 last_name: lastName,
-                ...(appointment.customer_phone
-                  ? {
-                      phone: {
-                        area_code: String(appointment.customer_phone)
-                          .replace(/\D/g, "")
-                          .slice(-11, -9) || "11",
-                        number: String(appointment.customer_phone).replace(/\D/g, "").slice(-9),
-                      },
-                    }
-                  : {}),
               },
             },
             external_reference: appointment.id,
