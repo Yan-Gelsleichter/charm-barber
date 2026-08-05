@@ -437,7 +437,14 @@ export function SavedCards({
             Salvar este cartão para pagar em 1 clique depois
           </label>
           <div className="grid gap-2 sm:grid-cols-2">
-            <Button onClick={() => payWithNew.mutate()} disabled={payWithNew.isPending}>
+            <Button
+              onClick={() => {
+                setNewCvvTouched(true);
+                if (validateCvv(form.cvv, null, form.number)) return;
+                payWithNew.mutate();
+              }}
+              disabled={payWithNew.isPending || Boolean(validateCvv(form.cvv, null, form.number))}
+            >
               {payWithNew.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
               Pagar
             </Button>
