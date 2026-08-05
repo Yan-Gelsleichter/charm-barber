@@ -16,13 +16,18 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("pay"),
     appointment_id: z.string().uuid(),
-    card_token: z.string().min(10).max(120),
+    // Opcional: quando o SDK do navegador não pôde tokenizar (sem public key),
+    // o servidor cria o token com o access token da conta conectada via OAuth.
+    card_token: z.string().min(10).max(120).optional(),
     saved_card_id: z.string().uuid().optional(),
     installments: z.number().int().min(1).max(12).optional(),
     save_card: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
+    security_code: z.string().min(3).max(4).optional(),
+    cardholder_name: z.string().min(2).max(80).optional(),
+    identification_number: z.string().min(3).max(20).optional(),
   }),
 
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
