@@ -509,11 +509,13 @@ export function SavedCards({
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
               onClick={() => {
+                setNumberTouched(true);
+                setExpiryTouched(true);
                 setNewCvvTouched(true);
-                if (validateCvv(form.cvv, null, form.number)) return;
+                if (newCardInvalid) return;
                 payWithNew.mutate();
               }}
-              disabled={payWithNew.isPending || Boolean(validateCvv(form.cvv, null, form.number))}
+              disabled={payWithNew.isPending || newCardInvalid}
             >
               {payWithNew.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
               Pagar
