@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { paymentErrorMessage } from "./mercadopago-cards";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
