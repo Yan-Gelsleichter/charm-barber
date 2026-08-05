@@ -742,13 +742,8 @@ export function SavedCards({
         </p>
       )}
 
-      {!cardsQ.isLoading && cards.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          Você ainda não tem cartões salvos. Pague uma vez com cartão e salve para as próximas.
-        </p>
-      )}
+      {(newCardOpen || noSavedCards) ? (
 
-      {newCardOpen ? (
         <div className="space-y-2 rounded-xl border border-border/60 p-3">
           <div>
             <div className="relative">
