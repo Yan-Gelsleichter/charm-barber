@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, Loader2, Trash2, Zap } from "lucide-react";
+import { CheckCircle2, CreditCard, Loader2, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export type SavedCard = {
   id: string;
@@ -14,6 +15,7 @@ export type SavedCard = {
   cardholder_name: string | null;
   expiration_month: number | null;
   expiration_year: number | null;
+  is_default?: boolean | null;
 };
 
 type MpInstance = {
@@ -73,7 +75,7 @@ export function SavedCards({
 }) {
   const queryClient = useQueryClient();
   const [mp, setMp] = useState<MpInstance | null>(null);
-  const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [cvv, setCvv] = useState("");
   const [newCardOpen, setNewCardOpen] = useState(false);
   const [form, setForm] = useState({
@@ -118,6 +120,18 @@ export function SavedCards({
 
   const cards = cardsQ.data?.cards ?? [];
 
+  // Seleciona automaticamente o cartão padrão (ou o primeiro) ao carregar.
+  useEffect(() => {
+    if (cards.length === 0) {
+      setSelectedCardId(null);
+      return;
+    }
+    setSelectedCardId((current) => {
+      if (current && cards.some((c) => c.id === current)) return current;
+      return (cards.find((c) => c.is_default) ?? cards[0])!.id;
+    });
+  }, [cards]);
+
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
       if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
@@ -134,7 +148,6 @@ export function SavedCards({
     },
     onSuccess: (data) => {
       setCvv("");
-      setOpenCardId(null);
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
