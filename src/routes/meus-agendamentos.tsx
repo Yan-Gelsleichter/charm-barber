@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, CheckCircle2, Loader2, LogOut, RefreshCw, X } from "lucide-react";
+import { CalendarDays, Loader2, LogOut, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { fmtDate, fmtTime, brl, phoneDigits } from "@/lib/format";
 import { cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
+import { PaymentBadge } from "@/components/PaymentBadge";
 
 export const Route = createFileRoute("/meus-agendamentos")({
   head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
@@ -44,6 +45,8 @@ function MeusAgendamentosPage() {
   const dataQ = useQuery({
     queryKey: ["my-appointments", uid, phone, email, metaName],
     enabled: !!uid,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       // Encontra agendamentos por telefone (preferencial) ou pelo nome do usuário
       const orParts: string[] = [];
@@ -175,11 +178,7 @@ function MeusAgendamentosPage() {
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    {a.payment_status === "pago" && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--success)]/40 bg-[color:var(--success)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--success)]">
-                        <CheckCircle2 className="size-3" /> Pago
-                      </span>
-                    )}
+                    <PaymentBadge status={a.payment_status} compact />
                     {s && <span className="brand-text font-bold">{brl(s.price)}</span>}
                   </div>
                 </div>
