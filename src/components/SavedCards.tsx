@@ -275,6 +275,23 @@ export function validateCvv(value: string, brand?: string | null, cardNumber?: s
   return null;
 }
 
+/** Rascunho do checkout (sem dados sensíveis) para não perder a escolha ao trocar de método. */
+function draftKey(appointmentId: string) {
+  return `checkout-card-draft:${appointmentId}`;
+}
+
+type CheckoutDraft = { selectedCardId: string | null; newCardOpen: boolean; name: string };
+
+function readDraft(appointmentId: string): CheckoutDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(draftKey(appointmentId));
+    return raw ? (JSON.parse(raw) as CheckoutDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function SavedCards({
   appointmentId,
   onPaid,
@@ -283,23 +300,41 @@ export function SavedCards({
   onPaid: (status: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const draft = useMemo(() => readDraft(appointmentId), [appointmentId]);
   const [mp, setMp] = useState<MpInstance | null>(null);
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(
+    draft?.selectedCardId ?? null,
+  );
   const [cvv, setCvv] = useState("");
   const [cvvTouched, setCvvTouched] = useState(false);
   const [newCvvTouched, setNewCvvTouched] = useState(false);
   const [numberTouched, setNumberTouched] = useState(false);
   const [expiryTouched, setExpiryTouched] = useState(false);
-  const [newCardOpen, setNewCardOpen] = useState(false);
+  const [newCardOpen, setNewCardOpen] = useState(draft?.newCardOpen ?? false);
   const [payError, setPayError] = useState<string | null>(null);
   const [form, setForm] = useState({
     number: "",
-    name: "",
+    name: draft?.name ?? "",
     expiry: "",
     cvv: "",
     doc: "",
     save: true,
   });
+
+  // Mantém a escolha do método mesmo ao alternar telas/recarregar (nunca guarda dados do cartão).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem(
+        draftKey(appointmentId),
+        JSON.stringify({ selectedCardId, newCardOpen, name: form.name }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [appointmentId, selectedCardId, newCardOpen, form.name]);
+
+
 
 
   const configQ = useQuery({
