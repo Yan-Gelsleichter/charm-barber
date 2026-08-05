@@ -119,8 +119,9 @@ export function SavedCards({
   }, [publicKey]);
 
   const cards = cardsQ.data?.cards ?? [];
+  const hasDefault = cards.some((c) => c.is_default);
 
-  // Seleciona automaticamente o cartão padrão (ou o primeiro) ao carregar.
+  // Com cartão padrão: já vem selecionado. Sem padrão: o cliente escolhe manualmente.
   useEffect(() => {
     if (cards.length === 0) {
       setSelectedCardId(null);
@@ -128,9 +129,11 @@ export function SavedCards({
     }
     setSelectedCardId((current) => {
       if (current && cards.some((c) => c.id === current)) return current;
-      return (cards.find((c) => c.is_default) ?? cards[0])!.id;
+      const preferred = cards.find((c) => c.is_default);
+      return preferred ? preferred.id : null;
     });
   }, [cards]);
+
 
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
@@ -215,6 +218,13 @@ export function SavedCards({
         <div className="flex justify-center py-3">
           <Loader2 className="animate-spin" />
         </div>
+      )}
+
+      {!cardsQ.isLoading && cards.length > 0 && !hasDefault && (
+        <p className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
+          Você ainda não definiu um cartão padrão. Escolha abaixo qual cartão usar agora ou adicione
+          um novo antes de pagar.
+        </p>
       )}
 
       {cards.map((card) => {
