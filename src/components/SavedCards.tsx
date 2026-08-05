@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, CreditCard, Loader2, Trash2, Zap } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  CreditCard,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  Zap,
+} from "lucide-react";
+
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
