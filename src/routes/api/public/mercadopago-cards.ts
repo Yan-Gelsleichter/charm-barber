@@ -290,6 +290,35 @@ async function resolvePublicKey(
   }
 }
 
+/** Texto cru devolvido pelo Mercado Pago (mensagem + causas), para exibir ao cliente. */
+function mpDetail(payload: unknown, httpStatus?: number): string | null {
+  const body = (payload ?? {}) as {
+    message?: unknown;
+    error?: unknown;
+    status_detail?: unknown;
+    cause?: Array<{ description?: unknown; code?: unknown; message?: unknown }>;
+  };
+  const parts: string[] = [];
+  const push = (v: unknown) => {
+    const text = typeof v === "string" ? v.trim() : v == null ? "" : String(v);
+    if (text && !parts.includes(text)) parts.push(text);
+  };
+  push(body.message);
+  push(body.error);
+  push(body.status_detail);
+  for (const cause of body.cause ?? []) {
+    const text = [cause?.code, cause?.description ?? cause?.message].filter(Boolean).join(": ");
+    push(text);
+  }
+  if (parts.length === 0 && httpStatus) parts.push(`HTTP ${httpStatus}`);
+  return parts.length ? `Mercado Pago: ${parts.join(" | ")}` : null;
+}
+
+/** Credenciais de teste (sandbox) não cobram cartões reais. */
+function isSandboxToken(accessToken: string) {
+  return accessToken.trim().toUpperCase().startsWith("TEST-");
+}
+
 export const Route = createFileRoute("/api/public/mercadopago-cards")({
   server: {
     handlers: {
@@ -620,12 +649,33 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ cards: data ?? [] });
           }
 
-          const customerId = await ensureCustomer(collector.accessToken, userEmail, {
+          if (
+            isSandboxToken(collector.accessToken) &&
+            (parsed.data.action === "pay" || parsed.data.action === "save")
+          ) {
+            return json(
+              {
+                error:
+                  "A conta do Mercado Pago está em modo de teste (sandbox). Conecte as credenciais de produção no painel (Pagamentos) para cobrar cartões reais.",
+                detail: "Access token de teste (TEST-...)",
+              },
+              400,
+            );
+          }
+
+          const customer = await ensureCustomer(collector.accessToken, userEmail, {
             name: appointment.customer_name,
           });
-          if (!customerId) {
-            return json({ error: "Não foi possível preparar o cadastro do cartão." }, 400);
+          if (!customer.id) {
+            return json(
+              {
+                error: "Não foi possível preparar o cadastro do cartão.",
+                ...(customer.detail ? { detail: customer.detail } : {}),
+              },
+              400,
+            );
           }
+          const customerId = customer.id;
 
           // ---- validação de servidor (Luhn + validade) antes de salvar/cobrar ----
           const cardError = await assertCardValid(collector.accessToken, {
@@ -651,7 +701,12 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               parsed.data.card_token,
               parsed.data.card_number,
             );
-            if ("error" in saved) return json({ error: saved.error }, 400);
+            if ("error" in saved) {
+              return json(
+                { error: saved.error, ...(saved.detail ? { detail: saved.detail } : {}) },
+                400,
+              );
+            }
             return json({ card: saved.card });
           }
 
@@ -727,6 +782,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               {
                 error: paymentErrorMessage(payment.status_detail, payment.status, payment.message),
                 status_detail: payment.status_detail ?? null,
+                detail: mpDetail(payment, response.status),
               },
               400,
             );
@@ -751,6 +807,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                 error: paymentErrorMessage(payment.status_detail, payment.status, null),
                 payment_status: paymentStatus,
                 status_detail: payment.status_detail ?? null,
+                detail: mpDetail(payment, response.status),
               },
               400,
             );
@@ -778,7 +835,13 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           });
         } catch (error) {
           console.error("Mercado Pago cartões: erro inesperado", error);
-          return json({ error: "Não foi possível processar o cartão agora." }, 500);
+          return json(
+            {
+              error: "Não foi possível processar o cartão agora.",
+              detail: error instanceof Error ? error.message : String(error),
+            },
+            500,
+          );
         }
       },
     },
@@ -790,7 +853,7 @@ async function ensureCustomer(
   accessToken: string,
   email: string,
   extra: { name?: string | null },
-): Promise<string | null> {
+): Promise<{ id: string | null; detail?: string | null }> {
   const search = await fetch(
     `https://api.mercadopago.com/v1/customers/search?email=${encodeURIComponent(email)}`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -798,7 +861,8 @@ async function ensureCustomer(
   const found = (await search.json().catch(() => ({}))) as {
     results?: Array<{ id?: string }>;
   };
-  if (search.ok && found.results?.[0]?.id) return found.results[0].id as string;
+  if (search.ok && found.results?.[0]?.id) return { id: found.results[0].id as string };
+  if (!search.ok) return { id: null, detail: mpDetail(found, search.status) };
 
   const created = await fetch("https://api.mercadopago.com/v1/customers", {
     method: "POST",
@@ -809,7 +873,10 @@ async function ensureCustomer(
     }),
   });
   const customer = (await created.json().catch(() => ({}))) as { id?: string };
-  return customer.id ?? null;
+  if (!created.ok || !customer.id) {
+    return { id: null, detail: mpDetail(customer, created.status) };
+  }
+  return { id: customer.id };
 }
 
 /** Vincula o token de cartão ao customer e grava no banco. */
@@ -842,7 +909,10 @@ async function saveCard(
   };
   if (!response.ok || !card.id) {
     console.error("Mercado Pago: falha ao salvar cartão", response.status, card);
-    return { error: card.message ?? "Não foi possível salvar este cartão." } as const;
+    return {
+      error: card.message ?? "Não foi possível salvar este cartão.",
+      detail: mpDetail(card, response.status),
+    } as const;
   }
 
   const row = {
@@ -867,7 +937,7 @@ async function saveCard(
     .maybeSingle();
   if (error) {
     console.error("Mercado Pago: falha ao gravar cartão salvo", error);
-    return { error: "Não foi possível salvar este cartão." } as const;
+    return { error: "Não foi possível salvar este cartão.", detail: error.message } as const;
   }
   return { card: data } as const;
 }
