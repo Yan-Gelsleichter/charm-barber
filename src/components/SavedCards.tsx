@@ -159,6 +159,8 @@ export function SavedCards({
   const [cvv, setCvv] = useState("");
   const [cvvTouched, setCvvTouched] = useState(false);
   const [newCvvTouched, setNewCvvTouched] = useState(false);
+  const [numberTouched, setNumberTouched] = useState(false);
+  const [expiryTouched, setExpiryTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(false);
   const [form, setForm] = useState({
     number: "",
