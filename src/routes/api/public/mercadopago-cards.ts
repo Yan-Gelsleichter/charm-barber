@@ -111,6 +111,71 @@ async function assertCardValid(
 }
 
 
+/**
+ * Traduz o motivo da recusa do Mercado Pago em uma mensagem clara,
+ * com instrução do que o cliente deve fazer para tentar de novo.
+ */
+export function paymentErrorMessage(
+  statusDetail?: string | null,
+  status?: string | null,
+  fallback?: string | null,
+): string {
+  const detail = (statusDetail ?? "").toLowerCase();
+  const map: Record<string, string> = {
+    cc_rejected_bad_filled_card_number:
+      "Número do cartão incorreto. Confira os dígitos e tente novamente.",
+    cc_rejected_bad_filled_date:
+      "Data de validade incorreta. Corrija a validade (MM/AA) e tente novamente.",
+    cc_rejected_bad_filled_security_code:
+      "Código de segurança (CVV) inválido. Digite o CVV correto e tente novamente.",
+    cc_rejected_bad_filled_other:
+      "Alguns dados do cartão estão incorretos. Revise número, validade e CVV e tente novamente.",
+    cc_rejected_call_for_authorize:
+      "O emissor pediu autorização para este valor. Ligue para o banco do cartão, autorize a compra e tente novamente.",
+    cc_rejected_card_disabled:
+      "Cartão desabilitado. Peça a liberação ao banco emissor ou use outro cartão.",
+    cc_rejected_card_error:
+      "Não foi possível processar este cartão. Tente novamente em alguns instantes ou use outro cartão.",
+    cc_rejected_duplicated_payment:
+      "Já existe um pagamento igual em processamento. Aguarde alguns minutos antes de tentar novamente.",
+    cc_rejected_high_risk:
+      "Pagamento recusado por segurança. Tente outro cartão ou pague com Pix.",
+    cc_rejected_insufficient_amount:
+      "Saldo ou limite insuficiente. Use outro cartão ou pague com Pix.",
+    cc_rejected_invalid_installments:
+      "O número de parcelas não é aceito por este cartão. Escolha outra opção e tente novamente.",
+    cc_rejected_max_attempts:
+      "Você atingiu o limite de tentativas com este cartão. Aguarde alguns minutos ou use outro cartão.",
+    cc_rejected_blacklist: "Cartão não autorizado. Use outro cartão ou pague com Pix.",
+    cc_rejected_card_type_not_allowed:
+      "Este tipo de cartão não é aceito. Use outro cartão ou pague com Pix.",
+    cc_rejected_other_reason:
+      "O emissor recusou a transação. Tente novamente, use outro cartão ou pague com Pix.",
+    cc_amount_rate_limit_exceeded:
+      "O valor excede o limite permitido para este cartão. Use outro cartão ou pague com Pix.",
+    rejected_insufficient_data:
+      "Faltam dados do titular do cartão. Preencha nome e CPF e tente novamente.",
+    expired: "O prazo deste pagamento expirou. Gere um novo pagamento e tente novamente.",
+  };
+  if (detail && map[detail]) return map[detail]!;
+
+  const normalized = (status ?? "").toLowerCase();
+  if (normalized === "expired") {
+    return "O prazo deste pagamento expirou. Gere um novo pagamento e tente novamente.";
+  }
+  if (normalized === "cancelled") {
+    return "A transação foi cancelada e não foi concluída. Tente novamente ou use outro meio de pagamento.";
+  }
+  if (detail.startsWith("cc_rejected")) {
+    return "Pagamento recusado pelo emissor do cartão. Tente novamente, use outro cartão ou pague com Pix.";
+  }
+  if (fallback) {
+    return `${fallback} Tente novamente, use outro cartão ou pague com Pix.`;
+  }
+  return "Não foi possível concluir a transação. Tente novamente, use outro cartão ou pague com Pix.";
+}
+
+
 function mapPaymentStatus(mpStatus?: string | null): string {
   switch ((mpStatus ?? "").toLowerCase()) {
     case "approved":
