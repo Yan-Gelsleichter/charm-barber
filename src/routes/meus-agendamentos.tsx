@@ -128,17 +128,25 @@ function MeusAgendamentosPage() {
             <p className="font-semibold">{displayName}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={async () => {
-            await supabase.auth.signOut();
-            navigate({ to: "/auth" });
-          }}
-        >
-          <LogOut /> Sair
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/meus-cartoes">
+              <CreditCard /> Cartões
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate({ to: "/auth" });
+            }}
+          >
+            <LogOut /> Sair
+          </Button>
+        </div>
       </header>
+
 
       <section className="mt-8">
         <h1 className="text-xl font-semibold">Meus agendamentos</h1>
