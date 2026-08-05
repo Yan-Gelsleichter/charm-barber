@@ -365,7 +365,12 @@ export function SavedCards({
   const configQ = useQuery({
     queryKey: ["mp-card-config", appointmentId],
     queryFn: () =>
-      callCardsApi<{ public_key: string | null; amount: number; service_name: string }>({
+      callCardsApi<{
+        public_key: string | null;
+        server_tokenize?: boolean;
+        amount: number;
+        service_name: string;
+      }>({
         action: "config",
         appointment_id: appointmentId,
       }),
@@ -378,6 +383,9 @@ export function SavedCards({
   });
 
   const publicKey = configQ.data?.public_key ?? null;
+  // Conta conectada via OAuth sem chave pública: o token é gerado no servidor.
+  const serverTokenize = Boolean(configQ.data?.server_tokenize) || (!!configQ.data && !publicKey);
+
 
   useEffect(() => {
     if (!publicKey) return;
@@ -428,10 +436,20 @@ export function SavedCards({
 
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
-      if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      if (!mp && !serverTokenize)
+        throw new Error("Pagamento com cartão indisponível no momento.");
       const invalid = validateCvv(cvv, card.brand, null);
       if (invalid) throw new Error(invalid);
       const securityCode = digits(cvv);
+
+      if (!mp) {
+        return callCardsApi<{ payment_status: string }>({
+          action: "pay",
+          appointment_id: appointmentId,
+          saved_card_id: card.id,
+          security_code: securityCode,
+        });
+      }
 
       const token = await mp.createCardToken({ cardId: card.id, securityCode });
       if (!token.id) throw new Error("Não foi possível validar o cartão salvo.");
@@ -463,7 +481,8 @@ export function SavedCards({
 
   const payWithNew = useMutation({
     mutationFn: async () => {
-      if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      if (!mp && !serverTokenize)
+        throw new Error("Pagamento com cartão indisponível no momento.");
       const invalidNumber = validateCardNumber(form.number);
       if (invalidNumber) throw new Error(invalidNumber);
       const invalidExpiry = validateExpiry(form.expiry);
@@ -472,12 +491,27 @@ export function SavedCards({
       if (invalidCvv) throw new Error(invalidCvv);
       const [month, year] = form.expiry.split("/");
       if (!month || !year) throw new Error("Informe a validade no formato MM/AA.");
+      const fullYear = Number(digits(year).length === 2 ? `20${digits(year)}` : digits(year));
+
+      if (!mp) {
+        return callCardsApi<{ payment_status: string }>({
+          action: "pay",
+          appointment_id: appointmentId,
+          save_card: form.save,
+          card_number: digits(form.number),
+          expiration_month: Number(digits(month)),
+          expiration_year: fullYear,
+          security_code: digits(form.cvv),
+          cardholder_name: form.name.trim(),
+          ...(digits(form.doc) ? { identification_number: digits(form.doc) } : {}),
+        });
+      }
 
       const token = await mp.createCardToken({
         cardNumber: digits(form.number),
         cardholderName: form.name.trim(),
         cardExpirationMonth: digits(month),
-        cardExpirationYear: digits(year).length === 2 ? `20${digits(year)}` : digits(year),
+        cardExpirationYear: String(fullYear),
         securityCode: digits(form.cvv),
         identificationType: "CPF",
         identificationNumber: digits(form.doc),
@@ -490,7 +524,7 @@ export function SavedCards({
         save_card: form.save,
         card_number: digits(form.number),
         expiration_month: Number(digits(month)),
-        expiration_year: Number(digits(year).length === 2 ? `20${digits(year)}` : digits(year)),
+        expiration_year: fullYear,
       });
     },
     onSuccess: (data) => {
@@ -524,9 +558,10 @@ export function SavedCards({
     onError: (e: Error) => toast.error("Não foi possível remover", { description: e.message }),
   });
 
+  // Só bloqueia quando a barbearia não tem conta conectada (config falhou).
   const unavailable = useMemo(
-    () => !configQ.isLoading && !publicKey,
-    [configQ.isLoading, publicKey],
+    () => !configQ.isLoading && !publicKey && !serverTokenize,
+    [configQ.isLoading, publicKey, serverTokenize],
   );
 
   const charging = payWithSaved.isPending || payWithNew.isPending;

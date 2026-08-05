@@ -16,13 +16,18 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("pay"),
     appointment_id: z.string().uuid(),
-    card_token: z.string().min(10).max(120),
+    // Opcional: quando o SDK do navegador não pôde tokenizar (sem public key),
+    // o servidor cria o token com o access token da conta conectada via OAuth.
+    card_token: z.string().min(10).max(120).optional(),
     saved_card_id: z.string().uuid().optional(),
     installments: z.number().int().min(1).max(12).optional(),
     save_card: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
+    security_code: z.string().min(3).max(4).optional(),
+    cardholder_name: z.string().min(2).max(80).optional(),
+    identification_number: z.string().min(3).max(20).optional(),
   }),
 
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
@@ -605,25 +610,18 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ error: "Esta barbearia ainda não conectou o Mercado Pago." }, 400);
           }
 
-          if (!collector.publicKey && parsed.data.action === "config") {
-            return json(
-              {
-                error:
-                  "Não foi possível obter a chave pública da conta Mercado Pago conectada. Reconecte a conta no painel (Pagamentos) para renovar a autorização.",
-              },
-              400,
-            );
-          }
-
-
           // ---- configuração para tokenizar no navegador ----
+          // Sem public key ainda liberamos o cartão: o token é criado no
+          // servidor com o access token da conta conectada via OAuth.
           if (parsed.data.action === "config") {
             return json({
               public_key: collector.publicKey,
+              server_tokenize: !collector.publicKey,
               amount,
               service_name: (service as { name?: string } | null)?.name ?? "Serviço",
             });
           }
+
 
           // ---- listar cartões salvos ----
           if (parsed.data.action === "list") {
@@ -677,9 +675,78 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
           const customerId = customer.id;
 
+          // ---- token do cartão ----
+          // Sem public key (conta OAuth sem chave publicada) o navegador não
+          // tokeniza: criamos o token aqui com o access token da conta conectada.
+          let cardToken = parsed.data.card_token ?? "";
+          if (!cardToken) {
+            if (parsed.data.action !== "pay") {
+              return json({ error: "Dados do cartão ausentes." }, 400);
+            }
+            const securityCode = String(parsed.data.security_code ?? "").replace(/\D/g, "");
+            if (!securityCode) return json({ error: "Informe o código de segurança (CVV)." }, 400);
+
+            let payload: Record<string, unknown>;
+            if (parsed.data.saved_card_id) {
+              const { data: ownedCard } = await admin
+                .from("saved_cards")
+                .select("mp_card_id")
+                .eq("id", parsed.data.saved_card_id)
+                .eq("user_id", user.id)
+                .eq("mp_collector_id", collector.collectorId)
+                .maybeSingle();
+              const mpCardId = (ownedCard as { mp_card_id?: string } | null)?.mp_card_id;
+              if (!mpCardId) return json({ error: "Cartão não encontrado." }, 404);
+              payload = { card_id: mpCardId, security_code: securityCode };
+            } else {
+              const number = String(parsed.data.card_number ?? "").replace(/\D/g, "");
+              if (!number || !parsed.data.expiration_month || !parsed.data.expiration_year) {
+                return json({ error: "Preencha os dados completos do cartão." }, 400);
+              }
+              payload = {
+                card_number: number,
+                security_code: securityCode,
+                expiration_month: parsed.data.expiration_month,
+                expiration_year: parsed.data.expiration_year,
+                cardholder: {
+                  name: parsed.data.cardholder_name ?? appointment.customer_name ?? "",
+                  ...(parsed.data.identification_number
+                    ? {
+                        identification: {
+                          type: "CPF",
+                          number: parsed.data.identification_number.replace(/\D/g, ""),
+                        },
+                      }
+                    : {}),
+                },
+              };
+            }
+
+            const tokenRes = await fetch("https://api.mercadopago.com/v1/card_tokens", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${collector.accessToken}`,
+                "content-type": "application/json",
+              },
+              body: JSON.stringify(payload),
+            });
+            const tokenBody = (await tokenRes.json().catch(() => ({}))) as { id?: string };
+            if (!tokenRes.ok || !tokenBody.id) {
+              console.error("Mercado Pago: falha ao tokenizar no servidor", tokenRes.status, tokenBody);
+              return json(
+                {
+                  error: "Não foi possível validar os dados do cartão.",
+                  detail: mpDetail(tokenBody, tokenRes.status),
+                },
+                400,
+              );
+            }
+            cardToken = tokenBody.id;
+          }
+
           // ---- validação de servidor (Luhn + validade) antes de salvar/cobrar ----
           const cardError = await assertCardValid(collector.accessToken, {
-            card_token: parsed.data.card_token,
+            card_token: cardToken,
             ...(parsed.data.card_number ? { card_number: parsed.data.card_number } : {}),
             ...(parsed.data.expiration_month
               ? { expiration_month: parsed.data.expiration_month }
@@ -698,7 +765,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               user.id,
               appointment.barbershop_id,
               customerId,
-              parsed.data.card_token,
+              cardToken,
               parsed.data.card_number,
             );
             if ("error" in saved) {
@@ -738,7 +805,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
           const body: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
-            token: parsed.data.card_token,
+            token: cardToken,
             description: `${(service as { name?: string } | null)?.name ?? "Serviço"} — agendamento`,
             installments: parsed.data.installments ?? 1,
             payer: { type: "customer", id: customerId, email: userEmail },
@@ -839,7 +906,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               user.id,
               appointment.barbershop_id,
               customerId,
-              parsed.data.card_token,
+              cardToken,
               parsed.data.card_number,
             ).catch(() => null);
           }
