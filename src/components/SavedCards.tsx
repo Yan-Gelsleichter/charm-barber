@@ -288,6 +288,11 @@ export function SavedCards({
         appointment_id: appointmentId,
         card_token: token.id,
         save_card: form.save,
+        card_number: digits(form.number),
+        expiration_month: Number(digits(month)),
+        expiration_year: Number(
+          digits(year).length === 2 ? `20${digits(year)}` : digits(year),
+        ),
       });
     },
     onSuccess: (data) => {
