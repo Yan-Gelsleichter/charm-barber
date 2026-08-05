@@ -457,6 +457,26 @@ export function SavedCards({
         </div>
       )}
 
+      {payError && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold">Pagamento não concluído</p>
+            <p className="mt-0.5 text-destructive/90">{payError}</p>
+          </div>
+          <button
+            type="button"
+            className="text-[11px] underline"
+            onClick={() => setPayError(null)}
+          >
+            Fechar
+          </button>
+        </div>
+      )}
+
       {!cardsQ.isLoading && cards.length > 0 && !hasDefault && (
         <p className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
           Você ainda não definiu um cartão padrão. Escolha abaixo qual cartão usar agora ou adicione
