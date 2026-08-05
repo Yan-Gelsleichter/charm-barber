@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, Loader2, Trash2, Zap } from "lucide-react";
+import { CheckCircle2, CreditCard, Loader2, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export type SavedCard = {
   id: string;
@@ -14,6 +15,7 @@ export type SavedCard = {
   cardholder_name: string | null;
   expiration_month: number | null;
   expiration_year: number | null;
+  is_default?: boolean | null;
 };
 
 type MpInstance = {
@@ -73,7 +75,7 @@ export function SavedCards({
 }) {
   const queryClient = useQueryClient();
   const [mp, setMp] = useState<MpInstance | null>(null);
-  const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [cvv, setCvv] = useState("");
   const [newCardOpen, setNewCardOpen] = useState(false);
   const [form, setForm] = useState({
@@ -118,6 +120,18 @@ export function SavedCards({
 
   const cards = cardsQ.data?.cards ?? [];
 
+  // Seleciona automaticamente o cartão padrão (ou o primeiro) ao carregar.
+  useEffect(() => {
+    if (cards.length === 0) {
+      setSelectedCardId(null);
+      return;
+    }
+    setSelectedCardId((current) => {
+      if (current && cards.some((c) => c.id === current)) return current;
+      return (cards.find((c) => c.is_default) ?? cards[0])!.id;
+    });
+  }, [cards]);
+
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
       if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
@@ -134,7 +148,6 @@ export function SavedCards({
     },
     onSuccess: (data) => {
       setCvv("");
-      setOpenCardId(null);
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
@@ -204,65 +217,86 @@ export function SavedCards({
         </div>
       )}
 
-      {cards.map((card) => (
-        <div key={card.id} className="rounded-xl border border-border/60 p-3">
-          <div className="flex items-center gap-3">
-            <CreditCard className="size-4 text-muted-foreground" />
-            <div className="flex-1 text-sm">
-              <p className="font-medium">
-                {card.brand ?? "Cartão"} •••• {card.last_four ?? "0000"}
-              </p>
-              {card.expiration_month && card.expiration_year && (
-                <p className="text-xs text-muted-foreground">
-                  Validade {String(card.expiration_month).padStart(2, "0")}/
-                  {String(card.expiration_year).slice(-2)}
-                </p>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Remover cartão"
-              onClick={() => removeCard.mutate(card.id)}
-              disabled={removeCard.isPending}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-
-          {openCardId === card.id ? (
-            <div className="mt-3 flex gap-2">
-              <Input
-                inputMode="numeric"
-                maxLength={4}
-                placeholder="CVV"
-                value={cvv}
-                onChange={(e) => setCvv(digits(e.target.value))}
-                className="w-24"
-              />
-              <Button
-                className="flex-1"
-                onClick={() => payWithSaved.mutate(card)}
-                disabled={payWithSaved.isPending}
-              >
-                {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
-                Pagar agora
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              className="mt-3 w-full"
+      {cards.map((card) => {
+        const selected = selectedCardId === card.id;
+        return (
+          <div
+            key={card.id}
+            className={cn(
+              "rounded-xl border p-3 transition-colors",
+              selected ? "border-[var(--brand-from)] bg-secondary/40" : "border-border/60",
+            )}
+          >
+            <button
+              type="button"
               onClick={() => {
-                setOpenCardId(card.id);
+                setSelectedCardId(card.id);
                 setCvv("");
               }}
+              className="flex w-full items-center gap-3 text-left"
             >
-              Pagar com este cartão
-            </Button>
-          )}
-        </div>
-      ))}
+              {selected ? (
+                <CheckCircle2 className="size-4 text-[var(--brand-from)]" />
+              ) : (
+                <CreditCard className="size-4 text-muted-foreground" />
+              )}
+              <div className="flex-1 text-sm">
+                <p className="font-medium">
+                  {card.brand ?? "Cartão"} •••• {card.last_four ?? "0000"}
+                  {card.is_default && (
+                    <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success">
+                      Padrão
+                    </span>
+                  )}
+                </p>
+                {card.expiration_month && card.expiration_year && (
+                  <p className="text-xs text-muted-foreground">
+                    Validade {String(card.expiration_month).padStart(2, "0")}/
+                    {String(card.expiration_year).slice(-2)}
+                  </p>
+                )}
+              </div>
+            </button>
+
+            {selected && (
+              <div className="mt-3 flex gap-2">
+                <Input
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="CVV"
+                  value={cvv}
+                  onChange={(e) => setCvv(digits(e.target.value))}
+                  className="w-24"
+                />
+                <Button
+                  className="flex-1"
+                  onClick={() => payWithSaved.mutate(card)}
+                  disabled={payWithSaved.isPending}
+                >
+                  {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
+                  Pagar agora
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remover cartão"
+                  onClick={() => removeCard.mutate(card.id)}
+                  disabled={removeCard.isPending}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {cards.length > 1 && (
+        <p className="text-[11px] text-muted-foreground">
+          Toque em outro cartão para trocar antes de pagar.
+        </p>
+      )}
+
 
       {!cardsQ.isLoading && cards.length === 0 && (
         <p className="text-xs text-muted-foreground">

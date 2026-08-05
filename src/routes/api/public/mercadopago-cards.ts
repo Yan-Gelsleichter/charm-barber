@@ -341,11 +341,23 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (parsed.data.action === "list") {
             const { data, error } = await admin
               .from("saved_cards")
-              .select("id, last_four, brand, cardholder_name, expiration_month, expiration_year")
+              .select(
+                "id, last_four, brand, cardholder_name, expiration_month, expiration_year, is_default",
+              )
               .eq("user_id", user.id)
               .eq("mp_collector_id", collector.collectorId)
+              .order("is_default", { ascending: false })
               .order("created_at", { ascending: false });
-            if (error) return json({ cards: [] });
+            if (error) {
+              // Banco ainda sem a coluna is_default: cai para a listagem simples.
+              const { data: legacy } = await admin
+                .from("saved_cards")
+                .select("id, last_four, brand, cardholder_name, expiration_month, expiration_year")
+                .eq("user_id", user.id)
+                .eq("mp_collector_id", collector.collectorId)
+                .order("created_at", { ascending: false });
+              return json({ cards: legacy ?? [] });
+            }
             return json({ cards: data ?? [] });
           }
 
