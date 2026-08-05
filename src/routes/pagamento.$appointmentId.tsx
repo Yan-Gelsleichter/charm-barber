@@ -17,6 +17,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SavedCards } from "@/components/SavedCards";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { brl, fmtTime } from "@/lib/format";
 
 type PixData = {
