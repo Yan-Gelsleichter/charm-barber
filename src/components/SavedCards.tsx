@@ -567,17 +567,28 @@ export function SavedCards({
       {newCardOpen ? (
         <div className="space-y-2 rounded-xl border border-border/60 p-3">
           <div>
-            <Input
-              inputMode="numeric"
-              placeholder="Número do cartão"
-              value={formatCardNumber(form.number)}
-              aria-invalid={Boolean(numberError)}
-              aria-describedby={numberError ? "card-number-error" : undefined}
-              onBlur={() => setNumberTouched(true)}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, number: digits(e.target.value).slice(0, 19) }))
-              }
-            />
+            <div className="relative">
+              <Input
+                inputMode="numeric"
+                placeholder="Número do cartão"
+                value={formatCardNumber(form.number)}
+                aria-invalid={Boolean(numberError)}
+                aria-describedby={numberError ? "card-number-error" : undefined}
+                onBlur={() => setNumberTouched(true)}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    number: digits(e.target.value).slice(0, maxCardLength(e.target.value)),
+                  }))
+                }
+                className={newCardBrand.label ? "pr-24" : undefined}
+              />
+              {newCardBrand.label && (
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {newCardBrand.label}
+                </span>
+              )}
+            </div>
             {numberError && (
               <p id="card-number-error" className="mt-1 text-[11px] text-destructive">
                 {numberError}
