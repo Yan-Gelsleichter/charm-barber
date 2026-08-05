@@ -332,6 +332,7 @@ export function SavedCards({
   }, [cards]);
 
   const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
+  const newCardBrand = detectCardBrand(form.number);
   const savedCvvError = cvvTouched ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
   const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
   const numberError = numberTouched ? validateCardNumber(form.number) : null;
