@@ -533,7 +533,11 @@ export function SavedCards({
   if (unavailable) return null;
 
   return (
-    <section className="surface relative mt-5 space-y-3 p-4" aria-busy={busy}>
+    <section
+      ref={sectionRef}
+      className="surface relative mt-5 space-y-3 p-4"
+      aria-busy={busy}
+    >
       {charging && (
         <div
           role="status"
