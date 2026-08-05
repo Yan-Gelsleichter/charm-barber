@@ -805,50 +805,24 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ error: "Este agendamento já está pago.", payment_status: "pago" }, 409);
           }
 
-          // ---- dados antifraude (reduzem "em análise pelo emissor") ----
-          const fullName = String(
-            parsed.data.cardholder_name ?? appointment.customer_name ?? "",
-          ).trim();
-          const nameParts = fullName.split(/\s+/).filter(Boolean);
-          const firstName = nameParts[0] ?? "Cliente";
-          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : firstName;
           const cpf = String(parsed.data.identification_number ?? "").replace(/\D/g, "");
-          const identification = cpf ? { type: "CPF", number: cpf } : null;
           const deviceId = parsed.data.device_id ?? null;
           const serviceName = (service as { name?: string } | null)?.name ?? "Serviço";
+
+          // Payload padrão do Mercado Pago: apenas os campos que a API espera.
+          const payer: Record<string, unknown> = parsed.data.saved_card_id
+            ? { type: "customer", id: customerId }
+            : { email: userEmail };
+          if (!parsed.data.saved_card_id && cpf.length === 11) {
+            payer["identification"] = { type: "CPF", number: cpf };
+          }
 
           const body: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
             token: cardToken,
             description: `${serviceName} — agendamento`,
-            installments: parsed.data.installments ?? 1,
-            capture: true,
-            binary_mode: false,
-            statement_descriptor: "BARBEARIA",
-            payer: {
-              type: "customer",
-              id: customerId,
-              email: userEmail,
-              first_name: firstName,
-              last_name: lastName,
-              ...(identification ? { identification } : {}),
-            },
-            additional_info: {
-              items: [
-                {
-                  id: String((service as { id?: string } | null)?.id ?? appointment.id),
-                  title: serviceName,
-                  description: serviceName,
-                  category_id: "services",
-                  quantity: 1,
-                  unit_price: Number(amount.toFixed(2)),
-                },
-              ],
-              payer: {
-                first_name: firstName,
-                last_name: lastName,
-              },
-            },
+            installments: Number(parsed.data.installments ?? 1),
+            payer,
             external_reference: appointment.id,
             metadata: {
               appointment_id: appointment.id,
@@ -856,6 +830,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             },
           };
           if (collector.shopFee > 0) body["application_fee"] = collector.shopFee;
+
 
           const doPay = (payload: Record<string, unknown>, key: string) =>
             fetch("https://api.mercadopago.com/v1/payments", {
