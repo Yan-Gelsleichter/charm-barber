@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { mpSandbox } from "@/lib/mp-sandbox.server";
 import { paymentErrorMessage } from "./mercadopago-cards";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -178,7 +179,8 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             }
           }
 
-          const accessToken = barberSplit?.accessToken ?? shop?.mp_access_token;
+          const sandbox = mpSandbox();
+          const accessToken = sandbox?.accessToken ?? barberSplit?.accessToken ?? shop?.mp_access_token;
           if (!accessToken) {
             return json(
               {
@@ -239,7 +241,9 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
           // No split, a barbearia fica com (100 - comissão do barbeiro).
-          const shopFee = barberSplit
+          const shopFee = sandbox
+            ? 0
+            : barberSplit
             ? Number(((amount * (100 - barberSplit.commissionPercent)) / 100).toFixed(2))
             : 0;
 
