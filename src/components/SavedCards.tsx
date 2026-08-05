@@ -365,7 +365,12 @@ export function SavedCards({
   const configQ = useQuery({
     queryKey: ["mp-card-config", appointmentId],
     queryFn: () =>
-      callCardsApi<{ public_key: string | null; amount: number; service_name: string }>({
+      callCardsApi<{
+        public_key: string | null;
+        server_tokenize?: boolean;
+        amount: number;
+        service_name: string;
+      }>({
         action: "config",
         appointment_id: appointmentId,
       }),
@@ -378,6 +383,9 @@ export function SavedCards({
   });
 
   const publicKey = configQ.data?.public_key ?? null;
+  // Conta conectada via OAuth sem chave pública: o token é gerado no servidor.
+  const serverTokenize = Boolean(configQ.data?.server_tokenize) || (!!configQ.data && !publicKey);
+
 
   useEffect(() => {
     if (!publicKey) return;
