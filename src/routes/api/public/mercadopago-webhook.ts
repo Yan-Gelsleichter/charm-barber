@@ -258,6 +258,11 @@ async function handleNotification(request: Request) {
   ).trim();
   if (!notificationId) return new Response("no payment id", { status: 200 });
 
+  // Só eventos legítimos (assinados pelo Mercado Pago) seguem adiante.
+  const rejected = await verifySignature(request, url, notificationId);
+  if (rejected) return rejected;
+
+
   const action = raw.action ?? url.searchParams.get("action") ?? topic ?? "payment";
 
   const supabaseUrl =
