@@ -62,9 +62,18 @@ async function resolveAccessToken(
   return null;
 }
 
+function isMissingTable(error: { message?: string; code?: string } | null) {
+  return !!error && (error.code === "42P01" || /relation .* does not exist/i.test(error.message ?? ""));
+}
+
+function isDuplicate(error: { code?: string; message?: string } | null) {
+  return !!error && (error.code === "23505" || /duplicate key/i.test(error.message ?? ""));
+}
+
 async function handleNotification(request: Request) {
   const url = new URL(request.url);
   const raw = (await request.json().catch(() => ({}))) as {
+    id?: number | string;
     type?: string;
     topic?: string;
     action?: string;
@@ -81,6 +90,12 @@ async function handleNotification(request: Request) {
     raw.data?.id ?? url.searchParams.get("data.id") ?? url.searchParams.get("id") ?? "",
   ).trim();
   if (!paymentId) return new Response("no payment id", { status: 200 });
+
+  const action = raw.action ?? url.searchParams.get("action") ?? topic ?? "payment";
+  const eventId = String(
+    raw.id ?? url.searchParams.get("id_event") ?? `${paymentId}:${action}`,
+  ).trim();
+
 
   const supabaseUrl =
     process.env["SUPABASE_URL"] || process.env["SB_URL"] || process.env["VITE_SUPABASE_URL"];
