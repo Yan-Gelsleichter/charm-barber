@@ -191,7 +191,21 @@ function MeusAgendamentosPage() {
                   </div>
                 </div>
                 {isUpcoming && (
-                  <div className="mt-3 flex justify-end gap-2">
+                  <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    {a.payment_status !== "pago" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          navigate({
+                            to: "/pagamento/$appointmentId",
+                            params: { appointmentId: a.id },
+                          })
+                        }
+                      >
+                        <CreditCard /> Pagar
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"

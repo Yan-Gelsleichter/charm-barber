@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   QrCode,
   CreditCard,
   Store,
@@ -215,6 +216,14 @@ function PagamentoPage() {
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-2 mb-3"
+        onClick={() => navigate({ to: "/meus-agendamentos" })}
+      >
+        <ArrowLeft /> Voltar para agendamentos
+      </Button>
       <h1 className="text-xl font-semibold">Pagamento</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Escolha como deseja pagar o seu atendimento.
