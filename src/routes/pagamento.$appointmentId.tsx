@@ -321,6 +321,7 @@ function PagamentoPage() {
       {!pix && !paid && (
         <SavedCards
           appointmentId={appointmentId}
+          openNewCardSignal={cardSignal}
           onPaid={(status) => {
             setPayStatus(status);
             apptQ.refetch();
