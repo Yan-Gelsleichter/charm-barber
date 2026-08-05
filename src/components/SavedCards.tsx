@@ -75,6 +75,67 @@ export function cvvLengthFor(brand?: string | null, cardNumber?: string | null) 
   return isAmex ? 4 : 3;
 }
 
+/** Formata o número do cartão em grupos (4-4-4-4, ou 4-6-5 para Amex). */
+export function formatCardNumber(value: string) {
+  const d = digits(value).slice(0, 19);
+  const amex = /^3[47]/.test(d);
+  const groups = amex ? [4, 6, 5] : [4, 4, 4, 4, 3];
+  const parts: string[] = [];
+  let i = 0;
+  for (const size of groups) {
+    if (i >= d.length) break;
+    parts.push(d.slice(i, i + size));
+    i += size;
+  }
+  return parts.join(" ");
+}
+
+/** Algoritmo de Luhn. */
+export function luhnValid(value: string) {
+  const d = digits(value);
+  if (d.length < 12) return false;
+  let sum = 0;
+  let double = false;
+  for (let i = d.length - 1; i >= 0; i--) {
+    let n = Number(d[i]);
+    if (double) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    double = !double;
+  }
+  return sum % 10 === 0;
+}
+
+/** Retorna a mensagem de erro do número do cartão ou null quando válido. */
+export function validateCardNumber(value: string) {
+  const d = digits(value);
+  if (!d) return "Informe o número do cartão.";
+  const amex = /^3[47]/.test(d);
+  const expected = amex ? 15 : 16;
+  if (d.length < expected) return `O número do cartão deve ter ${expected} dígitos.`;
+  if (d.length > 19) return "Número do cartão inválido.";
+  if (!luhnValid(d)) return "Número do cartão inválido. Confira os dígitos.";
+  return null;
+}
+
+/** Retorna a mensagem de erro da validade (MM/AA) ou null quando válida. */
+export function validateExpiry(value: string, now: Date = new Date()) {
+  const d = digits(value);
+  if (!d) return "Informe a validade (MM/AA).";
+  if (d.length < 4) return "Use o formato MM/AA.";
+  const month = Number(d.slice(0, 2));
+  if (month < 1 || month > 12) return "Mês inválido. Use de 01 a 12.";
+  const rawYear = d.slice(2);
+  const year = rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear);
+  const expiry = new Date(year, month, 1);
+  const current = new Date(now.getFullYear(), now.getMonth(), 1);
+  if (expiry <= current) return "Cartão vencido. Confira a validade.";
+  if (year > now.getFullYear() + 20) return "Validade inválida.";
+  return null;
+}
+
 /** Retorna a mensagem de erro do CVV ou null quando válido. */
 export function validateCvv(value: string, brand?: string | null, cardNumber?: string | null) {
   const raw = value.trim();
