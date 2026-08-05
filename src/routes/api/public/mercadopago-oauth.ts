@@ -77,15 +77,21 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           const rowId = isBarber ? state.slice("barber:".length) : state;
           const tab = "pagamentos";
 
-          const { error } = await admin
-            .from(table)
-            .update({
-              mp_access_token: token.access_token,
-              mp_refresh_token: token.refresh_token ?? null,
-              mp_user_id: token.user_id ? String(token.user_id) : null,
-            })
-            .eq("id", rowId);
+          const payload: Record<string, unknown> = {
+            mp_access_token: token.access_token,
+            mp_refresh_token: token.refresh_token ?? null,
+            mp_user_id: token.user_id ? String(token.user_id) : null,
+          };
+          if (token.public_key) payload["mp_public_key"] = token.public_key;
+
+          let { error } = await admin.from(table).update(payload).eq("id", rowId);
+          // A coluna mp_public_key pode ainda não existir no banco.
+          if (error && token.public_key) {
+            delete payload["mp_public_key"];
+            ({ error } = await admin.from(table).update(payload).eq("id", rowId));
+          }
           if (error) return backTo(appUrl, { mp: "erro", mp_msg: error.message }, tab);
+
 
           return backTo(appUrl, { mp: "ok" }, tab);
         } catch (e) {
