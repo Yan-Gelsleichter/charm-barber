@@ -204,65 +204,86 @@ export function SavedCards({
         </div>
       )}
 
-      {cards.map((card) => (
-        <div key={card.id} className="rounded-xl border border-border/60 p-3">
-          <div className="flex items-center gap-3">
-            <CreditCard className="size-4 text-muted-foreground" />
-            <div className="flex-1 text-sm">
-              <p className="font-medium">
-                {card.brand ?? "Cartão"} •••• {card.last_four ?? "0000"}
-              </p>
-              {card.expiration_month && card.expiration_year && (
-                <p className="text-xs text-muted-foreground">
-                  Validade {String(card.expiration_month).padStart(2, "0")}/
-                  {String(card.expiration_year).slice(-2)}
-                </p>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Remover cartão"
-              onClick={() => removeCard.mutate(card.id)}
-              disabled={removeCard.isPending}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-
-          {openCardId === card.id ? (
-            <div className="mt-3 flex gap-2">
-              <Input
-                inputMode="numeric"
-                maxLength={4}
-                placeholder="CVV"
-                value={cvv}
-                onChange={(e) => setCvv(digits(e.target.value))}
-                className="w-24"
-              />
-              <Button
-                className="flex-1"
-                onClick={() => payWithSaved.mutate(card)}
-                disabled={payWithSaved.isPending}
-              >
-                {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
-                Pagar agora
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              className="mt-3 w-full"
+      {cards.map((card) => {
+        const selected = selectedCardId === card.id;
+        return (
+          <div
+            key={card.id}
+            className={cn(
+              "rounded-xl border p-3 transition-colors",
+              selected ? "border-[var(--brand-from)] bg-secondary/40" : "border-border/60",
+            )}
+          >
+            <button
+              type="button"
               onClick={() => {
-                setOpenCardId(card.id);
+                setSelectedCardId(card.id);
                 setCvv("");
               }}
+              className="flex w-full items-center gap-3 text-left"
             >
-              Pagar com este cartão
-            </Button>
-          )}
-        </div>
-      ))}
+              {selected ? (
+                <CheckCircle2 className="size-4 text-[var(--brand-from)]" />
+              ) : (
+                <CreditCard className="size-4 text-muted-foreground" />
+              )}
+              <div className="flex-1 text-sm">
+                <p className="font-medium">
+                  {card.brand ?? "Cartão"} •••• {card.last_four ?? "0000"}
+                  {card.is_default && (
+                    <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success">
+                      Padrão
+                    </span>
+                  )}
+                </p>
+                {card.expiration_month && card.expiration_year && (
+                  <p className="text-xs text-muted-foreground">
+                    Validade {String(card.expiration_month).padStart(2, "0")}/
+                    {String(card.expiration_year).slice(-2)}
+                  </p>
+                )}
+              </div>
+            </button>
+
+            {selected && (
+              <div className="mt-3 flex gap-2">
+                <Input
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="CVV"
+                  value={cvv}
+                  onChange={(e) => setCvv(digits(e.target.value))}
+                  className="w-24"
+                />
+                <Button
+                  className="flex-1"
+                  onClick={() => payWithSaved.mutate(card)}
+                  disabled={payWithSaved.isPending}
+                >
+                  {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
+                  Pagar agora
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remover cartão"
+                  onClick={() => removeCard.mutate(card.id)}
+                  disabled={removeCard.isPending}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {cards.length > 1 && (
+        <p className="text-[11px] text-muted-foreground">
+          Toque em outro cartão para trocar antes de pagar.
+        </p>
+      )}
+
 
       {!cardsQ.isLoading && cards.length === 0 && (
         <p className="text-xs text-muted-foreground">
