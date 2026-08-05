@@ -264,6 +264,10 @@ export function SavedCards({
   const payWithNew = useMutation({
     mutationFn: async () => {
       if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      const invalidNumber = validateCardNumber(form.number);
+      if (invalidNumber) throw new Error(invalidNumber);
+      const invalidExpiry = validateExpiry(form.expiry);
+      if (invalidExpiry) throw new Error(invalidExpiry);
       const invalidCvv = validateCvv(form.cvv, null, form.number);
       if (invalidCvv) throw new Error(invalidCvv);
       const [month, year] = form.expiry.split("/");
