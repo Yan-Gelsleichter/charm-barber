@@ -473,6 +473,8 @@ export function SavedCards({
       const invalid = validateCvv(cvv, card.brand, null);
       if (invalid) throw new Error(invalid);
       const securityCode = digits(cvv);
+      const deviceId = await loadDeviceId();
+      const doc = digits(form.doc);
 
       if (!mp) {
         return callCardsApi<{ payment_status: string }>({
@@ -480,6 +482,8 @@ export function SavedCards({
           appointment_id: appointmentId,
           saved_card_id: card.id,
           security_code: securityCode,
+          ...(deviceId ? { device_id: deviceId } : {}),
+          ...(doc ? { identification_number: doc } : {}),
         });
       }
 
@@ -490,6 +494,8 @@ export function SavedCards({
         appointment_id: appointmentId,
         card_token: token.id,
         saved_card_id: card.id,
+        ...(deviceId ? { device_id: deviceId } : {}),
+        ...(doc ? { identification_number: doc } : {}),
       });
     },
     onSuccess: (data) => {
@@ -521,9 +527,12 @@ export function SavedCards({
       if (invalidExpiry) throw new Error(invalidExpiry);
       const invalidCvv = validateCvv(form.cvv, null, form.number);
       if (invalidCvv) throw new Error(invalidCvv);
+      const doc = digits(form.doc);
+      if (doc.length !== 11) throw new Error("Informe o CPF do titular (11 dígitos).");
       const [month, year] = form.expiry.split("/");
       if (!month || !year) throw new Error("Informe a validade no formato MM/AA.");
       const fullYear = Number(digits(year).length === 2 ? `20${digits(year)}` : digits(year));
+      const deviceId = await loadDeviceId();
 
       if (!mp) {
         return callCardsApi<{ payment_status: string }>({
@@ -535,7 +544,8 @@ export function SavedCards({
           expiration_year: fullYear,
           security_code: digits(form.cvv),
           cardholder_name: form.name.trim(),
-          ...(digits(form.doc) ? { identification_number: digits(form.doc) } : {}),
+          identification_number: doc,
+          ...(deviceId ? { device_id: deviceId } : {}),
         });
       }
 
@@ -546,7 +556,7 @@ export function SavedCards({
         cardExpirationYear: String(fullYear),
         securityCode: digits(form.cvv),
         identificationType: "CPF",
-        identificationNumber: digits(form.doc),
+        identificationNumber: doc,
       });
       if (!token.id) throw new Error("Dados do cartão inválidos.");
       return callCardsApi<{ payment_status: string }>({
@@ -557,6 +567,9 @@ export function SavedCards({
         card_number: digits(form.number),
         expiration_month: Number(digits(month)),
         expiration_year: fullYear,
+        cardholder_name: form.name.trim(),
+        identification_number: doc,
+        ...(deviceId ? { device_id: deviceId } : {}),
       });
     },
     onSuccess: (data) => {
