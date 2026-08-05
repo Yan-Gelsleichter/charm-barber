@@ -246,7 +246,7 @@ type Collector = {
  * e guardamos para as próximas cobranças.
  */
 async function resolvePublicKey(
-  admin: ReturnType<typeof createClient>,
+  admin: { from: (t: string) => unknown },
   table: "barbershops" | "barbers",
   rowId: string,
   current: string | null,
