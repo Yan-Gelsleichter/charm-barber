@@ -377,10 +377,6 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           // Novo PIX: chave de idempotência única por tentativa, sempre no mesmo agendamento.
           const attemptKey = `appointment-${appointment.id}-${Date.now()}`;
           const expiresAt = new Date(Date.now() + 30 * 60_000);
-          // No split, a barbearia fica com (100 - comissão do barbeiro).
-          const shopFee = barberSplit
-            ? Number(((amount * (100 - barberSplit.commissionPercent)) / 100).toFixed(2))
-            : 0;
           const paymentBody: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
             description: `${service.name ?? "Serviço"} — agendamento`,
