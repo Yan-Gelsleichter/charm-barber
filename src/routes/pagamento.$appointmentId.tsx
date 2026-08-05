@@ -202,6 +202,7 @@ function PagamentoPage() {
     if (paid) finish();
   }, [paid, finish]);
 
+  const busy = createPix.isPending || payCard.isPending;
   const service = apptQ.data?.service ?? null;
   const appointment = apptQ.data?.appointment ?? null;
   const expired =
@@ -272,6 +273,24 @@ function PagamentoPage() {
         </div>
       )}
 
+      {busy && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="surface mt-5 flex items-center gap-3 p-4 text-sm"
+        >
+          <Loader2 className="size-5 shrink-0 animate-spin text-[var(--brand-from)]" />
+          <div>
+            <p className="font-semibold">
+              {createPix.isPending ? "Gerando seu PIX…" : "Abrindo o pagamento com cartão…"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Não feche nem atualize esta tela até o resultado da cobrança.
+            </p>
+          </div>
+        </div>
+      )}
+
       {!pix && !paid && (
         <div className="mt-5 grid gap-3">
           <Button
@@ -279,25 +298,26 @@ function PagamentoPage() {
             size="xl"
             className="w-full"
             onClick={() => createPix.mutate(false)}
-            disabled={createPix.isPending}
+            disabled={busy}
           >
             {createPix.isPending ? <Loader2 className="animate-spin" /> : <QrCode />}
-            Pagar agora com PIX
+            {createPix.isPending ? "Gerando PIX…" : "Pagar agora com PIX"}
           </Button>
           <Button
             variant="outline"
             size="xl"
             className="w-full"
             onClick={() => payCard.mutate()}
-            disabled={payCard.isPending}
+            disabled={busy}
           >
             {payCard.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
-            Pagar com cartão de crédito
+            {payCard.isPending ? "Abrindo checkout…" : "Pagar com cartão de crédito"}
           </Button>
           <Button
             variant="outline"
             size="xl"
             className="w-full"
+            disabled={busy}
             onClick={() => {
               toast.success("Combinado! Pague presencialmente na barbearia.");
               navigate({
@@ -390,10 +410,10 @@ function PagamentoPage() {
             variant={failed ? "hero" : "ghost"}
             className="w-full"
             onClick={() => createPix.mutate(true)}
-            disabled={createPix.isPending}
+            disabled={busy}
           >
             {createPix.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            Gerar novo PIX
+            {createPix.isPending ? "Gerando novo PIX…" : "Gerar novo PIX"}
           </Button>
           <Button
             variant="ghost"

@@ -443,10 +443,27 @@ export function SavedCards({
     [configQ.isLoading, publicKey],
   );
 
+  const charging = payWithSaved.isPending || payWithNew.isPending;
+  const busy = charging || removeCard.isPending;
+
   if (unavailable) return null;
 
   return (
-    <section className="surface mt-5 space-y-3 p-4">
+    <section className="surface relative mt-5 space-y-3 p-4" aria-busy={busy}>
+      {charging && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-background/80 px-6 text-center backdrop-blur-sm"
+        >
+          <Loader2 className="size-6 animate-spin text-[var(--brand-from)]" />
+          <p className="text-sm font-semibold">Processando pagamento…</p>
+          <p className="text-xs text-muted-foreground">
+            Não feche nem atualize esta tela. Aguarde o resultado da cobrança.
+          </p>
+        </div>
+      )}
+
       <h2 className="flex items-center gap-2 text-sm font-semibold">
         <Zap className="size-4" /> Pagar em 1 clique
       </h2>
@@ -456,6 +473,7 @@ export function SavedCards({
           <Loader2 className="animate-spin" />
         </div>
       )}
+
 
       {payError && (
         <div
@@ -500,7 +518,8 @@ export function SavedCards({
                 setSelectedCardId(card.id);
                 setCvv("");
               }}
-              className="flex w-full items-center gap-3 text-left"
+              disabled={busy}
+              className="flex w-full items-center gap-3 text-left disabled:opacity-60"
             >
               {selected ? (
                 <CheckCircle2 className="size-4 text-[var(--brand-from)]" />
@@ -535,6 +554,7 @@ export function SavedCards({
                     value={cvv}
                     aria-invalid={Boolean(savedCvvError)}
                     aria-describedby={savedCvvError ? "saved-cvv-error" : undefined}
+                    disabled={busy}
                     onBlur={() => setCvvTouched(true)}
                     onChange={(e) =>
                       setCvv(digits(e.target.value).slice(0, cvvLengthFor(card.brand, null)))
@@ -548,17 +568,17 @@ export function SavedCards({
                       if (validateCvv(cvv, card.brand, null)) return;
                       payWithSaved.mutate(card);
                     }}
-                    disabled={payWithSaved.isPending || Boolean(validateCvv(cvv, card.brand, null))}
+                    disabled={busy || Boolean(validateCvv(cvv, card.brand, null))}
                   >
                     {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
-                    Pagar agora
+                    {payWithSaved.isPending ? "Processando…" : "Pagar agora"}
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     aria-label="Remover cartão"
                     onClick={() => removeCard.mutate(card.id)}
-                    disabled={removeCard.isPending}
+                    disabled={busy}
                   >
                     <Trash2 className="size-4" />
                   </Button>
@@ -700,18 +720,18 @@ export function SavedCards({
                 if (newCardInvalid) return;
                 payWithNew.mutate();
               }}
-              disabled={payWithNew.isPending || newCardInvalid}
+              disabled={busy || newCardInvalid}
             >
               {payWithNew.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
-              Pagar
+              {payWithNew.isPending ? "Processando…" : "Pagar"}
             </Button>
-            <Button variant="ghost" onClick={() => setNewCardOpen(false)}>
+            <Button variant="ghost" disabled={busy} onClick={() => setNewCardOpen(false)}>
               Cancelar
             </Button>
           </div>
         </div>
       ) : (
-        <Button variant="outline" className="w-full" onClick={() => setNewCardOpen(true)}>
+        <Button variant="outline" className="w-full" disabled={busy} onClick={() => setNewCardOpen(true)}>
           <CreditCard /> Usar outro cartão
         </Button>
       )}
