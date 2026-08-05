@@ -558,9 +558,10 @@ export function SavedCards({
     onError: (e: Error) => toast.error("Não foi possível remover", { description: e.message }),
   });
 
+  // Só bloqueia quando a barbearia não tem conta conectada (config falhou).
   const unavailable = useMemo(
-    () => !configQ.isLoading && !publicKey,
-    [configQ.isLoading, publicKey],
+    () => !configQ.isLoading && !publicKey && !serverTokenize,
+    [configQ.isLoading, publicKey, serverTokenize],
   );
 
   const charging = payWithSaved.isPending || payWithNew.isPending;
