@@ -16,7 +16,9 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { SavedCards } from "@/components/SavedCards";
 import { brl, fmtTime } from "@/lib/format";
+
 
 type PixData = {
   payment_id: number | string;
