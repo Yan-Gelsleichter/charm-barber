@@ -75,6 +75,67 @@ export function cvvLengthFor(brand?: string | null, cardNumber?: string | null) 
   return isAmex ? 4 : 3;
 }
 
+/** Formata o número do cartão em grupos (4-4-4-4, ou 4-6-5 para Amex). */
+export function formatCardNumber(value: string) {
+  const d = digits(value).slice(0, 19);
+  const amex = /^3[47]/.test(d);
+  const groups = amex ? [4, 6, 5] : [4, 4, 4, 4, 3];
+  const parts: string[] = [];
+  let i = 0;
+  for (const size of groups) {
+    if (i >= d.length) break;
+    parts.push(d.slice(i, i + size));
+    i += size;
+  }
+  return parts.join(" ");
+}
+
+/** Algoritmo de Luhn. */
+export function luhnValid(value: string) {
+  const d = digits(value);
+  if (d.length < 12) return false;
+  let sum = 0;
+  let double = false;
+  for (let i = d.length - 1; i >= 0; i--) {
+    let n = Number(d[i]);
+    if (double) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    double = !double;
+  }
+  return sum % 10 === 0;
+}
+
+/** Retorna a mensagem de erro do número do cartão ou null quando válido. */
+export function validateCardNumber(value: string) {
+  const d = digits(value);
+  if (!d) return "Informe o número do cartão.";
+  const amex = /^3[47]/.test(d);
+  const expected = amex ? 15 : 16;
+  if (d.length < expected) return `O número do cartão deve ter ${expected} dígitos.`;
+  if (d.length > 19) return "Número do cartão inválido.";
+  if (!luhnValid(d)) return "Número do cartão inválido. Confira os dígitos.";
+  return null;
+}
+
+/** Retorna a mensagem de erro da validade (MM/AA) ou null quando válida. */
+export function validateExpiry(value: string, now: Date = new Date()) {
+  const d = digits(value);
+  if (!d) return "Informe a validade (MM/AA).";
+  if (d.length < 4) return "Use o formato MM/AA.";
+  const month = Number(d.slice(0, 2));
+  if (month < 1 || month > 12) return "Mês inválido. Use de 01 a 12.";
+  const rawYear = d.slice(2);
+  const year = rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear);
+  const expiry = new Date(year, month, 1);
+  const current = new Date(now.getFullYear(), now.getMonth(), 1);
+  if (expiry <= current) return "Cartão vencido. Confira a validade.";
+  if (year > now.getFullYear() + 20) return "Validade inválida.";
+  return null;
+}
+
 /** Retorna a mensagem de erro do CVV ou null quando válido. */
 export function validateCvv(value: string, brand?: string | null, cardNumber?: string | null) {
   const raw = value.trim();
@@ -98,6 +159,8 @@ export function SavedCards({
   const [cvv, setCvv] = useState("");
   const [cvvTouched, setCvvTouched] = useState(false);
   const [newCvvTouched, setNewCvvTouched] = useState(false);
+  const [numberTouched, setNumberTouched] = useState(false);
+  const [expiryTouched, setExpiryTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(false);
   const [form, setForm] = useState({
     number: "",
@@ -159,6 +222,13 @@ export function SavedCards({
   const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
   const savedCvvError = cvvTouched ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
   const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
+  const numberError = numberTouched ? validateCardNumber(form.number) : null;
+  const expiryError = expiryTouched ? validateExpiry(form.expiry) : null;
+  const newCardInvalid = Boolean(
+    validateCardNumber(form.number) ||
+      validateExpiry(form.expiry) ||
+      validateCvv(form.cvv, null, form.number),
+  );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
   useEffect(() => {
@@ -194,6 +264,10 @@ export function SavedCards({
   const payWithNew = useMutation({
     mutationFn: async () => {
       if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      const invalidNumber = validateCardNumber(form.number);
+      if (invalidNumber) throw new Error(invalidNumber);
+      const invalidExpiry = validateExpiry(form.expiry);
+      if (invalidExpiry) throw new Error(invalidExpiry);
       const invalidCvv = validateCvv(form.cvv, null, form.number);
       if (invalidCvv) throw new Error(invalidCvv);
       const [month, year] = form.expiry.split("/");
@@ -375,29 +449,52 @@ export function SavedCards({
 
       {newCardOpen ? (
         <div className="space-y-2 rounded-xl border border-border/60 p-3">
-          <Input
-            inputMode="numeric"
-            placeholder="Número do cartão"
-            value={form.number}
-            onChange={(e) => setForm((f) => ({ ...f, number: digits(e.target.value).slice(0, 19) }))}
-          />
+          <div>
+            <Input
+              inputMode="numeric"
+              placeholder="Número do cartão"
+              value={formatCardNumber(form.number)}
+              aria-invalid={Boolean(numberError)}
+              aria-describedby={numberError ? "card-number-error" : undefined}
+              onBlur={() => setNumberTouched(true)}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, number: digits(e.target.value).slice(0, 19) }))
+              }
+            />
+            {numberError && (
+              <p id="card-number-error" className="mt-1 text-[11px] text-destructive">
+                {numberError}
+              </p>
+            )}
+          </div>
           <Input
             placeholder="Nome impresso no cartão"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           />
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              placeholder="MM/AA"
-              value={form.expiry}
-              onChange={(e) => {
-                const d = digits(e.target.value).slice(0, 4);
-                setForm((f) => ({
-                  ...f,
-                  expiry: d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d,
-                }));
-              }}
-            />
+            <div>
+              <Input
+                inputMode="numeric"
+                placeholder="MM/AA"
+                value={form.expiry}
+                aria-invalid={Boolean(expiryError)}
+                aria-describedby={expiryError ? "card-expiry-error" : undefined}
+                onBlur={() => setExpiryTouched(true)}
+                onChange={(e) => {
+                  const d = digits(e.target.value).slice(0, 4);
+                  setForm((f) => ({
+                    ...f,
+                    expiry: d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d,
+                  }));
+                }}
+              />
+              {expiryError && (
+                <p id="card-expiry-error" className="mt-1 text-[11px] text-destructive">
+                  {expiryError}
+                </p>
+              )}
+            </div>
             <div>
               <Input
                 inputMode="numeric"
@@ -439,11 +536,13 @@ export function SavedCards({
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
               onClick={() => {
+                setNumberTouched(true);
+                setExpiryTouched(true);
                 setNewCvvTouched(true);
-                if (validateCvv(form.cvv, null, form.number)) return;
+                if (newCardInvalid) return;
                 payWithNew.mutate();
               }}
-              disabled={payWithNew.isPending || Boolean(validateCvv(form.cvv, null, form.number))}
+              disabled={payWithNew.isPending || newCardInvalid}
             >
               {payWithNew.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
               Pagar
