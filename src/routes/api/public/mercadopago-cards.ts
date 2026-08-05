@@ -153,11 +153,11 @@ async function assertCardValid(
  * com instrução do que o cliente deve fazer para tentar de novo.
  */
 export function paymentErrorMessage(
-  statusDetail?: string | null,
-  status?: string | null,
-  fallback?: string | null,
+  statusDetail?: unknown,
+  status?: unknown,
+  fallback?: unknown,
 ): string {
-  const detail = (statusDetail ?? "").toLowerCase();
+  const detail = String(statusDetail ?? "").toLowerCase();
   const map: Record<string, string> = {
     cc_rejected_bad_filled_card_number:
       "Número do cartão incorreto. Confira os dígitos e tente novamente.",
@@ -196,7 +196,7 @@ export function paymentErrorMessage(
   };
   if (detail && map[detail]) return map[detail]!;
 
-  const normalized = (status ?? "").toLowerCase();
+  const normalized = String(status ?? "").toLowerCase();
   if (normalized === "expired") {
     return "O prazo deste pagamento expirou. Gere um novo pagamento e tente novamente.";
   }
@@ -206,8 +206,9 @@ export function paymentErrorMessage(
   if (detail.startsWith("cc_rejected")) {
     return "Pagamento recusado pelo emissor do cartão. Tente novamente, use outro cartão ou pague com Pix.";
   }
-  if (fallback) {
-    return `${fallback} Tente novamente, use outro cartão ou pague com Pix.`;
+  const fallbackText = typeof fallback === "string" ? fallback.trim() : "";
+  if (fallbackText) {
+    return `${fallbackText} Tente novamente, use outro cartão ou pague com Pix.`;
   }
   return "Não foi possível concluir a transação. Tente novamente, use outro cartão ou pague com Pix.";
 }
