@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 
 import { mapPaymentStatus } from "./mercadopago-pix";
 
-type Admin = ReturnType<typeof createClient>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Admin = { from: (table: string) => any };
 
 function isMissingColumn(error: { message?: string; code?: string } | null) {
   return !!error && (error.code === "42703" || /column .* does not exist/i.test(error.message ?? ""));
