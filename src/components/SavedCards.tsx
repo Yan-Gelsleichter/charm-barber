@@ -269,34 +269,57 @@ export function SavedCards({
             </button>
 
             {selected && (
-              <div className="mt-3 flex gap-2">
-                <Input
-                  inputMode="numeric"
-                  maxLength={4}
-                  placeholder="CVV"
-                  value={cvv}
-                  onChange={(e) => setCvv(digits(e.target.value))}
-                  className="w-24"
-                />
-                <Button
-                  className="flex-1"
-                  onClick={() => payWithSaved.mutate(card)}
-                  disabled={payWithSaved.isPending}
-                >
-                  {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
-                  Pagar agora
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remover cartão"
-                  onClick={() => removeCard.mutate(card.id)}
-                  disabled={removeCard.isPending}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+              <div className="mt-3 space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    inputMode="numeric"
+                    maxLength={cvvLengthFor(card.brand, null)}
+                    placeholder={cvvLengthFor(card.brand, null) === 4 ? "CVV (4)" : "CVV"}
+                    value={cvv}
+                    aria-invalid={Boolean(savedCvvError)}
+                    aria-describedby={savedCvvError ? "saved-cvv-error" : undefined}
+                    onBlur={() => setCvvTouched(true)}
+                    onChange={(e) =>
+                      setCvv(digits(e.target.value).slice(0, cvvLengthFor(card.brand, null)))
+                    }
+                    className="w-24"
+                  />
+                  <Button
+                    className="flex-1"
+                    onClick={() => {
+                      setCvvTouched(true);
+                      if (validateCvv(cvv, card.brand, null)) return;
+                      payWithSaved.mutate(card);
+                    }}
+                    disabled={payWithSaved.isPending || Boolean(validateCvv(cvv, card.brand, null))}
+                  >
+                    {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
+                    Pagar agora
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remover cartão"
+                    onClick={() => removeCard.mutate(card.id)}
+                    disabled={removeCard.isPending}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                {savedCvvError ? (
+                  <p id="saved-cvv-error" className="text-[11px] text-destructive">
+                    {savedCvvError}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    {cvvLengthFor(card.brand, null) === 4
+                      ? "Amex: 4 dígitos na frente do cartão."
+                      : "3 dígitos no verso do cartão."}
+                  </p>
+                )}
               </div>
             )}
+
           </div>
         );
       })}
@@ -339,13 +362,29 @@ export function SavedCards({
                 }));
               }}
             />
-            <Input
-              inputMode="numeric"
-              placeholder="CVV"
-              maxLength={4}
-              value={form.cvv}
-              onChange={(e) => setForm((f) => ({ ...f, cvv: digits(e.target.value) }))}
-            />
+            <div>
+              <Input
+                inputMode="numeric"
+                placeholder="CVV"
+                maxLength={cvvLengthFor(null, form.number)}
+                value={form.cvv}
+                aria-invalid={Boolean(newCardCvvError)}
+                aria-describedby={newCardCvvError ? "new-card-cvv-error" : undefined}
+                onBlur={() => setNewCvvTouched(true)}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    cvv: digits(e.target.value).slice(0, cvvLengthFor(null, f.number)),
+                  }))
+                }
+              />
+              {newCardCvvError && (
+                <p id="new-card-cvv-error" className="mt-1 text-[11px] text-destructive">
+                  {newCardCvvError}
+                </p>
+              )}
+            </div>
+
           </div>
           <Input
             inputMode="numeric"
