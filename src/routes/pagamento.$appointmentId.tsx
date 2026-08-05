@@ -147,6 +147,21 @@ function PagamentoPage() {
     onError: (e: Error) => toast.error("Não foi possível gerar o PIX", { description: e.message }),
   });
 
+  // Cartão de crédito: usa o mesmo token/split do PIX e abre o Checkout Pro.
+  const payCard = useMutation({
+    mutationFn: async () => {
+      const data = await callPixApi({ action: "card", appointment_id: appointmentId });
+      if (!data.checkout_url) throw new Error("O Mercado Pago não retornou o link do checkout.");
+      return data.checkout_url;
+    },
+    onSuccess: (url) => {
+      window.location.href = url;
+    },
+    onError: (e: Error) =>
+      toast.error("Não foi possível abrir o pagamento com cartão", { description: e.message }),
+  });
+
+
   const finish = useCallback(() => {
     setTimeout(() => navigate({ to: "/meus-agendamentos" }), 1800);
   }, [navigate]);
