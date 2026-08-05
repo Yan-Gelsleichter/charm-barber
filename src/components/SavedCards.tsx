@@ -195,6 +195,23 @@ export function formatCardNumber(value: string) {
   return parts.join(" ");
 }
 
+/** Máscara de exibição do cartão salvo conforme a bandeira (•••• 1234). */
+export function maskedCardNumber(brandName?: string | null, lastFour?: string | null) {
+  const brand = detectCardBrand(null, brandName);
+  const last = digits(lastFour ?? "").slice(-4) || "0000";
+  const total = brand.lengths.includes(16) ? 16 : brand.lengths[0] ?? 16;
+  const hidden = Math.max(total - last.length, 0);
+  const chars = "•".repeat(hidden) + last;
+  const parts: string[] = [];
+  let i = 0;
+  for (const size of brand.groups) {
+    if (i >= chars.length) break;
+    parts.push(chars.slice(i, i + size));
+    i += size;
+  }
+  return parts.join(" ");
+}
+
 /** Algoritmo de Luhn. */
 export function luhnValid(value: string) {
   const d = digits(value);
@@ -527,8 +544,13 @@ export function SavedCards({
                 <CreditCard className="size-4 text-muted-foreground" />
               )}
               <div className="flex-1 text-sm">
-                <p className="font-medium">
-                  {card.brand ?? "Cartão"} •••• {card.last_four ?? "0000"}
+                <p className="flex flex-wrap items-center gap-2 font-medium">
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {detectCardBrand(null, card.brand).label || card.brand || "Cartão"}
+                  </span>
+                  <span className="font-mono text-xs tracking-wide">
+                    {maskedCardNumber(card.brand, card.last_four)}
+                  </span>
                   {card.is_default && (
                     <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success">
                       Padrão
