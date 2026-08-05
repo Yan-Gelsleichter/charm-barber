@@ -492,7 +492,6 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               return json({ error: "Cartão salvo vencido. Atualize a validade." }, 400);
             }
           }
-          }
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
           if (appointment.payment_status === "pago") {
