@@ -166,17 +166,84 @@ function pickOrderPayment(payments: PaymentPayload[]) {
   return sorted[0];
 }
 
+type RawNotification = {
+  id?: number | string;
+  type?: string;
+  topic?: string;
+  action?: string;
+  user_id?: number | string;
+  data?: { id?: number | string };
+  resource?: string;
+};
+
+function timingSafeEqualHex(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+async function hmacSha256Hex(secret: string, message: string) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Valida a assinatura do Mercado Pago (header `x-signature`).
+ * Manifest oficial: id:<data.id>;request-id:<x-request-id>;ts:<ts>;
+ * Retorna null quando válido ou uma Response de rejeição.
+ */
+async function verifySignature(request: Request, url: URL, dataId: string): Promise<Response | null> {
+  const secret = process.env["MP_WEBHOOK_SECRET"];
+  if (!secret) {
+    console.warn("Webhook MP: MP_WEBHOOK_SECRET não configurado; assinatura não verificada");
+    return null;
+  }
+
+  const signature = request.headers.get("x-signature") ?? "";
+  const requestId = request.headers.get("x-request-id") ?? "";
+  const parts = Object.fromEntries(
+    signature
+      .split(",")
+      .map((p) => p.split("=").map((s) => s.trim()))
+      .filter((p) => p.length === 2) as [string, string][],
+  );
+  const ts = parts["ts"];
+  const v1 = parts["v1"];
+  if (!ts || !v1) {
+    console.error("Webhook MP: assinatura ausente ou malformada");
+    return new Response("invalid signature", { status: 401 });
+  }
+
+  // rejeita eventos com timestamp muito antigo/futuro (replay)
+  const tsMs = Number(ts) * (String(ts).length > 12 ? 1 : 1000);
+  if (Number.isFinite(tsMs) && Math.abs(Date.now() - tsMs) > 10 * 60 * 1000) {
+    console.error("Webhook MP: timestamp fora da janela permitida");
+    return new Response("stale signature", { status: 401 });
+  }
+
+  const id = (url.searchParams.get("data.id") ?? dataId).toLowerCase();
+  const manifest = `id:${id};request-id:${requestId};ts:${ts};`;
+  const expected = await hmacSha256Hex(secret, manifest);
+  if (!timingSafeEqualHex(expected, v1.toLowerCase())) {
+    console.error("Webhook MP: assinatura inválida");
+    return new Response("invalid signature", { status: 401 });
+  }
+  return null;
+}
+
 async function handleNotification(request: Request) {
   const url = new URL(request.url);
-  const raw = (await request.json().catch(() => ({}))) as {
-    id?: number | string;
-    type?: string;
-    topic?: string;
-    action?: string;
-    user_id?: number | string;
-    data?: { id?: number | string };
-    resource?: string;
-  };
+  const raw = (await request.json().catch(() => ({}))) as RawNotification;
+
 
   const topic = raw.type ?? raw.topic ?? url.searchParams.get("topic") ?? url.searchParams.get("type") ?? "";
   const isOrder = topic.includes("merchant_order");
@@ -190,6 +257,11 @@ async function handleNotification(request: Request) {
     raw.data?.id ?? resourceId ?? url.searchParams.get("data.id") ?? url.searchParams.get("id") ?? "",
   ).trim();
   if (!notificationId) return new Response("no payment id", { status: 200 });
+
+  // Só eventos legítimos (assinados pelo Mercado Pago) seguem adiante.
+  const rejected = await verifySignature(request, url, notificationId);
+  if (rejected) return rejected;
+
 
   const action = raw.action ?? url.searchParams.get("action") ?? topic ?? "payment";
 
