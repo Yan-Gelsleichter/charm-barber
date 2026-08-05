@@ -527,7 +527,25 @@ export function SavedCards({
   const charging = payWithSaved.isPending || payWithNew.isPending;
   const busy = charging || removeCard.isPending;
 
-  if (unavailable) return null;
+  // Sem chave pública do Mercado Pago não dá para tokenizar o cartão.
+  // Antes a seção sumia em silêncio (botão "parecia" não fazer nada);
+  // agora explicamos o motivo quando o cliente pede para pagar com cartão.
+  if (unavailable) {
+    if (!openNewCardSignal) return null;
+    return (
+      <section ref={sectionRef} className="surface mt-5 space-y-2 p-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <CreditCard className="size-4" /> Pagamento com cartão indisponível
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          {configQ.error instanceof Error
+            ? configQ.error.message
+            : "Esta barbearia ainda não habilitou o pagamento com cartão. Use o PIX ou pague presencialmente."}
+        </p>
+      </section>
+    );
+  }
+
 
   return (
     <section ref={sectionRef} className="surface relative mt-5 space-y-3 p-4" aria-busy={busy}>
