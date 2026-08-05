@@ -192,7 +192,7 @@ function PagamentoPage() {
     if (paid) finish();
   }, [paid, finish]);
 
-  const busy = createPix.isPending || payCard.isPending;
+  const busy = createPix.isPending;
   const service = apptQ.data?.service ?? null;
   const appointment = apptQ.data?.appointment ?? null;
   const expired =
