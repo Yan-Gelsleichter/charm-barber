@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, CreditCard, Loader2, Trash2, Zap } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  CreditCard,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  Zap,
+} from "lucide-react";
+
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -275,6 +284,23 @@ export function validateCvv(value: string, brand?: string | null, cardNumber?: s
   return null;
 }
 
+/** Rascunho do checkout (sem dados sensíveis) para não perder a escolha ao trocar de método. */
+function draftKey(appointmentId: string) {
+  return `checkout-card-draft:${appointmentId}`;
+}
+
+type CheckoutDraft = { selectedCardId: string | null; newCardOpen: boolean; name: string };
+
+function readDraft(appointmentId: string): CheckoutDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(draftKey(appointmentId));
+    return raw ? (JSON.parse(raw) as CheckoutDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function SavedCards({
   appointmentId,
   onPaid,
@@ -283,23 +309,41 @@ export function SavedCards({
   onPaid: (status: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const draft = useMemo(() => readDraft(appointmentId), [appointmentId]);
   const [mp, setMp] = useState<MpInstance | null>(null);
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(
+    draft?.selectedCardId ?? null,
+  );
   const [cvv, setCvv] = useState("");
   const [cvvTouched, setCvvTouched] = useState(false);
   const [newCvvTouched, setNewCvvTouched] = useState(false);
   const [numberTouched, setNumberTouched] = useState(false);
   const [expiryTouched, setExpiryTouched] = useState(false);
-  const [newCardOpen, setNewCardOpen] = useState(false);
+  const [newCardOpen, setNewCardOpen] = useState(draft?.newCardOpen ?? false);
   const [payError, setPayError] = useState<string | null>(null);
   const [form, setForm] = useState({
     number: "",
-    name: "",
+    name: draft?.name ?? "",
     expiry: "",
     cvv: "",
     doc: "",
     save: true,
   });
+
+  // Mantém a escolha do método mesmo ao alternar telas/recarregar (nunca guarda dados do cartão).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem(
+        draftKey(appointmentId),
+        JSON.stringify({ selectedCardId, newCardOpen, name: form.name }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [appointmentId, selectedCardId, newCardOpen, form.name]);
+
+
 
 
   const configQ = useQuery({
@@ -386,6 +430,12 @@ export function SavedCards({
     onSuccess: (data) => {
       setCvv("");
       setPayError(null);
+      try {
+        sessionStorage.removeItem(draftKey(appointmentId));
+      } catch {
+        /* ignore */
+      }
+
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
@@ -434,7 +484,13 @@ export function SavedCards({
       setNewCardOpen(false);
       setPayError(null);
       setForm({ number: "", name: "", expiry: "", cvv: "", doc: "", save: true });
+      try {
+        sessionStorage.removeItem(draftKey(appointmentId));
+      } catch {
+        /* ignore */
+      }
       queryClient.invalidateQueries({ queryKey: ["mp-saved-cards", appointmentId] });
+
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
@@ -616,6 +672,36 @@ export function SavedCards({
                       : "3 dígitos no verso do cartão."}
                   </p>
                 )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {cards.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => {
+                        setSelectedCardId(null);
+                        setCvv("");
+                        setPayError(null);
+                        setNewCardOpen(false);
+                      }}
+                    >
+                      <RefreshCw className="size-3.5" /> Trocar cartão
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => {
+                      setSelectedCardId(null);
+                      setCvv("");
+                      setPayError(null);
+                      setNewCardOpen(true);
+                    }}
+                  >
+                    <CreditCard className="size-3.5" /> Usar outro cartão
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -625,9 +711,11 @@ export function SavedCards({
 
       {cards.length > 1 && (
         <p className="text-[11px] text-muted-foreground">
-          Toque em outro cartão para trocar antes de pagar.
+          Toque em outro cartão para trocar o método antes de pagar — seu agendamento continua
+          reservado.
         </p>
       )}
+
 
 
       {!cardsQ.isLoading && cards.length === 0 && (
