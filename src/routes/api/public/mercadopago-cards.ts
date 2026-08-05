@@ -478,12 +478,20 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             // O cartão salvo precisa ser do próprio usuário e da mesma conta recebedora.
             const { data: owned } = await admin
               .from("saved_cards")
-              .select("id")
+              .select("id, expiration_month, expiration_year")
               .eq("id", parsed.data.saved_card_id)
               .eq("user_id", user.id)
               .eq("mp_collector_id", collector.collectorId)
               .maybeSingle();
             if (!owned) return json({ error: "Cartão não encontrado." }, 404);
+            const stored = owned as { expiration_month?: number; expiration_year?: number };
+            if (
+              (stored.expiration_month || stored.expiration_year) &&
+              !expiryValid(stored.expiration_month, stored.expiration_year)
+            ) {
+              return json({ error: "Cartão salvo vencido. Atualize a validade." }, 400);
+            }
+          }
           }
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
