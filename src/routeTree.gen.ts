@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as MeusAgendamentosRouteImport } from './routes/meus-agendamentos'
+import { Route as MeusCartoesRouteImport } from './routes/meus-cartoes'
 import { Route as PainelRouteImport } from './routes/painel'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
@@ -33,6 +34,11 @@ const AuthRoute = AuthRouteImport.update({
 const MeusAgendamentosRoute = MeusAgendamentosRouteImport.update({
   id: '/meus-agendamentos',
   path: '/meus-agendamentos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeusCartoesRoute = MeusCartoesRouteImport.update({
+  id: '/meus-cartoes',
+  path: '/meus-cartoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PainelRoute = PainelRouteImport.update({
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
+  '/meus-cartoes': typeof MeusCartoesRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
+  '/meus-cartoes': typeof MeusCartoesRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
+  '/meus-cartoes': typeof MeusCartoesRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/meus-agendamentos'
+    | '/meus-cartoes'
     | '/painel'
     | '/agendar/$barbeiroId'
     | '/pagamento/$appointmentId'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/meus-agendamentos'
+    | '/meus-cartoes'
     | '/painel'
     | '/agendar/$barbeiroId'
     | '/pagamento/$appointmentId'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/meus-agendamentos'
+    | '/meus-cartoes'
     | '/painel'
     | '/agendar/$barbeiroId'
     | '/pagamento/$appointmentId'
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   MeusAgendamentosRoute: typeof MeusAgendamentosRoute
+  MeusCartoesRoute: typeof MeusCartoesRoute
   PainelRoute: typeof PainelRoute
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
@@ -184,6 +197,13 @@ declare module '@tanstack/react-router' {
       path: '/meus-agendamentos'
       fullPath: '/meus-agendamentos'
       preLoaderRoute: typeof MeusAgendamentosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meus-cartoes': {
+      id: '/meus-cartoes'
+      path: '/meus-cartoes'
+      fullPath: '/meus-cartoes'
+      preLoaderRoute: typeof MeusCartoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/painel': {
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   MeusAgendamentosRoute: MeusAgendamentosRoute,
+  MeusCartoesRoute: MeusCartoesRoute,
   PainelRoute: PainelRoute,
   AgendarBarbeiroIdRoute: AgendarBarbeiroIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,

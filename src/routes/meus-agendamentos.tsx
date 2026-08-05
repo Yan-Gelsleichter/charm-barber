@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Loader2, LogOut, RefreshCw, X } from "lucide-react";
+import { CalendarDays, CreditCard, Loader2, LogOut, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -128,17 +128,25 @@ function MeusAgendamentosPage() {
             <p className="font-semibold">{displayName}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={async () => {
-            await supabase.auth.signOut();
-            navigate({ to: "/auth" });
-          }}
-        >
-          <LogOut /> Sair
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/meus-cartoes">
+              <CreditCard /> Cartões
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate({ to: "/auth" });
+            }}
+          >
+            <LogOut /> Sair
+          </Button>
+        </div>
       </header>
+
 
       <section className="mt-8">
         <h1 className="text-xl font-semibold">Meus agendamentos</h1>
