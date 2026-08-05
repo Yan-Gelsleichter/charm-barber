@@ -9,6 +9,9 @@ const requestSchema = z.discriminatedUnion("action", [
     action: z.literal("save"),
     appointment_id: z.string().uuid(),
     card_token: z.string().min(10).max(120),
+    card_number: z.string().min(12).max(25).optional(),
+    expiration_month: z.number().int().min(1).max(12).optional(),
+    expiration_year: z.number().int().min(2000).max(2100).optional(),
   }),
   z.object({
     action: z.literal("pay"),
@@ -17,7 +20,11 @@ const requestSchema = z.discriminatedUnion("action", [
     saved_card_id: z.string().uuid().optional(),
     installments: z.number().int().min(1).max(12).optional(),
     save_card: z.boolean().optional(),
+    card_number: z.string().min(12).max(25).optional(),
+    expiration_month: z.number().int().min(1).max(12).optional(),
+    expiration_year: z.number().int().min(2000).max(2100).optional(),
   }),
+
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
   z.object({ action: z.literal("my_cards") }),
   z.object({ action: z.literal("set_default"), saved_card_id: z.string().uuid() }),
@@ -33,6 +40,76 @@ const requestSchema = z.discriminatedUnion("action", [
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "cache-control": "no-store" } });
 }
+
+/** Algoritmo de Luhn — nunca registramos o número, apenas validamos. */
+function luhnValid(raw: string): boolean {
+  const pan = raw.replace(/\D/g, "");
+  if (pan.length < 12 || pan.length > 19) return false;
+  let sum = 0;
+  let double = false;
+  for (let i = pan.length - 1; i >= 0; i -= 1) {
+    let digit = Number(pan[i]);
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
+  }
+  return sum % 10 === 0;
+}
+
+/** Validade precisa existir e não pode estar vencida (fim do mês informado). */
+function expiryValid(month?: number | null, year?: number | null): boolean {
+  if (!month || !year) return false;
+  if (month < 1 || month > 12) return false;
+  const full = year < 100 ? 2000 + year : year;
+  const now = new Date();
+  const endOfMonth = new Date(Date.UTC(full, month, 1));
+  return endOfMonth.getTime() > now.getTime();
+}
+
+/** Confere no Mercado Pago os dados reais do token (validade e status). */
+async function inspectCardToken(accessToken: string, cardToken: string) {
+  const response = await fetch(
+    `https://api.mercadopago.com/v1/card_tokens/${encodeURIComponent(cardToken)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!response.ok) return null;
+  return (await response.json().catch(() => null)) as {
+    status?: string;
+    expiration_month?: number;
+    expiration_year?: number;
+    last_four_digits?: string;
+  } | null;
+}
+
+/** Validação de servidor: Luhn + validade, mesmo se o front falhar. */
+async function assertCardValid(
+  accessToken: string,
+  input: { card_token: string; card_number?: string; expiration_month?: number; expiration_year?: number },
+): Promise<string | null> {
+  if (input.card_number && !luhnValid(input.card_number)) {
+    return "Número de cartão inválido.";
+  }
+  if (
+    (input.expiration_month || input.expiration_year) &&
+    !expiryValid(input.expiration_month, input.expiration_year)
+  ) {
+    return "Cartão com validade vencida ou inválida.";
+  }
+  const token = await inspectCardToken(accessToken, input.card_token);
+  if (token) {
+    if (token.status && !["active", "pending"].includes(token.status.toLowerCase())) {
+      return "Cartão não autorizado. Tente novamente.";
+    }
+    if (!expiryValid(token.expiration_month, token.expiration_year)) {
+      return "Cartão com validade vencida ou inválida.";
+    }
+  }
+  return null;
+}
+
 
 function mapPaymentStatus(mpStatus?: string | null): string {
   switch ((mpStatus ?? "").toLowerCase()) {
@@ -368,6 +445,19 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ error: "Não foi possível preparar o cadastro do cartão." }, 400);
           }
 
+          // ---- validação de servidor (Luhn + validade) antes de salvar/cobrar ----
+          const cardError = await assertCardValid(collector.accessToken, {
+            card_token: parsed.data.card_token,
+            ...(parsed.data.card_number ? { card_number: parsed.data.card_number } : {}),
+            ...(parsed.data.expiration_month
+              ? { expiration_month: parsed.data.expiration_month }
+              : {}),
+            ...(parsed.data.expiration_year
+              ? { expiration_year: parsed.data.expiration_year }
+              : {}),
+          });
+          if (cardError) return json({ error: cardError }, 400);
+
           // ---- salvar cartão ----
           if (parsed.data.action === "save") {
             const saved = await saveCard(
@@ -382,17 +472,25 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ card: saved.card });
           }
 
+
           // ---- pagar (1 clique com cartão salvo ou cartão novo) ----
           if (parsed.data.saved_card_id) {
             // O cartão salvo precisa ser do próprio usuário e da mesma conta recebedora.
             const { data: owned } = await admin
               .from("saved_cards")
-              .select("id")
+              .select("id, expiration_month, expiration_year")
               .eq("id", parsed.data.saved_card_id)
               .eq("user_id", user.id)
               .eq("mp_collector_id", collector.collectorId)
               .maybeSingle();
             if (!owned) return json({ error: "Cartão não encontrado." }, 404);
+            const stored = owned as { expiration_month?: number; expiration_year?: number };
+            if (
+              (stored.expiration_month || stored.expiration_year) &&
+              !expiryValid(stored.expiration_month, stored.expiration_year)
+            ) {
+              return json({ error: "Cartão salvo vencido. Atualize a validade." }, 400);
+            }
           }
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
