@@ -56,7 +56,7 @@ async function callPixApi(body: Record<string, unknown>) {
   const data = (await response.json().catch(() => ({}))) as {
     error?: string;
     payment_status?: string;
-    checkout_url?: string;
+    
   } & Partial<PixData>;
   if (!response.ok) throw new Error(data.error ?? "Falha ao processar o pagamento.");
   return data;
