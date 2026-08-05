@@ -406,9 +406,107 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
           {connected ? "Reconectar com Mercado Pago" : "Conectar com Mercado Pago"}
         </Button>
       </section>
+
+      <ChavesManuais shopId={shopId} />
     </div>
   );
 }
+
+/** Permite colar manualmente Public Key e Access Token do Mercado Pago da barbearia. */
+function ChavesManuais({ shopId }: { shopId: string | null }) {
+  const qc = useQueryClient();
+  const [publicKey, setPublicKey] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+
+  const keysQ = useQuery({
+    queryKey: ["mp-keys", shopId],
+    enabled: !!shopId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("barbershops" as never)
+        .select("id, mp_public_key")
+        .eq("id", shopId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as { mp_public_key?: string | null } | null) ?? null;
+    },
+  });
+
+  useEffect(() => {
+    setPublicKey(keysQ.data?.mp_public_key ?? "");
+  }, [keysQ.data?.mp_public_key]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!shopId) throw new Error("Sua conta não está vinculada a uma barbearia");
+      const pk = publicKey.trim();
+      const at = accessToken.trim();
+      if (!pk && !at) throw new Error("Informe a Public Key e/ou o Access Token");
+      const payload: Record<string, string> = {};
+      if (pk) payload["mp_public_key"] = pk;
+      if (at) payload["mp_access_token"] = at;
+      const { data, error } = await supabase
+        .from("barbershops" as never)
+        .update(payload as never)
+        .eq("id", shopId)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Sem permissão para alterar esta barbearia");
+    },
+    onSuccess: () => {
+      setAccessToken("");
+      toast.success("Chaves do Mercado Pago salvas");
+      qc.invalidateQueries({ queryKey: ["mp-keys", shopId] });
+      qc.invalidateQueries({ queryKey: ["mp-status", shopId] });
+    },
+    onError: (e: Error) =>
+      toast.error("Não foi possível salvar as chaves", { description: e.message }),
+  });
+
+  return (
+    <section className="surface space-y-4 p-4">
+      <div>
+        <p className="font-medium">Chaves do Mercado Pago (manual)</p>
+        <p className="text-xs text-muted-foreground">
+          Cole aqui as credenciais da sua conta. A Public Key é usada para abrir o formulário de
+          cartão dentro do app e o Access Token para cobrar.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="mp-pk">Public Key</Label>
+        <Input
+          id="mp-pk"
+          value={publicKey}
+          onChange={(e) => setPublicKey(e.target.value)}
+          placeholder="APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          autoComplete="off"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="mp-at">Access Token</Label>
+        <Input
+          id="mp-at"
+          type="password"
+          value={accessToken}
+          onChange={(e) => setAccessToken(e.target.value)}
+          placeholder="APP_USR-0000000000000000-000000-...."
+          autoComplete="off"
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Por segurança o token não é exibido depois de salvo. Deixe em branco para manter o atual.
+        </p>
+      </div>
+
+      <Button variant="hero" onClick={() => save.mutate()} disabled={save.isPending || !shopId}>
+        {save.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />} Salvar chaves
+      </Button>
+    </section>
+  );
+}
+
 
 type BarberRow = {
   id: string;
