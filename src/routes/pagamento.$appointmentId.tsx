@@ -128,8 +128,11 @@ function PagamentoPage() {
   // Status vindo do banco (atualizado pelo webhook do Mercado Pago).
   const dbStatus = apptQ.data?.appointment.payment_status ?? null;
   useEffect(() => {
+    // Nunca rebaixa um pagamento já aprovado nesta sessão (o banco pode demorar a refletir).
+    if (payStatus === "pago") return;
     if (dbStatus && dbStatus !== payStatus) setPayStatus(dbStatus);
   }, [dbStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const createPix = useMutation({
     mutationFn: async (forceNew: boolean) => {
