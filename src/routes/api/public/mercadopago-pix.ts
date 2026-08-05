@@ -439,7 +439,12 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           };
           if (!paymentResponse.ok || !payment.id) {
             console.error("Mercado Pago PIX: criação recusada", paymentResponse.status, payment);
-            return json({ error: payment.message ?? "Falha ao criar o pagamento PIX." }, 400);
+            return json(
+              {
+                error: paymentErrorMessage(payment.status_detail, payment.status, payment.message),
+              },
+              400,
+            );
           }
 
           await savePayment(admin, paymentColumnsAvailable, appointment.id, {
