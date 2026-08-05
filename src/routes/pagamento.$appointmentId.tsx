@@ -166,8 +166,12 @@ function PagamentoPage() {
 
 
   const finish = useCallback(() => {
-    setTimeout(() => navigate({ to: "/meus-agendamentos" }), 1800);
-  }, [navigate]);
+    setTimeout(
+      () =>
+        navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } }),
+      1200,
+    );
+  }, [navigate, appointmentId]);
 
   // Consulta o status em tempo real enquanto o PIX estiver aberto.
   useEffect(() => {
