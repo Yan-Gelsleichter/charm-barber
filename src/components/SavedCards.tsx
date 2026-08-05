@@ -217,10 +217,17 @@ export function luhnValid(value: string) {
 export function validateCardNumber(value: string) {
   const d = digits(value);
   if (!d) return "Informe o número do cartão.";
-  const amex = /^3[47]/.test(d);
-  const expected = amex ? 15 : 16;
-  if (d.length < expected) return `O número do cartão deve ter ${expected} dígitos.`;
-  if (d.length > 19) return "Número do cartão inválido.";
+  const brand = detectCardBrand(d);
+  const min = Math.min(...brand.lengths);
+  const max = Math.max(...brand.lengths);
+  if (!brand.lengths.includes(d.length)) {
+    if (d.length < min) {
+      const label = brand.label ? `${brand.label}: o` : "O";
+      return `${label} número deve ter ${brand.lengths.join(" ou ")} dígitos.`;
+    }
+    if (d.length > max) return "Número do cartão inválido.";
+    return `O número do cartão deve ter ${brand.lengths.join(" ou ")} dígitos.`;
+  }
   if (!luhnValid(d)) return "Número do cartão inválido. Confira os dígitos.";
   return null;
 }
