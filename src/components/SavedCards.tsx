@@ -884,10 +884,13 @@ export function SavedCards({
           </div>
           <Input
             inputMode="numeric"
-            placeholder="CPF do titular"
+            placeholder="CPF do titular (obrigatório)"
             value={form.doc}
             onChange={(e) => setForm((f) => ({ ...f, doc: digits(e.target.value).slice(0, 11) }))}
           />
+          {form.doc.length > 0 && form.doc.length < 11 && (
+            <p className="text-xs text-destructive">Informe o CPF completo (11 dígitos).</p>
+          )}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
