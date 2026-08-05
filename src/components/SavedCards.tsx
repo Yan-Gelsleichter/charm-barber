@@ -430,6 +430,12 @@ export function SavedCards({
     onSuccess: (data) => {
       setCvv("");
       setPayError(null);
+      try {
+        sessionStorage.removeItem(draftKey(appointmentId));
+      } catch {
+        /* ignore */
+      }
+
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
