@@ -156,6 +156,15 @@ export function SavedCards({
     });
   }, [cards]);
 
+  const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
+  const savedCvvError = cvvTouched ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
+  const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
+
+  // Limpa o CVV e o estado de erro ao trocar de cartão.
+  useEffect(() => {
+    setCvvTouched(false);
+  }, [selectedCardId]);
+
 
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
@@ -185,8 +194,11 @@ export function SavedCards({
   const payWithNew = useMutation({
     mutationFn: async () => {
       if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      const invalidCvv = validateCvv(form.cvv, null, form.number);
+      if (invalidCvv) throw new Error(invalidCvv);
       const [month, year] = form.expiry.split("/");
       if (!month || !year) throw new Error("Informe a validade no formato MM/AA.");
+
       const token = await mp.createCardToken({
         cardNumber: digits(form.number),
         cardholderName: form.name.trim(),
