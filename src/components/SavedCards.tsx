@@ -532,6 +532,8 @@ export function SavedCards({
 
   const charging = payWithSaved.isPending || payWithNew.isPending;
   const busy = charging || removeCard.isPending;
+  const noSavedCards = !cardsQ.isLoading && cards.length === 0;
+
 
   // Sem chave pública do Mercado Pago não dá para tokenizar o cartão.
   // Antes a seção sumia em silêncio (botão "parecia" não fazer nada);
@@ -742,13 +744,8 @@ export function SavedCards({
         </p>
       )}
 
-      {!cardsQ.isLoading && cards.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          Você ainda não tem cartões salvos. Pague uma vez com cartão e salve para as próximas.
-        </p>
-      )}
+      {(newCardOpen || noSavedCards) ? (
 
-      {newCardOpen ? (
         <div className="space-y-2 rounded-xl border border-border/60 p-3">
           <div>
             <div className="relative">
@@ -844,7 +841,7 @@ export function SavedCards({
             />
             Salvar este cartão para pagar em 1 clique depois
           </label>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className={noSavedCards ? "grid gap-2" : "grid gap-2 sm:grid-cols-2"}>
             <Button
               onClick={() => {
                 setNumberTouched(true);
@@ -858,9 +855,11 @@ export function SavedCards({
               {payWithNew.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
               {payWithNew.isPending ? "Processando…" : "Pagar"}
             </Button>
-            <Button variant="ghost" disabled={busy} onClick={() => setNewCardOpen(false)}>
-              Cancelar
-            </Button>
+            {!noSavedCards && (
+              <Button variant="ghost" disabled={busy} onClick={() => setNewCardOpen(false)}>
+                Cancelar
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -873,6 +872,7 @@ export function SavedCards({
           <CreditCard /> Usar outro cartão
         </Button>
       )}
+
     </section>
   );
 }
