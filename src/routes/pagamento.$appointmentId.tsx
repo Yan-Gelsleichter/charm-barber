@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -162,13 +162,22 @@ function PagamentoPage() {
   // Cartão de crédito: Checkout Transparente, tudo dentro do app (sem redirecionamento).
   const [cardSignal, setCardSignal] = useState(0);
   const [cardOpen, setCardOpen] = useState(false);
+  const paidMethodRef = useRef<"pix" | "credit_card">("pix");
 
-  const finish = useCallback(() => {
-    setTimeout(
-      () => navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } }),
-      1200,
-    );
-  }, [navigate, appointmentId]);
+  const finish = useCallback(
+    (metodo: "pix" | "credit_card" = "pix") => {
+      setTimeout(
+        () =>
+          navigate({
+            to: "/pagamento-confirmado/$appointmentId",
+            params: { appointmentId },
+            search: { pago: true, metodo },
+          }),
+        1200,
+      );
+    },
+    [navigate, appointmentId],
+  );
 
   // Consulta o status em tempo real enquanto o PIX estiver aberto.
   useEffect(() => {
@@ -186,7 +195,7 @@ function PagamentoPage() {
           clearInterval(timer);
           toast.success("Pagamento confirmado!");
           apptQ.refetch();
-          finish();
+          finish("pix");
         }
       } catch (error) {
         console.error("Falha ao consultar o pagamento PIX", error);
@@ -196,7 +205,7 @@ function PagamentoPage() {
   }, [pix, paid, appointmentId, finish]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (paid) finish();
+    if (paid) finish(paidMethodRef.current);
   }, [paid, finish]);
 
   const busy = createPix.isPending;
@@ -327,6 +336,7 @@ function PagamentoPage() {
               navigate({
                 to: "/pagamento-confirmado/$appointmentId",
                 params: { appointmentId },
+                search: { metodo: "presencial" },
               });
             }}
           >
@@ -347,6 +357,7 @@ function PagamentoPage() {
             appointmentId={appointmentId}
             openNewCardSignal={cardSignal}
             onPaid={(status) => {
+              if (status === "pago") paidMethodRef.current = "credit_card";
               setPayStatus(status);
               apptQ.refetch();
               if (status === "pago") setCardOpen(false);
