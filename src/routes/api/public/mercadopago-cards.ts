@@ -772,7 +772,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               user.id,
               appointment.barbershop_id,
               customerId,
-              parsed.data.card_token,
+              cardToken,
               parsed.data.card_number,
             );
             if ("error" in saved) {
@@ -812,7 +812,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
           const body: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
-            token: parsed.data.card_token,
+            token: cardToken,
             description: `${(service as { name?: string } | null)?.name ?? "Serviço"} — agendamento`,
             installments: parsed.data.installments ?? 1,
             payer: { type: "customer", id: customerId, email: userEmail },
@@ -913,7 +913,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               user.id,
               appointment.barbershop_id,
               customerId,
-              parsed.data.card_token,
+              cardToken,
               parsed.data.card_number,
             ).catch(() => null);
           }
