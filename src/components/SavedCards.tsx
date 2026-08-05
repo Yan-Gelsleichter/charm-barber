@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   CreditCard,
   Loader2,
-  RefreshCw,
   Trash2,
   Zap,
 } from "lucide-react";
@@ -597,14 +596,14 @@ export function SavedCards({
         </div>
       )}
 
-      {!cardsQ.isLoading && cards.length > 0 && !hasDefault && (
+      {!cardsQ.isLoading && !newCardOpen && cards.length > 0 && !hasDefault && (
         <p className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
           Você ainda não definiu um cartão padrão. Escolha abaixo qual cartão usar agora ou adicione
           um novo antes de pagar.
         </p>
       )}
 
-      {cards.map((card) => {
+      {!newCardOpen && cards.map((card) => {
         const selected = selectedCardId === card.id;
         return (
           <div
@@ -701,43 +700,13 @@ export function SavedCards({
                       : "3 dígitos no verso do cartão."}
                   </p>
                 )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {cards.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => {
-                        setSelectedCardId(null);
-                        setCvv("");
-                        setPayError(null);
-                        setNewCardOpen(false);
-                      }}
-                    >
-                      <RefreshCw className="size-3.5" /> Trocar cartão
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => {
-                      setSelectedCardId(null);
-                      setCvv("");
-                      setPayError(null);
-                      setNewCardOpen(true);
-                    }}
-                  >
-                    <CreditCard className="size-3.5" /> Usar outro cartão
-                  </Button>
-                </div>
               </div>
             )}
           </div>
         );
       })}
 
-      {cards.length > 1 && (
+      {!newCardOpen && cards.length > 1 && (
         <p className="text-[11px] text-muted-foreground">
           Toque em outro cartão para trocar o método antes de pagar — seu agendamento continua
           reservado.
