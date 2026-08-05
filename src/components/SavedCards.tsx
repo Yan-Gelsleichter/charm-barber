@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, CreditCard, Loader2, Trash2, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle2, CreditCard, Loader2, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -274,6 +274,7 @@ export function SavedCards({
   const [numberTouched, setNumberTouched] = useState(false);
   const [expiryTouched, setExpiryTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const [form, setForm] = useState({
     number: "",
     name: "",
@@ -367,11 +368,15 @@ export function SavedCards({
     },
     onSuccess: (data) => {
       setCvv("");
+      setPayError(null);
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
     },
-    onError: (e: Error) => toast.error("Não foi possível pagar", { description: e.message }),
+    onError: (e: Error) => {
+      setPayError(e.message);
+      toast.error("Não foi possível pagar", { description: e.message, duration: 8000 });
+    },
   });
 
   const payWithNew = useMutation({
@@ -410,13 +415,17 @@ export function SavedCards({
     },
     onSuccess: (data) => {
       setNewCardOpen(false);
+      setPayError(null);
       setForm({ number: "", name: "", expiry: "", cvv: "", doc: "", save: true });
       queryClient.invalidateQueries({ queryKey: ["mp-saved-cards", appointmentId] });
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
     },
-    onError: (e: Error) => toast.error("Não foi possível pagar", { description: e.message }),
+    onError: (e: Error) => {
+      setPayError(e.message);
+      toast.error("Não foi possível pagar", { description: e.message, duration: 8000 });
+    },
   });
 
   const removeCard = useMutation({
@@ -445,6 +454,26 @@ export function SavedCards({
       {(configQ.isLoading || cardsQ.isLoading) && (
         <div className="flex justify-center py-3">
           <Loader2 className="animate-spin" />
+        </div>
+      )}
+
+      {payError && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold">Pagamento não concluído</p>
+            <p className="mt-0.5 text-destructive/90">{payError}</p>
+          </div>
+          <button
+            type="button"
+            className="text-[11px] underline"
+            onClick={() => setPayError(null)}
+          >
+            Fechar
+          </button>
         </div>
       )}
 

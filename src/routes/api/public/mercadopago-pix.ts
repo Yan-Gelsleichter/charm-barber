@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { paymentErrorMessage } from "./mercadopago-cards";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -427,6 +428,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           const payment = (await paymentResponse.json().catch(() => ({}))) as {
             id?: number | string;
             status?: string;
+            status_detail?: string;
             message?: string;
             date_of_expiration?: string;
             point_of_interaction?: {
@@ -439,7 +441,12 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           };
           if (!paymentResponse.ok || !payment.id) {
             console.error("Mercado Pago PIX: criação recusada", paymentResponse.status, payment);
-            return json({ error: payment.message ?? "Falha ao criar o pagamento PIX." }, 400);
+            return json(
+              {
+                error: paymentErrorMessage(payment.status_detail, payment.status, payment.message),
+              },
+              400,
+            );
           }
 
           await savePayment(admin, paymentColumnsAvailable, appointment.id, {
