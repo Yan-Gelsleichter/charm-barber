@@ -17,6 +17,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SavedCards } from "@/components/SavedCards";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { brl, fmtTime } from "@/lib/format";
 
 type PixData = {
@@ -153,6 +160,7 @@ function PagamentoPage() {
 
   // Cartão de crédito: Checkout Transparente, tudo dentro do app (sem redirecionamento).
   const [cardSignal, setCardSignal] = useState(0);
+  const [cardOpen, setCardOpen] = useState(false);
 
   const finish = useCallback(() => {
     setTimeout(
@@ -292,7 +300,10 @@ function PagamentoPage() {
             variant="outline"
             size="xl"
             className="w-full"
-            onClick={() => setCardSignal((n) => n + 1)}
+            onClick={() => {
+              setCardSignal((n) => n + 1);
+              setCardOpen(true);
+            }}
             disabled={busy}
           >
             <CreditCard /> Pagar com cartão de crédito
@@ -315,16 +326,25 @@ function PagamentoPage() {
         </div>
       )}
 
-      {!pix && !paid && (
-        <SavedCards
-          appointmentId={appointmentId}
-          openNewCardSignal={cardSignal}
-          onPaid={(status) => {
-            setPayStatus(status);
-            apptQ.refetch();
-          }}
-        />
-      )}
+      <Dialog open={cardOpen} onOpenChange={setCardOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pagar com cartão de crédito</DialogTitle>
+            <DialogDescription>
+              Seus dados são enviados com segurança e o pagamento acontece dentro do app.
+            </DialogDescription>
+          </DialogHeader>
+          <SavedCards
+            appointmentId={appointmentId}
+            openNewCardSignal={cardSignal}
+            onPaid={(status) => {
+              setPayStatus(status);
+              apptQ.refetch();
+              if (status === "pago") setCardOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {pix && !paid && (
         <section className="surface mt-5 space-y-4 p-4 text-center">
