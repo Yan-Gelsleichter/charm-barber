@@ -458,7 +458,8 @@ export function SavedCards({
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
-    validateCvv(form.cvv, null, form.number),
+    validateCvv(form.cvv, null, form.number) ||
+    digits(form.doc).length !== 11,
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
