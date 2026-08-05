@@ -278,7 +278,11 @@ async function resolvePublicKey(
     const payload: Record<string, unknown> = { mp_public_key: token.public_key };
     if (token.access_token) payload["mp_access_token"] = token.access_token;
     if (token.refresh_token) payload["mp_refresh_token"] = token.refresh_token;
-    await admin.from(table).update(payload).eq("id", rowId);
+    await (admin.from(table) as unknown as {
+      update: (p: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+    })
+      .update(payload)
+      .eq("id", rowId);
     return token.public_key;
   } catch {
     return null;
