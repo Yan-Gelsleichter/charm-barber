@@ -610,25 +610,18 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ error: "Esta barbearia ainda não conectou o Mercado Pago." }, 400);
           }
 
-          if (!collector.publicKey && parsed.data.action === "config") {
-            return json(
-              {
-                error:
-                  "Não foi possível obter a chave pública da conta Mercado Pago conectada. Reconecte a conta no painel (Pagamentos) para renovar a autorização.",
-              },
-              400,
-            );
-          }
-
-
           // ---- configuração para tokenizar no navegador ----
+          // Sem public key ainda liberamos o cartão: o token é criado no
+          // servidor com o access token da conta conectada via OAuth.
           if (parsed.data.action === "config") {
             return json({
               public_key: collector.publicKey,
+              server_tokenize: !collector.publicKey,
               amount,
               service_name: (service as { name?: string } | null)?.name ?? "Serviço",
             });
           }
+
 
           // ---- listar cartões salvos ----
           if (parsed.data.action === "list") {
