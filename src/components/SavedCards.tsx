@@ -66,6 +66,25 @@ function digits(value: string) {
   return value.replace(/\D/g, "");
 }
 
+/** Amex usa 4 dígitos; as demais bandeiras usam 3. */
+export function cvvLengthFor(brand?: string | null, cardNumber?: string | null) {
+  const isAmex =
+    (brand ?? "").toLowerCase().includes("amex") ||
+    (brand ?? "").toLowerCase().includes("american") ||
+    /^3[47]/.test(digits(cardNumber ?? ""));
+  return isAmex ? 4 : 3;
+}
+
+/** Retorna a mensagem de erro do CVV ou null quando válido. */
+export function validateCvv(value: string, brand?: string | null, cardNumber?: string | null) {
+  const raw = value.trim();
+  if (!raw) return "Informe o código de segurança (CVV).";
+  if (/\D/.test(raw)) return "O CVV deve conter apenas números.";
+  const expected = cvvLengthFor(brand, cardNumber);
+  if (raw.length !== expected) return `O CVV deve ter ${expected} dígitos.`;
+  return null;
+}
+
 export function SavedCards({
   appointmentId,
   onPaid,
@@ -77,6 +96,8 @@ export function SavedCards({
   const [mp, setMp] = useState<MpInstance | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [cvv, setCvv] = useState("");
+  const [cvvTouched, setCvvTouched] = useState(false);
+  const [newCvvTouched, setNewCvvTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(false);
   const [form, setForm] = useState({
     number: "",
@@ -86,6 +107,7 @@ export function SavedCards({
     doc: "",
     save: true,
   });
+
 
   const configQ = useQuery({
     queryKey: ["mp-card-config", appointmentId],
@@ -138,8 +160,10 @@ export function SavedCards({
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
       if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      const invalid = validateCvv(cvv, card.brand, null);
+      if (invalid) throw new Error(invalid);
       const securityCode = digits(cvv);
-      if (securityCode.length < 3) throw new Error("Informe o código de segurança do cartão.");
+
       const token = await mp.createCardToken({ cardId: card.id, securityCode });
       if (!token.id) throw new Error("Não foi possível validar o cartão salvo.");
       return callCardsApi<{ payment_status: string }>({
