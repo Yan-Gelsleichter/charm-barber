@@ -271,9 +271,7 @@ function PagamentoPage() {
         >
           <Loader2 className="size-5 shrink-0 animate-spin text-[var(--brand-from)]" />
           <div>
-            <p className="font-semibold">
-              {createPix.isPending ? "Gerando seu PIX…" : "Abrindo o pagamento com cartão…"}
-            </p>
+            <p className="font-semibold">Gerando seu PIX…</p>
             <p className="text-xs text-muted-foreground">
               Não feche nem atualize esta tela até o resultado da cobrança.
             </p>
@@ -297,11 +295,10 @@ function PagamentoPage() {
             variant="outline"
             size="xl"
             className="w-full"
-            onClick={() => payCard.mutate()}
+            onClick={() => setCardSignal((n) => n + 1)}
             disabled={busy}
           >
-            {payCard.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
-            {payCard.isPending ? "Abrindo checkout…" : "Pagar com cartão de crédito"}
+            <CreditCard /> Pagar com cartão de crédito
           </Button>
           <Button
             variant="outline"
