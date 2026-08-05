@@ -78,6 +78,38 @@ function loadMpSdk(): Promise<void> {
   });
 }
 
+/**
+ * Carrega o security.js do Mercado Pago e devolve o device fingerprint
+ * (MP_DEVICE_SESSION_ID). Reduz recusas/"em análise" por antifraude.
+ */
+function loadDeviceId(): Promise<string | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  const current = (window as unknown as { MP_DEVICE_SESSION_ID?: string }).MP_DEVICE_SESSION_ID;
+  if (current) return Promise.resolve(current);
+  return new Promise((resolve) => {
+    const done = () => {
+      const id = (window as unknown as { MP_DEVICE_SESSION_ID?: string }).MP_DEVICE_SESSION_ID;
+      resolve(id ?? null);
+    };
+    const existing = document.querySelector<HTMLScriptElement>("script[data-mp-device]");
+    if (existing) {
+      existing.addEventListener("load", () => setTimeout(done, 300));
+      existing.addEventListener("error", () => resolve(null));
+      setTimeout(done, 1500);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://www.mercadopago.com/v2/security.js";
+    script.setAttribute("view", "checkout");
+    script.async = true;
+    script.dataset["mpDevice"] = "1";
+    script.onload = () => setTimeout(done, 300);
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+    setTimeout(done, 2500);
+  });
+}
+
 function digits(value: string) {
   return value.replace(/\D/g, "");
 }
