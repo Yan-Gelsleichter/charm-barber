@@ -445,6 +445,19 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ error: "Não foi possível preparar o cadastro do cartão." }, 400);
           }
 
+          // ---- validação de servidor (Luhn + validade) antes de salvar/cobrar ----
+          const cardError = await assertCardValid(collector.accessToken, {
+            card_token: parsed.data.card_token,
+            ...(parsed.data.card_number ? { card_number: parsed.data.card_number } : {}),
+            ...(parsed.data.expiration_month
+              ? { expiration_month: parsed.data.expiration_month }
+              : {}),
+            ...(parsed.data.expiration_year
+              ? { expiration_year: parsed.data.expiration_year }
+              : {}),
+          });
+          if (cardError) return json({ error: cardError }, 400);
+
           // ---- salvar cartão ----
           if (parsed.data.action === "save") {
             const saved = await saveCard(
@@ -458,6 +471,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             if ("error" in saved) return json({ error: saved.error }, 400);
             return json({ card: saved.card });
           }
+
 
           // ---- pagar (1 clique com cartão salvo ou cartão novo) ----
           if (parsed.data.saved_card_id) {
