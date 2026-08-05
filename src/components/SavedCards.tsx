@@ -532,6 +532,8 @@ export function SavedCards({
 
   const charging = payWithSaved.isPending || payWithNew.isPending;
   const busy = charging || removeCard.isPending;
+  const noSavedCards = !cardsQ.isLoading && cards.length === 0;
+
 
   // Sem chave pública do Mercado Pago não dá para tokenizar o cartão.
   // Antes a seção sumia em silêncio (botão "parecia" não fazer nada);
