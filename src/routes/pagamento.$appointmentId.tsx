@@ -300,7 +300,10 @@ function PagamentoPage() {
             variant="outline"
             size="xl"
             className="w-full"
-            onClick={() => setCardSignal((n) => n + 1)}
+            onClick={() => {
+              setCardSignal((n) => n + 1);
+              setCardOpen(true);
+            }}
             disabled={busy}
           >
             <CreditCard /> Pagar com cartão de crédito
