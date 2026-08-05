@@ -66,6 +66,25 @@ function digits(value: string) {
   return value.replace(/\D/g, "");
 }
 
+/** Amex usa 4 dígitos; as demais bandeiras usam 3. */
+export function cvvLengthFor(brand?: string | null, cardNumber?: string | null) {
+  const isAmex =
+    (brand ?? "").toLowerCase().includes("amex") ||
+    (brand ?? "").toLowerCase().includes("american") ||
+    /^3[47]/.test(digits(cardNumber ?? ""));
+  return isAmex ? 4 : 3;
+}
+
+/** Retorna a mensagem de erro do CVV ou null quando válido. */
+export function validateCvv(value: string, brand?: string | null, cardNumber?: string | null) {
+  const raw = value.trim();
+  if (!raw) return "Informe o código de segurança (CVV).";
+  if (/\D/.test(raw)) return "O CVV deve conter apenas números.";
+  const expected = cvvLengthFor(brand, cardNumber);
+  if (raw.length !== expected) return `O CVV deve ter ${expected} dígitos.`;
+  return null;
+}
+
 export function SavedCards({
   appointmentId,
   onPaid,
@@ -77,6 +96,8 @@ export function SavedCards({
   const [mp, setMp] = useState<MpInstance | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [cvv, setCvv] = useState("");
+  const [cvvTouched, setCvvTouched] = useState(false);
+  const [newCvvTouched, setNewCvvTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(false);
   const [form, setForm] = useState({
     number: "",
@@ -86,6 +107,7 @@ export function SavedCards({
     doc: "",
     save: true,
   });
+
 
   const configQ = useQuery({
     queryKey: ["mp-card-config", appointmentId],
@@ -134,12 +156,23 @@ export function SavedCards({
     });
   }, [cards]);
 
+  const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
+  const savedCvvError = cvvTouched ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
+  const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
+
+  // Limpa o CVV e o estado de erro ao trocar de cartão.
+  useEffect(() => {
+    setCvvTouched(false);
+  }, [selectedCardId]);
+
 
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
       if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      const invalid = validateCvv(cvv, card.brand, null);
+      if (invalid) throw new Error(invalid);
       const securityCode = digits(cvv);
-      if (securityCode.length < 3) throw new Error("Informe o código de segurança do cartão.");
+
       const token = await mp.createCardToken({ cardId: card.id, securityCode });
       if (!token.id) throw new Error("Não foi possível validar o cartão salvo.");
       return callCardsApi<{ payment_status: string }>({
@@ -161,8 +194,11 @@ export function SavedCards({
   const payWithNew = useMutation({
     mutationFn: async () => {
       if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      const invalidCvv = validateCvv(form.cvv, null, form.number);
+      if (invalidCvv) throw new Error(invalidCvv);
       const [month, year] = form.expiry.split("/");
       if (!month || !year) throw new Error("Informe a validade no formato MM/AA.");
+
       const token = await mp.createCardToken({
         cardNumber: digits(form.number),
         cardholderName: form.name.trim(),
@@ -269,34 +305,57 @@ export function SavedCards({
             </button>
 
             {selected && (
-              <div className="mt-3 flex gap-2">
-                <Input
-                  inputMode="numeric"
-                  maxLength={4}
-                  placeholder="CVV"
-                  value={cvv}
-                  onChange={(e) => setCvv(digits(e.target.value))}
-                  className="w-24"
-                />
-                <Button
-                  className="flex-1"
-                  onClick={() => payWithSaved.mutate(card)}
-                  disabled={payWithSaved.isPending}
-                >
-                  {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
-                  Pagar agora
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remover cartão"
-                  onClick={() => removeCard.mutate(card.id)}
-                  disabled={removeCard.isPending}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+              <div className="mt-3 space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    inputMode="numeric"
+                    maxLength={cvvLengthFor(card.brand, null)}
+                    placeholder={cvvLengthFor(card.brand, null) === 4 ? "CVV (4)" : "CVV"}
+                    value={cvv}
+                    aria-invalid={Boolean(savedCvvError)}
+                    aria-describedby={savedCvvError ? "saved-cvv-error" : undefined}
+                    onBlur={() => setCvvTouched(true)}
+                    onChange={(e) =>
+                      setCvv(digits(e.target.value).slice(0, cvvLengthFor(card.brand, null)))
+                    }
+                    className="w-24"
+                  />
+                  <Button
+                    className="flex-1"
+                    onClick={() => {
+                      setCvvTouched(true);
+                      if (validateCvv(cvv, card.brand, null)) return;
+                      payWithSaved.mutate(card);
+                    }}
+                    disabled={payWithSaved.isPending || Boolean(validateCvv(cvv, card.brand, null))}
+                  >
+                    {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
+                    Pagar agora
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remover cartão"
+                    onClick={() => removeCard.mutate(card.id)}
+                    disabled={removeCard.isPending}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                {savedCvvError ? (
+                  <p id="saved-cvv-error" className="text-[11px] text-destructive">
+                    {savedCvvError}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    {cvvLengthFor(card.brand, null) === 4
+                      ? "Amex: 4 dígitos na frente do cartão."
+                      : "3 dígitos no verso do cartão."}
+                  </p>
+                )}
               </div>
             )}
+
           </div>
         );
       })}
@@ -339,13 +398,29 @@ export function SavedCards({
                 }));
               }}
             />
-            <Input
-              inputMode="numeric"
-              placeholder="CVV"
-              maxLength={4}
-              value={form.cvv}
-              onChange={(e) => setForm((f) => ({ ...f, cvv: digits(e.target.value) }))}
-            />
+            <div>
+              <Input
+                inputMode="numeric"
+                placeholder="CVV"
+                maxLength={cvvLengthFor(null, form.number)}
+                value={form.cvv}
+                aria-invalid={Boolean(newCardCvvError)}
+                aria-describedby={newCardCvvError ? "new-card-cvv-error" : undefined}
+                onBlur={() => setNewCvvTouched(true)}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    cvv: digits(e.target.value).slice(0, cvvLengthFor(null, f.number)),
+                  }))
+                }
+              />
+              {newCardCvvError && (
+                <p id="new-card-cvv-error" className="mt-1 text-[11px] text-destructive">
+                  {newCardCvvError}
+                </p>
+              )}
+            </div>
+
           </div>
           <Input
             inputMode="numeric"
@@ -362,7 +437,14 @@ export function SavedCards({
             Salvar este cartão para pagar em 1 clique depois
           </label>
           <div className="grid gap-2 sm:grid-cols-2">
-            <Button onClick={() => payWithNew.mutate()} disabled={payWithNew.isPending}>
+            <Button
+              onClick={() => {
+                setNewCvvTouched(true);
+                if (validateCvv(form.cvv, null, form.number)) return;
+                payWithNew.mutate();
+              }}
+              disabled={payWithNew.isPending || Boolean(validateCvv(form.cvv, null, form.number))}
+            >
               {payWithNew.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
               Pagar
             </Button>
