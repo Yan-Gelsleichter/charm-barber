@@ -281,6 +281,16 @@ function PagamentoPage() {
             variant="outline"
             size="xl"
             className="w-full"
+            onClick={() => payCard.mutate()}
+            disabled={payCard.isPending}
+          >
+            {payCard.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
+            Pagar com cartão de crédito
+          </Button>
+          <Button
+            variant="outline"
+            size="xl"
+            className="w-full"
             onClick={() => {
               toast.success("Combinado! Pague presencialmente na barbearia.");
               navigate({ to: "/meus-agendamentos" });
