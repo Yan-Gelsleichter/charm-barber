@@ -383,7 +383,19 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
 
           // ---- pagar (1 clique com cartão salvo ou cartão novo) ----
+          if (parsed.data.saved_card_id) {
+            // O cartão salvo precisa ser do próprio usuário e da mesma conta recebedora.
+            const { data: owned } = await admin
+              .from("saved_cards")
+              .select("id")
+              .eq("id", parsed.data.saved_card_id)
+              .eq("user_id", user.id)
+              .eq("mp_collector_id", collector.collectorId)
+              .maybeSingle();
+            if (!owned) return json({ error: "Cartão não encontrado." }, 404);
+          }
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
+
           if (appointment.payment_status === "pago") {
             return json({ error: "Este agendamento já está pago.", payment_status: "pago" }, 409);
           }
