@@ -160,6 +160,7 @@ function PagamentoPage() {
 
   // Cartão de crédito: Checkout Transparente, tudo dentro do app (sem redirecionamento).
   const [cardSignal, setCardSignal] = useState(0);
+  const [cardOpen, setCardOpen] = useState(false);
 
   const finish = useCallback(() => {
     setTimeout(
