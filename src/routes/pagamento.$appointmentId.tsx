@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   QrCode,
+  CreditCard,
   Store,
   Loader2,
   Copy,
@@ -53,8 +54,9 @@ async function callPixApi(body: Record<string, unknown>) {
   const data = (await response.json().catch(() => ({}))) as {
     error?: string;
     payment_status?: string;
+    checkout_url?: string;
   } & Partial<PixData>;
-  if (!response.ok) throw new Error(data.error ?? "Falha ao processar o pagamento PIX.");
+  if (!response.ok) throw new Error(data.error ?? "Falha ao processar o pagamento.");
   return data;
 }
 
@@ -145,6 +147,21 @@ function PagamentoPage() {
     },
     onError: (e: Error) => toast.error("Não foi possível gerar o PIX", { description: e.message }),
   });
+
+  // Cartão de crédito: usa o mesmo token/split do PIX e abre o Checkout Pro.
+  const payCard = useMutation({
+    mutationFn: async () => {
+      const data = await callPixApi({ action: "card", appointment_id: appointmentId });
+      if (!data.checkout_url) throw new Error("O Mercado Pago não retornou o link do checkout.");
+      return data.checkout_url;
+    },
+    onSuccess: (url) => {
+      window.location.href = url;
+    },
+    onError: (e: Error) =>
+      toast.error("Não foi possível abrir o pagamento com cartão", { description: e.message }),
+  });
+
 
   const finish = useCallback(() => {
     setTimeout(() => navigate({ to: "/meus-agendamentos" }), 1800);
@@ -260,6 +277,16 @@ function PagamentoPage() {
           >
             {createPix.isPending ? <Loader2 className="animate-spin" /> : <QrCode />}
             Pagar agora com PIX
+          </Button>
+          <Button
+            variant="outline"
+            size="xl"
+            className="w-full"
+            onClick={() => payCard.mutate()}
+            disabled={payCard.isPending}
+          >
+            {payCard.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
+            Pagar com cartão de crédito
           </Button>
           <Button
             variant="outline"
