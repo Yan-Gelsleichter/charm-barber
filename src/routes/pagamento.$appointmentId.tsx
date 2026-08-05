@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { SavedCards } from "@/components/SavedCards";
 import { brl, fmtTime } from "@/lib/format";
 
-
 type PixData = {
   payment_id: number | string;
   status: string;
@@ -56,7 +55,6 @@ async function callPixApi(body: Record<string, unknown>) {
   const data = (await response.json().catch(() => ({}))) as {
     error?: string;
     payment_status?: string;
-    checkout_url?: string;
   } & Partial<PixData>;
   if (!response.ok) throw new Error(data.error ?? "Falha ao processar o pagamento.");
   return data;
@@ -150,25 +148,12 @@ function PagamentoPage() {
     onError: (e: Error) => toast.error("Não foi possível gerar o PIX", { description: e.message }),
   });
 
-  // Cartão de crédito: usa o mesmo token/split do PIX e abre o Checkout Pro.
-  const payCard = useMutation({
-    mutationFn: async () => {
-      const data = await callPixApi({ action: "card", appointment_id: appointmentId });
-      if (!data.checkout_url) throw new Error("O Mercado Pago não retornou o link do checkout.");
-      return data.checkout_url;
-    },
-    onSuccess: (url) => {
-      window.location.href = url;
-    },
-    onError: (e: Error) =>
-      toast.error("Não foi possível abrir o pagamento com cartão", { description: e.message }),
-  });
-
+  // Cartão de crédito: Checkout Transparente, tudo dentro do app (sem redirecionamento).
+  const [cardSignal, setCardSignal] = useState(0);
 
   const finish = useCallback(() => {
     setTimeout(
-      () =>
-        navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } }),
+      () => navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } }),
       1200,
     );
   }, [navigate, appointmentId]);
@@ -202,11 +187,10 @@ function PagamentoPage() {
     if (paid) finish();
   }, [paid, finish]);
 
-  const busy = createPix.isPending || payCard.isPending;
+  const busy = createPix.isPending;
   const service = apptQ.data?.service ?? null;
   const appointment = apptQ.data?.appointment ?? null;
-  const expired =
-    !!pix?.expires_at && new Date(pix.expires_at).getTime() < Date.now() && !paid;
+  const expired = !!pix?.expires_at && new Date(pix.expires_at).getTime() < Date.now() && !paid;
   const failed = ["expirado", "cancelado", "falhou"].includes(payStatus) || expired;
 
   function downloadQr() {
@@ -281,9 +265,7 @@ function PagamentoPage() {
         >
           <Loader2 className="size-5 shrink-0 animate-spin text-[var(--brand-from)]" />
           <div>
-            <p className="font-semibold">
-              {createPix.isPending ? "Gerando seu PIX…" : "Abrindo o pagamento com cartão…"}
-            </p>
+            <p className="font-semibold">Gerando seu PIX…</p>
             <p className="text-xs text-muted-foreground">
               Não feche nem atualize esta tela até o resultado da cobrança.
             </p>
@@ -307,11 +289,10 @@ function PagamentoPage() {
             variant="outline"
             size="xl"
             className="w-full"
-            onClick={() => payCard.mutate()}
+            onClick={() => setCardSignal((n) => n + 1)}
             disabled={busy}
           >
-            {payCard.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
-            {payCard.isPending ? "Abrindo checkout…" : "Pagar com cartão de crédito"}
+            <CreditCard /> Pagar com cartão de crédito
           </Button>
           <Button
             variant="outline"
@@ -334,13 +315,13 @@ function PagamentoPage() {
       {!pix && !paid && (
         <SavedCards
           appointmentId={appointmentId}
+          openNewCardSignal={cardSignal}
           onPaid={(status) => {
             setPayStatus(status);
             apptQ.refetch();
           }}
         />
       )}
-
 
       {pix && !paid && (
         <section className="surface mt-5 space-y-4 p-4 text-center">
@@ -400,9 +381,7 @@ function PagamentoPage() {
                   </div>
                 </>
               )}
-              <p className="text-xs text-muted-foreground">
-                Aguardando confirmação do pagamento…
-              </p>
+              <p className="text-xs text-muted-foreground">Aguardando confirmação do pagamento…</p>
             </>
           )}
 

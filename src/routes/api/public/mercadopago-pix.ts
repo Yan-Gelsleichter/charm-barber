@@ -9,11 +9,6 @@ const requestSchema = z.discriminatedUnion("action", [
     appointment_id: z.string().uuid(),
     force_new: z.boolean().optional(),
   }),
-  // Checkout com cartão de crédito (Checkout Pro), mesmo split do PIX.
-  z.object({
-    action: z.literal("card"),
-    appointment_id: z.string().uuid(),
-  }),
   z.object({
     action: z.literal("status"),
     appointment_id: z.string().uuid(),
@@ -49,7 +44,7 @@ export function mapPaymentStatus(mpStatus?: string | null): string {
 }
 
 /** Atualiza o pagamento sem quebrar caso as colunas ainda não existam. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 async function savePayment(
   admin: { from: (table: string) => any },
   enabled: boolean,
@@ -123,18 +118,16 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               .maybeSingle();
           }
 
-          const appointment = appointmentQuery.data as
-            | {
-                id: string;
-                service_id: string;
-                barber_id: string | null;
-                barbershop_id: string | null;
-                customer_name: string | null;
-                email: string | null;
-                payment_status?: string | null;
-                mp_payment_id?: string | null;
-              }
-            | null;
+          const appointment = appointmentQuery.data as {
+            id: string;
+            service_id: string;
+            barber_id: string | null;
+            barbershop_id: string | null;
+            customer_name: string | null;
+            email: string | null;
+            payment_status?: string | null;
+            mp_payment_id?: string | null;
+          } | null;
 
           if (appointmentQuery.error) {
             console.error("Mercado Pago PIX: falha ao buscar agendamento", appointmentQuery.error);
@@ -143,7 +136,9 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
           const userEmail = userData.user.email?.trim().toLowerCase();
-          const appointmentEmail = String(appointment.email ?? "").trim().toLowerCase();
+          const appointmentEmail = String(appointment.email ?? "")
+            .trim()
+            .toLowerCase();
           if (!userEmail || !appointmentEmail || userEmail !== appointmentEmail) {
             return json({ error: "Você não tem acesso a este agendamento." }, 403);
           }
@@ -196,7 +191,6 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             );
           }
 
-
           if (parsed.data.action === "status") {
             const paymentResponse = await fetch(
               `https://api.mercadopago.com/v1/payments/${encodeURIComponent(String(parsed.data.payment_id))}`,
@@ -248,93 +242,6 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           const shopFee = barberSplit
             ? Number(((amount * (100 - barberSplit.commissionPercent)) / 100).toFixed(2))
             : 0;
-
-          // ---- action === "card": Checkout Pro (cartão de crédito) ----
-          if (parsed.data.action === "card") {
-            const origin = new URL(request.url).origin;
-            const backUrl = `${origin}/pagamento/${appointment.id}`;
-            const preferenceBody: Record<string, unknown> = {
-              items: [
-                {
-                  id: appointment.service_id,
-                  title: `${service.name ?? "Serviço"} — agendamento`,
-                  quantity: 1,
-                  currency_id: "BRL",
-                  unit_price: Number(amount.toFixed(2)),
-                },
-              ],
-              external_reference: appointment.id,
-              payer: { email: userEmail, name: appointment.customer_name ?? "Cliente" },
-              back_urls: { success: backUrl, pending: backUrl, failure: backUrl },
-              auto_return: "approved",
-              notification_url: `${origin}/api/public/mercadopago-webhook`,
-              // Só cartão de crédito neste fluxo (PIX tem botão próprio).
-              payment_methods: {
-                excluded_payment_types: [
-                  { id: "ticket" },
-                  { id: "bank_transfer" },
-                  { id: "atm" },
-                  { id: "debit_card" },
-                ],
-              },
-              metadata: {
-                appointment_id: appointment.id,
-                payout_mode: barberSplit ? "split" : "unica",
-                barber_id: appointment.barber_id ?? null,
-                commission_percent: barberSplit?.commissionPercent ?? null,
-              },
-            };
-            // Split por subcontas: a taxa da plataforma na preferência é `marketplace_fee`.
-            if (shopFee > 0) preferenceBody["marketplace_fee"] = shopFee;
-
-            const createPreference = (body: Record<string, unknown>) =>
-              fetch("https://api.mercadopago.com/checkout/preferences", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  "content-type": "application/json",
-                  "X-Idempotency-Key": `pref-${appointment.id}-${Date.now()}`,
-                },
-                body: JSON.stringify(body),
-              });
-
-            let prefResponse = await createPreference(preferenceBody);
-            if (!prefResponse.ok && shopFee > 0) {
-              const detail = JSON.stringify(
-                await prefResponse
-                  .clone()
-                  .json()
-                  .catch(() => ({}) as Record<string, unknown>),
-              );
-              if (detail.includes("marketplace") || detail.includes("fee")) {
-                console.warn("Mercado Pago cartão: taxa recusada, recriando sem split", detail);
-                delete preferenceBody["marketplace_fee"];
-                prefResponse = await createPreference(preferenceBody);
-              }
-            }
-
-            const preference = (await prefResponse.json().catch(() => ({}))) as {
-              id?: string;
-              init_point?: string;
-              sandbox_init_point?: string;
-              message?: string;
-            };
-            const checkoutUrl = preference.init_point ?? preference.sandbox_init_point;
-            if (!prefResponse.ok || !checkoutUrl) {
-              console.error("Mercado Pago cartão: preferência recusada", prefResponse.status, preference);
-              return json(
-                { error: preference.message ?? "Falha ao abrir o pagamento com cartão." },
-                400,
-              );
-            }
-
-            await savePayment(admin, paymentColumnsAvailable, appointment.id, {
-              payment_status: "pendente",
-              payment_method: "credit_card",
-            });
-
-            return json({ checkout_url: checkoutUrl, preference_id: preference.id, amount });
-          }
 
           // Reaproveita o PIX anterior se ainda estiver válido (pendente e não expirado).
           if (!parsed.data.force_new && appointment.mp_payment_id) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -58,7 +58,9 @@ function loadMpSdk(): Promise<void> {
     const existing = document.querySelector<HTMLScriptElement>("script[data-mp-sdk]");
     if (existing) {
       existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("Falha ao carregar o Mercado Pago")));
+      existing.addEventListener("error", () =>
+        reject(new Error("Falha ao carregar o Mercado Pago")),
+      );
       return;
     }
     const script = document.createElement("script");
@@ -109,8 +111,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
     lengths: [16],
     cvv: 3,
     groups: [4, 4, 4, 4],
-    test: (d) =>
-      /^(4011|4312|4389|4514|4576|5041|5066|5090|6277|6362|6363|650|6516|6550)/.test(d),
+    test: (d) => /^(4011|4312|4389|4514|4576|5041|5066|5090|6277|6362|6363|650|6516|6550)/.test(d),
   },
   {
     key: "hipercard",
@@ -208,7 +209,7 @@ export function formatCardNumber(value: string) {
 export function maskedCardNumber(brandName?: string | null, lastFour?: string | null) {
   const brand = detectCardBrand(null, brandName);
   const last = digits(lastFour ?? "").slice(-4) || "0000";
-  const total = brand.lengths.includes(16) ? 16 : brand.lengths[0] ?? 16;
+  const total = brand.lengths.includes(16) ? 16 : (brand.lengths[0] ?? 16);
   const hidden = Math.max(total - last.length, 0);
   const chars = "•".repeat(hidden) + last;
   const parts: string[] = [];
@@ -304,11 +305,15 @@ function readDraft(appointmentId: string): CheckoutDraft | null {
 export function SavedCards({
   appointmentId,
   onPaid,
+  openNewCardSignal = 0,
 }: {
   appointmentId: string;
   onPaid: (status: string) => void;
+  /** Incrementa para abrir o formulário de cartão nesta página (sem redirecionamento). */
+  openNewCardSignal?: number;
 }) {
   const queryClient = useQueryClient();
+  const sectionRef = useRef<HTMLElement | null>(null);
   const draft = useMemo(() => readDraft(appointmentId), [appointmentId]);
   const [mp, setMp] = useState<MpInstance | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
@@ -343,8 +348,14 @@ export function SavedCards({
     }
   }, [appointmentId, selectedCardId, newCardOpen, form.name]);
 
-
-
+  // Pedido externo (botão "Pagar com cartão"): abre o formulário aqui mesmo.
+  useEffect(() => {
+    if (!openNewCardSignal) return;
+    setSelectedCardId(null);
+    setPayError(null);
+    setNewCardOpen(true);
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [openNewCardSignal]);
 
   const configQ = useQuery({
     queryKey: ["mp-card-config", appointmentId],
@@ -401,15 +412,14 @@ export function SavedCards({
   const expiryError = expiryTouched ? validateExpiry(form.expiry) : null;
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
-      validateExpiry(form.expiry) ||
-      validateCvv(form.cvv, null, form.number),
+    validateExpiry(form.expiry) ||
+    validateCvv(form.cvv, null, form.number),
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
   useEffect(() => {
     setCvvTouched(false);
   }, [selectedCardId]);
-
 
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
@@ -475,9 +485,7 @@ export function SavedCards({
         save_card: form.save,
         card_number: digits(form.number),
         expiration_month: Number(digits(month)),
-        expiration_year: Number(
-          digits(year).length === 2 ? `20${digits(year)}` : digits(year),
-        ),
+        expiration_year: Number(digits(year).length === 2 ? `20${digits(year)}` : digits(year)),
       });
     },
     onSuccess: (data) => {
@@ -522,7 +530,7 @@ export function SavedCards({
   if (unavailable) return null;
 
   return (
-    <section className="surface relative mt-5 space-y-3 p-4" aria-busy={busy}>
+    <section ref={sectionRef} className="surface relative mt-5 space-y-3 p-4" aria-busy={busy}>
       {charging && (
         <div
           role="status"
@@ -538,7 +546,7 @@ export function SavedCards({
       )}
 
       <h2 className="flex items-center gap-2 text-sm font-semibold">
-        <Zap className="size-4" /> Pagar em 1 clique
+        <Zap className="size-4" /> Pagar com cartão nesta página
       </h2>
 
       {(configQ.isLoading || cardsQ.isLoading) && (
@@ -546,7 +554,6 @@ export function SavedCards({
           <Loader2 className="animate-spin" />
         </div>
       )}
-
 
       {payError && (
         <div
@@ -558,11 +565,7 @@ export function SavedCards({
             <p className="font-semibold">Pagamento não concluído</p>
             <p className="mt-0.5 text-destructive/90">{payError}</p>
           </div>
-          <button
-            type="button"
-            className="text-[11px] underline"
-            onClick={() => setPayError(null)}
-          >
+          <button type="button" className="text-[11px] underline" onClick={() => setPayError(null)}>
             Fechar
           </button>
         </div>
@@ -704,7 +707,6 @@ export function SavedCards({
                 </div>
               </div>
             )}
-
           </div>
         );
       })}
@@ -715,8 +717,6 @@ export function SavedCards({
           reservado.
         </p>
       )}
-
-
 
       {!cardsQ.isLoading && cards.length === 0 && (
         <p className="text-xs text-muted-foreground">
@@ -805,7 +805,6 @@ export function SavedCards({
                 </p>
               )}
             </div>
-
           </div>
           <Input
             inputMode="numeric"
@@ -841,7 +840,12 @@ export function SavedCards({
           </div>
         </div>
       ) : (
-        <Button variant="outline" className="w-full" disabled={busy} onClick={() => setNewCardOpen(true)}>
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={busy}
+          onClick={() => setNewCardOpen(true)}
+        >
           <CreditCard /> Usar outro cartão
         </Button>
       )}
