@@ -445,29 +445,52 @@ export function SavedCards({
 
       {newCardOpen ? (
         <div className="space-y-2 rounded-xl border border-border/60 p-3">
-          <Input
-            inputMode="numeric"
-            placeholder="Número do cartão"
-            value={form.number}
-            onChange={(e) => setForm((f) => ({ ...f, number: digits(e.target.value).slice(0, 19) }))}
-          />
+          <div>
+            <Input
+              inputMode="numeric"
+              placeholder="Número do cartão"
+              value={formatCardNumber(form.number)}
+              aria-invalid={Boolean(numberError)}
+              aria-describedby={numberError ? "card-number-error" : undefined}
+              onBlur={() => setNumberTouched(true)}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, number: digits(e.target.value).slice(0, 19) }))
+              }
+            />
+            {numberError && (
+              <p id="card-number-error" className="mt-1 text-[11px] text-destructive">
+                {numberError}
+              </p>
+            )}
+          </div>
           <Input
             placeholder="Nome impresso no cartão"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           />
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              placeholder="MM/AA"
-              value={form.expiry}
-              onChange={(e) => {
-                const d = digits(e.target.value).slice(0, 4);
-                setForm((f) => ({
-                  ...f,
-                  expiry: d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d,
-                }));
-              }}
-            />
+            <div>
+              <Input
+                inputMode="numeric"
+                placeholder="MM/AA"
+                value={form.expiry}
+                aria-invalid={Boolean(expiryError)}
+                aria-describedby={expiryError ? "card-expiry-error" : undefined}
+                onBlur={() => setExpiryTouched(true)}
+                onChange={(e) => {
+                  const d = digits(e.target.value).slice(0, 4);
+                  setForm((f) => ({
+                    ...f,
+                    expiry: d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d,
+                  }));
+                }}
+              />
+              {expiryError && (
+                <p id="card-expiry-error" className="mt-1 text-[11px] text-destructive">
+                  {expiryError}
+                </p>
+              )}
+            </div>
             <div>
               <Input
                 inputMode="numeric"
