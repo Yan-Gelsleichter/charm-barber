@@ -28,6 +28,8 @@ const requestSchema = z.discriminatedUnion("action", [
     security_code: z.string().min(3).max(4).optional(),
     cardholder_name: z.string().min(2).max(80).optional(),
     identification_number: z.string().min(3).max(20).optional(),
+    // Antifraude: device fingerprint gerado pelo security.js do Mercado Pago.
+    device_id: z.string().min(4).max(200).optional(),
   }),
 
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
