@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { mpSandbox, credentialMismatch } from "@/lib/mp-sandbox.server";
+import { mpPlatformCredentials, credentialMismatch } from "@/lib/mp-platform.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -420,7 +420,7 @@ function mpDetail(payload: unknown, httpStatus?: number): string | null {
   return parts.length ? `Mercado Pago: ${parts.join(" | ")}` : null;
 }
 
-/** Credenciais de teste (sandbox) não cobram cartões reais. */
+/** Credenciais de teste (TEST-...) não cobram cartões reais. */
 function isSandboxToken(accessToken: string) {
   return accessToken.trim().toUpperCase().startsWith("TEST-");
 }
@@ -714,13 +714,13 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               shopFee: 0,
             };
           }
-          // Modo de teste: usa as credenciais sandbox e desliga o split.
-          const sandbox = mpSandbox();
-          if (sandbox) {
+          // Credenciais fixas da plataforma (MP_ACCESS_TOKEN): desligam o split.
+          const platform = mpPlatformCredentials();
+          if (platform) {
             collector = {
-              accessToken: sandbox.accessToken,
-              publicKey: sandbox.publicKey,
-              collectorId: collector?.collectorId ?? `sandbox:${appointment.barbershop_id}`,
+              accessToken: platform.accessToken,
+              publicKey: platform.publicKey,
+              collectorId: collector?.collectorId ?? `platform:${appointment.barbershop_id}`,
               shopFee: 0,
             };
           }
@@ -731,8 +731,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (!collector.publicKey && parsed.data.action === "config") {
             return json(
               {
-                error: sandbox
-                  ? "Modo de teste ligado, mas a Public Key de teste (MP_TEST_PUBLIC_KEY) não está configurada. Ela precisa ser a chave TEST- do mesmo aplicativo do Access Token de teste."
+                error: platform
+                  ? "A Public Key da plataforma (MP_PUBLIC_KEY) não está configurada. Ela precisa ser a chave pública do mesmo aplicativo do MP_ACCESS_TOKEN."
                   : "Não foi possível obter a chave pública da conta Mercado Pago conectada. Reconecte a conta no painel (Pagamentos) para renovar a autorização.",
               },
               400,
@@ -756,9 +756,6 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (parsed.data.action === "config") {
             return json({
               public_key: collector.publicKey,
-              // Informa ao navegador se estamos em modo de teste, para que ele
-              // prefira a chave pública TEST- injetada no build (VITE_MP_PUBLIC_KEY).
-              sandbox: Boolean(sandbox),
               amount,
               service_name: (service as { name?: string } | null)?.name ?? "Serviço",
             });
@@ -789,7 +786,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
 
           if (
-            !sandbox &&
+            !platform &&
             isSandboxToken(collector.accessToken) &&
             (parsed.data.action === "pay" || parsed.data.action === "save")
           ) {
