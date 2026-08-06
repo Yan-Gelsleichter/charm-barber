@@ -714,7 +714,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               shopFee: 0,
             };
           }
-          // Modo de teste: usa as credenciais platform e desliga o split.
+          // Credenciais fixas da plataforma (MP_ACCESS_TOKEN): desligam o split.
           const platform = mpPlatformCredentials();
           if (platform) {
             collector = {
