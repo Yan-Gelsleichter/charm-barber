@@ -490,6 +490,9 @@ export function SavedCards({
       if (!paymentMethodId) {
         throw new Error("Não foi possível identificar a bandeira do cartão pelo número informado.");
       }
+      if (!form.name.trim()) throw new Error("Informe o nome impresso no cartão.");
+      const doc = digits(form.doc);
+      if (doc.length !== 11) throw new Error("Informe o CPF do titular (11 dígitos).");
 
       const tokenPayload = {
         card_number: digits(form.number),
@@ -498,9 +501,7 @@ export function SavedCards({
         security_code: digits(form.cvv),
         cardholder: {
           name: form.name.trim(),
-          ...(digits(form.doc)
-            ? { identification: { type: "CPF", number: digits(form.doc) } }
-            : {}),
+          identification: { type: "CPF", number: doc },
         },
       };
       const tokenId = await createCardToken(publicKey, tokenPayload);
@@ -513,9 +514,12 @@ export function SavedCards({
         appointment_id: appointmentId,
         card_token: tokenId,
         payment_method_id: paymentMethodId,
+        payer_doc: doc,
+        cardholder_name: form.name.trim(),
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),
       });
+
 
       if (!form.save || payment.payment_status !== "pago") return payment;
 
@@ -865,7 +869,7 @@ export function SavedCards({
           </div>
           <Input
             inputMode="numeric"
-            placeholder="CPF do titular"
+            placeholder="CPF do titular (obrigatório)"
             value={form.doc}
             onChange={(e) => setForm((f) => ({ ...f, doc: digits(e.target.value).slice(0, 11) }))}
           />
