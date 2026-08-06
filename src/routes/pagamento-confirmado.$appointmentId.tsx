@@ -78,7 +78,7 @@ function ConfirmacaoPage() {
             customer_name: string | null;
             payment_status?: string | null;
             payment_method?: string | null;
-            created_at?: string | null;
+            paid_at?: string | null;
           }
         | null;
       if (!data) return null;
