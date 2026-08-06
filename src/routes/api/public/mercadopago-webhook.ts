@@ -137,7 +137,9 @@ async function applyPayment(
     payment_method: methodLabel(payment),
     mp_payment_id: paymentId,
     paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
+    ...(paymentStatus === "pago" ? { status: "confirmado" } : {}),
   };
+
 
   const { error } = await admin.from("appointments").update(values).eq("id", appointmentId);
   if (error) {

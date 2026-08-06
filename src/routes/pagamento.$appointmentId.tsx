@@ -322,7 +322,12 @@ function PagamentoPage() {
             size="xl"
             className="w-full"
             disabled={busy}
-            onClick={() => {
+            onClick={async () => {
+              await supabase
+                .from("appointments")
+                .update({ payment_method: "presencial" })
+                .eq("id", appointmentId)
+                .then(undefined, () => null);
               toast.success("Combinado! Pague presencialmente na barbearia.");
               navigate({
                 to: "/pagamento-confirmado/$appointmentId",
@@ -332,6 +337,7 @@ function PagamentoPage() {
           >
             <Store /> Pagar presencialmente
           </Button>
+
         </div>
       )}
 
