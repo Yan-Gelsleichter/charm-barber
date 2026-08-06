@@ -181,8 +181,11 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             }
           }
 
+          // As contas conectadas (barbeiro no split, senão barbearia) têm
+          // prioridade; MP_ACCESS_TOKEN é apenas fallback da plataforma.
           const platform = mpPlatformCredentials();
-          const accessToken = platform?.accessToken ?? barberSplit?.accessToken ?? shop?.mp_access_token;
+          const accessToken =
+            barberSplit?.accessToken ?? shop?.mp_access_token ?? platform?.accessToken;
           if (!accessToken) {
             return json(
               {
