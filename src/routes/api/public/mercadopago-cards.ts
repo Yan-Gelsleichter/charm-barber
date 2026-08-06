@@ -79,6 +79,35 @@ function normalizeBrand(name?: string | null, cardNumber?: string | null): strin
   return raw || null;
 }
 
+/** IDs de meio de pagamento do Mercado Pago por bandeira. */
+const MP_METHOD_IDS: Record<string, string> = {
+  Visa: "visa",
+  Mastercard: "master",
+  Amex: "amex",
+  Elo: "elo",
+  Hipercard: "hipercard",
+  Diners: "diners",
+  Discover: "discover",
+  JCB: "jcb",
+};
+
+/**
+ * Deduz o payment_method_id ("visa", "master"...) a partir do que o
+ * Mercado Pago devolveu no token ou dos primeiros dígitos digitados.
+ * Sem isso a API responde "Cannot infer Payment Method".
+ */
+function inferPaymentMethodId(
+  fromMp?: string | null,
+  brand?: string | null,
+  cardNumber?: string | null,
+): string | null {
+  const direct = (fromMp ?? "").trim().toLowerCase();
+  if (direct) return direct;
+  const normalized = normalizeBrand(brand, cardNumber);
+  if (normalized && MP_METHOD_IDS[normalized]) return MP_METHOD_IDS[normalized];
+  return null;
+}
+
 /** Algoritmo de Luhn — nunca registramos o número, apenas validamos. */
 function luhnValid(raw: string): boolean {
   const pan = raw.replace(/\D/g, "");
