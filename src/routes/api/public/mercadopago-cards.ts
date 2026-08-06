@@ -507,7 +507,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             const { data, error } = await admin
               .from("saved_cards")
               .select(
-                "id, last_four, brand, cardholder_name, expiration_month, expiration_year, is_default, created_at",
+                "id, mp_card_id, last_four, brand, cardholder_name, expiration_month, expiration_year, is_default, created_at",
               )
               .eq("user_id", user.id)
               .order("created_at", { ascending: false });
@@ -768,7 +768,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             const { data, error } = await admin
               .from("saved_cards")
               .select(
-                "id, last_four, brand, cardholder_name, expiration_month, expiration_year, is_default",
+                "id, mp_card_id, last_four, brand, cardholder_name, expiration_month, expiration_year, is_default",
               )
               .eq("user_id", user.id)
               .eq("mp_collector_id", collector.collectorId)
@@ -778,7 +778,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               // Banco ainda sem a coluna is_default: cai para a listagem simples.
               const { data: legacy } = await admin
                 .from("saved_cards")
-                .select("id, last_four, brand, cardholder_name, expiration_month, expiration_year")
+                .select("id, mp_card_id, last_four, brand, cardholder_name, expiration_month, expiration_year")
                 .eq("user_id", user.id)
                 .eq("mp_collector_id", collector.collectorId)
                 .order("created_at", { ascending: false });
@@ -1054,7 +1054,14 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           let cardSaveError: string | null = null;
           if (parsed.data.save_card && !parsed.data.saved_card_id && paymentStatus === "pago") {
             try {
-              const cardReadyToPersist = prelinkedCard ?? payment.card ?? null;
+              const reconciledCard = prelinkedCard
+                ? null
+                : await findCustomerCard(
+                    collector.accessToken,
+                    customerId,
+                    payment.card ?? tokenInfo ?? null,
+                  );
+              const cardReadyToPersist = prelinkedCard ?? payment.card ?? reconciledCard;
               const saved = cardReadyToPersist?.id
                 ? await persistSavedCard(
                     collector,
@@ -1171,12 +1178,51 @@ async function ensureCustomer(
 type MercadoPagoCard = {
   id?: string;
   last_four_digits?: string;
+  first_six_digits?: string;
   payment_method?: { name?: string; id?: string };
   cardholder?: { name?: string };
   expiration_month?: number;
   expiration_year?: number;
   message?: string;
 };
+
+/**
+ * O endpoint de vínculo pode devolver 500 no Sandbox mesmo quando o cartão já
+ * ficou associado ao customer. Reconsulta a carteira e encontra o cartão pelos
+ * dados não sensíveis para que o segundo cartão também seja persistido.
+ */
+async function findCustomerCard(
+  accessToken: string,
+  customerId: string,
+  expected: MercadoPagoCard | null,
+): Promise<MercadoPagoCard | null> {
+  const response = await fetch(
+    `https://api.mercadopago.com/v1/customers/${encodeURIComponent(customerId)}/cards`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  const responseBody = await readMpResponse(response);
+  if (!response.ok) {
+    logMpFailure("consulta dos cartões do customer", response, responseBody);
+    return null;
+  }
+  const cards = Array.isArray(responseBody.payload)
+    ? (responseBody.payload as MercadoPagoCard[])
+    : [];
+  if (cards.length === 0) return null;
+
+  const expectedLastFour = expected?.last_four_digits;
+  const expectedMonth = expected?.expiration_month;
+  const expectedYear = expected?.expiration_year;
+  const expectedMethod = expected?.payment_method?.id;
+  return (
+    cards.find((card) =>
+      (!expectedLastFour || card.last_four_digits === expectedLastFour) &&
+      (!expectedMonth || card.expiration_month === expectedMonth) &&
+      (!expectedYear || card.expiration_year === expectedYear) &&
+      (!expectedMethod || card.payment_method?.id === expectedMethod),
+    ) ?? null
+  );
+}
 
 async function saveCard(
   collector: Collector,

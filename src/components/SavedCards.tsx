@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 export type SavedCard = {
   id: string;
+  mp_card_id: string;
   last_four: string | null;
   brand: string | null;
   cardholder_name: string | null;
@@ -347,7 +348,7 @@ export function SavedCards({
     cvv: "",
     doc: "",
     save: true,
-    makeDefault: true,
+    makeDefault: false,
   });
 
   // Mantém a escolha do método mesmo ao alternar telas/recarregar (nunca guarda dados do cartão).
@@ -447,7 +448,7 @@ export function SavedCards({
       if (invalid) throw new Error(invalid);
 
       const tokenId = await createCardToken(publicKey, {
-        card_id: card.id,
+        card_id: card.mp_card_id,
         security_code: digits(cvv),
       });
       const paymentMethodId = detectCardBrand(null, card.brand).paymentMethodId;
@@ -543,7 +544,7 @@ export function SavedCards({
         cvv: "",
         doc: "",
         save: true,
-        makeDefault: true,
+        makeDefault: false,
       });
       try {
         sessionStorage.removeItem(draftKey(appointmentId));
@@ -864,7 +865,13 @@ export function SavedCards({
             <input
               type="checkbox"
               checked={form.save}
-              onChange={(e) => setForm((f) => ({ ...f, save: e.target.checked }))}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  save: e.target.checked,
+                  makeDefault: e.target.checked ? f.makeDefault : false,
+                }))
+              }
             />
             Salvar este cartão para pagar em 1 clique depois
           </label>
