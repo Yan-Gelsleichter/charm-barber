@@ -653,12 +653,25 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (!collector.publicKey && parsed.data.action === "config") {
             return json(
               {
-                error:
-                  "Não foi possível obter a chave pública da conta Mercado Pago conectada. Reconecte a conta no painel (Pagamentos) para renovar a autorização.",
+                error: sandbox
+                  ? "Modo de teste ligado, mas a Public Key de teste (MP_TEST_PUBLIC_KEY) não está configurada. Ela precisa ser a chave TEST- do mesmo aplicativo do Access Token de teste."
+                  : "Não foi possível obter a chave pública da conta Mercado Pago conectada. Reconecte a conta no painel (Pagamentos) para renovar a autorização.",
               },
               400,
             );
           }
+
+          // Public Key e Access Token precisam ser do MESMO ambiente:
+          // misturar produção com teste devolve internal_error na tokenização.
+          if (
+            parsed.data.action === "config" ||
+            parsed.data.action === "pay" ||
+            parsed.data.action === "save"
+          ) {
+            const mismatch = credentialMismatch(collector.accessToken, collector.publicKey);
+            if (mismatch) return json({ error: mismatch }, 400);
+          }
+
 
 
           // ---- configuração para tokenizar no navegador ----
