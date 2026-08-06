@@ -347,6 +347,7 @@ export function SavedCards({
     cvv: "",
     doc: "",
     save: true,
+    makeDefault: true,
   });
 
   // Mantém a escolha do método mesmo ao alternar telas/recarregar (nunca guarda dados do cartão).
