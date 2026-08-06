@@ -921,7 +921,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               customerId,
               parsed.data.save_card_token,
             );
-            if ("error" in linked) prelinkError = linked.error;
+            if ("error" in linked) prelinkError = linked.error ?? "Não foi possível salvar este cartão.";
             else prelinkedCard = linked.card;
           }
 
