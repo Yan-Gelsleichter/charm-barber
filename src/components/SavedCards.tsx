@@ -497,7 +497,8 @@ export function SavedCards({
       }
       if (!form.name.trim()) throw new Error("Informe o nome impresso no cartão.");
       const doc = digits(form.doc);
-      if (doc.length !== 11) throw new Error("Informe o CPF do titular (11 dígitos).");
+      const invalidDoc = validateCPF(doc);
+      if (invalidDoc) throw new Error(invalidDoc);
 
       const tokenPayload = {
         card_number: digits(form.number),
