@@ -82,6 +82,8 @@ function digits(value: string) {
 
 export type CardBrand = {
   key: string;
+  /** Identificador aceito pela API de pagamentos do Mercado Pago. */
+  paymentMethodId: string | null;
   label: string;
   /** Comprimentos válidos do número. */
   lengths: number[];
@@ -94,6 +96,7 @@ export type CardBrand = {
 const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
   {
     key: "amex",
+    paymentMethodId: "amex",
     label: "Amex",
     lengths: [15],
     cvv: 4,
@@ -102,6 +105,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
   },
   {
     key: "diners",
+    paymentMethodId: "diners",
     label: "Diners",
     lengths: [14, 16],
     cvv: 3,
@@ -110,6 +114,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
   },
   {
     key: "elo",
+    paymentMethodId: "elo",
     label: "Elo",
     lengths: [16],
     cvv: 3,
@@ -118,6 +123,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
   },
   {
     key: "hipercard",
+    paymentMethodId: "hipercard",
     label: "Hipercard",
     lengths: [16],
     cvv: 3,
@@ -126,6 +132,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
   },
   {
     key: "visa",
+    paymentMethodId: "visa",
     label: "Visa",
     lengths: [13, 16, 19],
     cvv: 3,
@@ -134,6 +141,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
   },
   {
     key: "mastercard",
+    paymentMethodId: "master",
     label: "Mastercard",
     lengths: [16],
     cvv: 3,
@@ -142,6 +150,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
   },
   {
     key: "discover",
+    paymentMethodId: "discover",
     label: "Discover",
     lengths: [16, 19],
     cvv: 3,
@@ -150,6 +159,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
   },
   {
     key: "jcb",
+    paymentMethodId: "jcb",
     label: "JCB",
     lengths: [16, 19],
     cvv: 3,
@@ -160,6 +170,7 @@ const BRANDS: Array<CardBrand & { test: (d: string) => boolean }> = [
 
 const UNKNOWN_BRAND: CardBrand = {
   key: "unknown",
+  paymentMethodId: null,
   label: "",
   lengths: [16, 19],
   cvv: 3,
@@ -438,11 +449,16 @@ export function SavedCards({
         card_id: card.id,
         security_code: digits(cvv),
       });
+      const paymentMethodId = detectCardBrand(null, card.brand).paymentMethodId;
+      if (!paymentMethodId) {
+        throw new Error("Não foi possível identificar a bandeira deste cartão salvo.");
+      }
       return callCardsApi<{ payment_status: string }>({
         action: "pay",
         appointment_id: appointmentId,
         card_token: tokenId,
         saved_card_id: card.id,
+        payment_method_id: paymentMethodId,
       });
     },
     onSuccess: (data) => {
@@ -476,6 +492,10 @@ export function SavedCards({
       const [month, year] = form.expiry.split("/");
       if (!month || !year) throw new Error("Informe a validade no formato MM/AA.");
       const fullYear = digits(year).length === 2 ? `20${digits(year)}` : digits(year);
+      const paymentMethodId = detectCardBrand(form.number).paymentMethodId;
+      if (!paymentMethodId) {
+        throw new Error("Não foi possível identificar a bandeira do cartão pelo número informado.");
+      }
 
       const tokenId = await createCardToken(publicKey, {
         card_number: digits(form.number),
@@ -493,6 +513,7 @@ export function SavedCards({
         action: "pay",
         appointment_id: appointmentId,
         card_token: tokenId,
+        payment_method_id: paymentMethodId,
         save_card: form.save,
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),

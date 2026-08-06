@@ -18,6 +18,16 @@ const requestSchema = z.discriminatedUnion("action", [
     action: z.literal("pay"),
     appointment_id: z.string().uuid(),
     card_token: z.string().min(10).max(120),
+    payment_method_id: z.enum([
+      "visa",
+      "master",
+      "amex",
+      "elo",
+      "hipercard",
+      "diners",
+      "discover",
+      "jcb",
+    ]).optional(),
     saved_card_id: z.string().uuid().optional(),
     installments: z.number().int().min(1).max(12).optional(),
     save_card: z.boolean().optional(),
@@ -876,7 +886,10 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             parsed.data.card_token,
           );
           const paymentMethodId = inferPaymentMethodId(
-            tokenInfo?.payment_method_id ?? tokenInfo?.payment_method?.id ?? null,
+            parsed.data.payment_method_id ??
+              tokenInfo?.payment_method_id ??
+              tokenInfo?.payment_method?.id ??
+              null,
             savedBrand,
             parsed.data.card_number ?? tokenInfo?.first_six_digits ?? null,
           );
