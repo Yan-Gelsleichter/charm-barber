@@ -36,8 +36,12 @@ const requestSchema = z.discriminatedUnion("action", [
     save_card_token: z.string().min(10).max(120).optional(),
     save_card_as_default: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
+    /** CPF do titular (somente dígitos) — exigido pelas emissoras brasileiras. */
+    payer_doc: z.string().regex(/^\d{11}$/).optional(),
+    cardholder_name: z.string().min(2).max(80).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
+
   }),
 
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
