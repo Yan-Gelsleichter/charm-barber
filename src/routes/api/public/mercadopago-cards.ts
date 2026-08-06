@@ -1031,16 +1031,31 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
 
           // Salva o cartão novo só depois de aprovado, se o cliente pediu.
+          // O token do pagamento é de uso único: usamos o segundo token enviado
+          // pelo navegador (save_card_token) para vincular o cartão ao customer.
+          let cardSaved = false;
+          let cardSaveError: string | null = null;
           if (parsed.data.save_card && !parsed.data.saved_card_id && paymentStatus === "pago") {
-            await saveCard(
-              collector,
-              admin,
-              user.id,
-              appointment.barbershop_id,
-              customerId,
-              parsed.data.card_token,
-              parsed.data.card_number,
-            ).catch(() => null);
+            try {
+              const saved = await saveCard(
+                collector,
+                admin,
+                user.id,
+                appointment.barbershop_id,
+                customerId,
+                parsed.data.save_card_token ?? parsed.data.card_token,
+                parsed.data.card_number,
+                parsed.data.save_card_as_default ?? false,
+              );
+              if ("error" in saved) cardSaveError = saved.error;
+              else cardSaved = true;
+            } catch (saveError) {
+              cardSaveError =
+                saveError instanceof Error ? saveError.message : "Não foi possível salvar este cartão.";
+            }
+            if (cardSaveError) {
+              console.error("Mercado Pago: cartão não foi salvo após o pagamento", cardSaveError);
+            }
           }
 
           return json({
@@ -1048,6 +1063,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             status: payment.status,
             status_detail: payment.status_detail,
             payment_status: paymentStatus,
+            card_saved: cardSaved,
+            card_save_error: cardSaveError,
           });
         } catch (error) {
           console.error("Mercado Pago cartões: erro inesperado", {
