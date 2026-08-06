@@ -868,6 +868,16 @@ export function SavedCards({
             />
             Salvar este cartão para pagar em 1 clique depois
           </label>
+          {form.save && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={form.makeDefault}
+                onChange={(e) => setForm((f) => ({ ...f, makeDefault: e.target.checked }))}
+              />
+              Definir como cartão padrão
+            </label>
+          )}
           <div className={noSavedCards ? "grid gap-2" : "grid gap-2 sm:grid-cols-2"}>
             <Button
               onClick={() => {
