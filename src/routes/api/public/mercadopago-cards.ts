@@ -714,13 +714,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               shopFee: 0,
             };
           }
-          // Credenciais fixas da plataforma (MP_ACCESS_TOKEN): desligam o split.
+          // Credenciais fixas da plataforma (MP_ACCESS_TOKEN): usadas apenas
+          // como fallback quando a barbearia/barbeiro ainda não conectou o
+          // Mercado Pago. Nunca substituem o recebedor conectado, para que o
+          // split (application_fee) continue valendo em produção.
           const platform = mpPlatformCredentials();
-          if (platform) {
+          if (!collector && platform) {
             collector = {
               accessToken: platform.accessToken,
               publicKey: platform.publicKey,
-              collectorId: collector?.collectorId ?? `platform:${appointment.barbershop_id}`,
+              collectorId: `platform:${appointment.barbershop_id}`,
               shopFee: 0,
             };
           }
