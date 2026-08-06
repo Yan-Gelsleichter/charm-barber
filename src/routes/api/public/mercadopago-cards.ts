@@ -1195,6 +1195,25 @@ async function saveCard(
     console.error("Mercado Pago: falha ao gravar cartão salvo", error);
     return { error: "Não foi possível salvar este cartão.", detail: error.message } as const;
   }
+
+  // Cartão padrão: o primeiro salvo vira padrão automaticamente; o cliente
+  // também pode pedir explicitamente que este passe a ser o padrão.
+  const savedId = (data as { id?: string } | null)?.id;
+  if (savedId) {
+    try {
+      const { count } = await admin
+        .from("saved_cards")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_default", true);
+      if (makeDefault || !count) {
+        await admin.from("saved_cards").update({ is_default: false }).eq("user_id", userId);
+        await admin.from("saved_cards").update({ is_default: true }).eq("id", savedId);
+      }
+    } catch (defaultError) {
+      console.warn("Mercado Pago: cartão salvo, mas padrão não foi definido", defaultError);
+    }
+  }
   return { card: data } as const;
 }
 
