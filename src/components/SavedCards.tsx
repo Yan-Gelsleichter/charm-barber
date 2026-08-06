@@ -378,7 +378,6 @@ export function SavedCards({
     queryFn: () =>
       callCardsApi<{
         public_key: string | null;
-        sandbox?: boolean;
         amount: number;
         service_name: string;
       }>({
