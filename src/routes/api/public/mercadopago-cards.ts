@@ -968,6 +968,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             status?: string;
             status_detail?: string;
             message?: string;
+            payment_method_id?: string;
             card?: MercadoPagoCard;
           };
           if (!response.ok || !payment.id) {
@@ -1032,8 +1033,6 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
 
           // Salva o cartão novo só depois de aprovado, se o cliente pediu.
-          // O token do pagamento é de uso único: usamos o segundo token enviado
-          // pelo navegador (save_card_token) para vincular o cartão ao customer.
           let cardSaved = false;
           let cardSaveError: string | null = null;
           if (parsed.data.save_card && !parsed.data.saved_card_id && paymentStatus === "pago") {
@@ -1049,7 +1048,12 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                     user.id,
                     appointment.barbershop_id,
                     customerId,
-                    payment.card,
+                    {
+                      ...payment.card,
+                      payment_method:
+                        payment.card.payment_method ??
+                        (payment.payment_method_id ? { id: payment.payment_method_id } : undefined),
+                    },
                     parsed.data.card_number,
                     parsed.data.save_card_as_default ?? false,
                   )
