@@ -343,6 +343,8 @@ export function SavedCards({
   const [docTouched, setDocTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(draft?.newCardOpen ?? false);
   const [payError, setPayError] = useState<string | null>(null);
+  /** Status final da cobrança: trava o formulário e evita cliques duplicados. */
+  const [finishedStatus, setFinishedStatus] = useState<string | null>(null);
   const [form, setForm] = useState({
     number: "",
     name: draft?.name ?? "",
@@ -420,11 +422,14 @@ export function SavedCards({
 
   const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
   const newCardBrand = detectCardBrand(form.number);
-  const savedCvvError = cvvTouched ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
-  const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
-  const numberError = numberTouched ? validateCardNumber(form.number) : null;
-  const expiryError = expiryTouched ? validateExpiry(form.expiry) : null;
-  const docError = docTouched ? validateCPF(form.doc) : null;
+  const settled = finishedStatus !== null;
+  const savedCvvError =
+    cvvTouched && !settled ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
+  const newCardCvvError =
+    newCvvTouched && !settled ? validateCvv(form.cvv, null, form.number) : null;
+  const numberError = numberTouched && !settled ? validateCardNumber(form.number) : null;
+  const expiryError = expiryTouched && !settled ? validateExpiry(form.expiry) : null;
+  const docError = docTouched && !settled ? validateCPF(form.doc) : null;
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
@@ -461,15 +466,20 @@ export function SavedCards({
       });
     },
     onSuccess: (data) => {
-      setCvv("");
+      const approved = data.payment_status === "pago";
+      if (approved) {
+        setCvv("");
+        setCvvTouched(false);
+      }
       setPayError(null);
+      setFinishedStatus(data.payment_status);
       try {
         sessionStorage.removeItem(draftKey(appointmentId));
       } catch {
         /* ignore */
       }
 
-      if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
+      if (approved) toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
     },
@@ -552,18 +562,28 @@ export function SavedCards({
       }
     },
     onSuccess: (data) => {
-      setNewCardOpen(false);
+      const approved = data.payment_status === "pago";
       setPayError(null);
+      setFinishedStatus(data.payment_status);
       const wantedSave = form.save;
-      setForm({
-        number: "",
-        name: "",
-        expiry: "",
-        cvv: "",
-        doc: "",
-        save: true,
-        makeDefault: false,
-      });
+      // Só limpamos o formulário quando a cobrança foi aprovada. Em análise/pendente
+      // mantemos os campos preenchidos (apenas travados) para não confundir o cliente.
+      if (approved) {
+        setNewCardOpen(false);
+        setForm({
+          number: "",
+          name: "",
+          expiry: "",
+          cvv: "",
+          doc: "",
+          save: true,
+          makeDefault: false,
+        });
+        setNumberTouched(false);
+        setExpiryTouched(false);
+        setNewCvvTouched(false);
+        setDocTouched(false);
+      }
       try {
         sessionStorage.removeItem(draftKey(appointmentId));
       } catch {
@@ -572,7 +592,7 @@ export function SavedCards({
       queryClient.invalidateQueries({ queryKey: ["mp-saved-cards", appointmentId] });
       queryClient.invalidateQueries({ queryKey: ["my-saved-cards"] });
 
-      if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
+      if (approved) toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       if (wantedSave && data.payment_status === "pago") {
         if (data.card_saved) toast.success("Cartão salvo para pagar em 1 clique.");
@@ -607,7 +627,10 @@ export function SavedCards({
   );
 
   const charging = payWithSaved.isPending || payWithNew.isPending;
-  const busy = charging || removeCard.isPending;
+  // Cobrança já enviada (aprovada ou em análise): trava tudo para evitar duplo clique.
+  const locked = finishedStatus !== null;
+  const pendingReview = locked && finishedStatus !== "pago";
+  const busy = charging || removeCard.isPending || locked;
   const noSavedCards = !cardsQ.isLoading && cards.length === 0;
 
 
@@ -672,6 +695,33 @@ export function SavedCards({
           </button>
         </div>
       )}
+
+      {locked && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
+            pendingReview
+              ? "border-border/60 bg-secondary/40 text-muted-foreground"
+              : "border-success/40 bg-success/10 text-success",
+          )}
+        >
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold">
+              {pendingReview ? "Pagamento enviado e em análise pelo emissor" : "Pagamento aprovado"}
+            </p>
+            <p className="mt-0.5">
+              {pendingReview
+                ? "Recebemos sua cobrança e o banco está analisando. Não é preciso pagar de novo — acompanhe o resultado na tela de confirmação."
+                : "Tudo certo! Seu agendamento já está pago."}
+            </p>
+          </div>
+        </div>
+      )}
+
+
 
       {!cardsQ.isLoading && !newCardOpen && cards.length > 0 && !hasDefault && (
         <p className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
@@ -798,6 +848,7 @@ export function SavedCards({
               <Input
                 inputMode="numeric"
                 placeholder="Número do cartão"
+                disabled={busy}
                 value={formatCardNumber(form.number)}
                 aria-invalid={Boolean(numberError)}
                 aria-describedby={numberError ? "card-number-error" : undefined}
@@ -824,6 +875,7 @@ export function SavedCards({
           </div>
           <Input
             placeholder="Nome impresso no cartão"
+            disabled={busy}
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           />
@@ -832,6 +884,7 @@ export function SavedCards({
               <Input
                 inputMode="numeric"
                 placeholder="MM/AA"
+                disabled={busy}
                 value={form.expiry}
                 aria-invalid={Boolean(expiryError)}
                 aria-describedby={expiryError ? "card-expiry-error" : undefined}
@@ -854,6 +907,7 @@ export function SavedCards({
               <Input
                 inputMode="numeric"
                 placeholder="CVV"
+                disabled={busy}
                 maxLength={cvvLengthFor(null, form.number)}
                 value={form.cvv}
                 aria-invalid={Boolean(newCardCvvError)}
@@ -877,6 +931,7 @@ export function SavedCards({
             <Input
               inputMode="numeric"
               placeholder="CPF do titular (obrigatório)"
+              disabled={busy}
               value={maskCPF(form.doc)}
               aria-invalid={Boolean(docError)}
               aria-describedby={docError ? "new-card-doc-error" : undefined}
@@ -894,6 +949,7 @@ export function SavedCards({
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
+              disabled={busy}
               checked={form.save}
               onChange={(e) =>
                 setForm((f) => ({
@@ -909,6 +965,7 @@ export function SavedCards({
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <input
                 type="checkbox"
+                disabled={busy}
                 checked={form.makeDefault}
                 onChange={(e) => setForm((f) => ({ ...f, makeDefault: e.target.checked }))}
               />
