@@ -380,19 +380,8 @@ export function SavedCards({
   const envPublicKey = ((import.meta.env.VITE_MP_PUBLIC_KEY as string | undefined) ?? "").trim();
   const publicKey = configQ.data?.public_key ?? (envPublicKey || null);
 
-  useEffect(() => {
-    if (!publicKey) return;
-    let active = true;
-    loadMpSdk()
-      .then(() => {
-        if (!active || !window.MercadoPago) return;
-        setMp(new window.MercadoPago(publicKey, { locale: "pt-BR" }));
-      })
-      .catch(() => setMp(null));
-    return () => {
-      active = false;
-    };
-  }, [publicKey]);
+
+
 
   const cards = cardsQ.data?.cards ?? [];
   const hasDefault = cards.some((c) => c.is_default);
