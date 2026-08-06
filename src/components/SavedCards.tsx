@@ -873,12 +873,24 @@ export function SavedCards({
               )}
             </div>
           </div>
-          <Input
-            inputMode="numeric"
-            placeholder="CPF do titular (obrigatório)"
-            value={form.doc}
-            onChange={(e) => setForm((f) => ({ ...f, doc: digits(e.target.value).slice(0, 11) }))}
-          />
+          <div>
+            <Input
+              inputMode="numeric"
+              placeholder="CPF do titular (obrigatório)"
+              value={maskCPF(form.doc)}
+              aria-invalid={Boolean(docError)}
+              aria-describedby={docError ? "new-card-doc-error" : undefined}
+              onBlur={() => setDocTouched(true)}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, doc: digits(e.target.value).slice(0, 11) }))
+              }
+            />
+            {docError && (
+              <p id="new-card-doc-error" className="mt-1 text-[11px] text-destructive">
+                {docError}
+              </p>
+            )}
+          </div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
