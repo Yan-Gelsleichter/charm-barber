@@ -848,6 +848,7 @@ export function SavedCards({
               <Input
                 inputMode="numeric"
                 placeholder="Número do cartão"
+                disabled={busy}
                 value={formatCardNumber(form.number)}
                 aria-invalid={Boolean(numberError)}
                 aria-describedby={numberError ? "card-number-error" : undefined}
@@ -874,6 +875,7 @@ export function SavedCards({
           </div>
           <Input
             placeholder="Nome impresso no cartão"
+            disabled={busy}
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           />
@@ -882,6 +884,7 @@ export function SavedCards({
               <Input
                 inputMode="numeric"
                 placeholder="MM/AA"
+                disabled={busy}
                 value={form.expiry}
                 aria-invalid={Boolean(expiryError)}
                 aria-describedby={expiryError ? "card-expiry-error" : undefined}
@@ -904,6 +907,7 @@ export function SavedCards({
               <Input
                 inputMode="numeric"
                 placeholder="CVV"
+                disabled={busy}
                 maxLength={cvvLengthFor(null, form.number)}
                 value={form.cvv}
                 aria-invalid={Boolean(newCardCvvError)}
@@ -927,6 +931,7 @@ export function SavedCards({
             <Input
               inputMode="numeric"
               placeholder="CPF do titular (obrigatório)"
+              disabled={busy}
               value={maskCPF(form.doc)}
               aria-invalid={Boolean(docError)}
               aria-describedby={docError ? "new-card-doc-error" : undefined}
@@ -944,6 +949,7 @@ export function SavedCards({
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
+              disabled={busy}
               checked={form.save}
               onChange={(e) =>
                 setForm((f) => ({
@@ -959,6 +965,7 @@ export function SavedCards({
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <input
                 type="checkbox"
+                disabled={busy}
                 checked={form.makeDefault}
                 onChange={(e) => setForm((f) => ({ ...f, makeDefault: e.target.checked }))}
               />
