@@ -42,6 +42,57 @@ function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "cache-control": "no-store" } });
 }
 
+function safePaymentPayload(payload: Record<string, unknown>) {
+  const payer = payload["payer"] as Record<string, unknown> | undefined;
+  return {
+    ...payload,
+    token: payload["token"] ? "[REDACTED_CARD_TOKEN]" : undefined,
+    payer: payer
+      ? {
+          ...payer,
+          email: payer["email"] ? "[REDACTED_EMAIL]" : undefined,
+        }
+      : undefined,
+  };
+}
+
+async function readMpResponse(response: Response): Promise<{ raw: string; payload: unknown }> {
+  const raw = await response.text().catch((error) => {
+    console.error("Mercado Pago: falha ao ler o corpo da resposta", {
+      error: error instanceof Error
+        ? { name: error.name, message: error.message, stack: error.stack }
+        : error,
+    });
+    return "";
+  });
+  if (!raw) return { raw, payload: {} };
+  try {
+    return { raw, payload: JSON.parse(raw) as unknown };
+  } catch {
+    return { raw, payload: { non_json_body: raw } };
+  }
+}
+
+function logMpFailure(
+  operation: string,
+  response: Response,
+  responseBody: { raw: string; payload: unknown },
+  requestPayload?: Record<string, unknown>,
+) {
+  console.error(`Mercado Pago: ${operation} falhou`, {
+    http_status: response.status,
+    http_status_text: response.statusText,
+    request_id:
+      response.headers.get("x-request-id") ??
+      response.headers.get("x-correlation-id") ??
+      response.headers.get("x-meli-session-id"),
+    response_headers: Object.fromEntries(response.headers.entries()),
+    response_json: responseBody.payload,
+    response_raw: responseBody.raw,
+    ...(requestPayload ? { request_payload: safePaymentPayload(requestPayload) } : {}),
+  });
+}
+
 const BRAND_BINS: Array<[string, RegExp]> = [
   ["Amex", /^3[47]/],
   ["Diners", /^3(?:0[0-5]|[68])/],
@@ -142,8 +193,14 @@ async function inspectCardToken(accessToken: string, cardToken: string) {
     `https://api.mercadopago.com/v1/card_tokens/${encodeURIComponent(cardToken)}`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
-  if (!response.ok) return null;
-  return (await response.json().catch(() => null)) as {
+  const responseBody = await readMpResponse(response);
+  if (!response.ok) {
+    logMpFailure("consulta do token do cartão", response, responseBody, {
+      card_token: "[REDACTED_CARD_TOKEN]",
+    });
+    return null;
+  }
+  return responseBody.payload as {
     status?: string;
     expiration_month?: number;
     expiration_year?: number;
@@ -848,34 +905,53 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (issuerId) body["issuer_id"] = String(issuerId);
           if (collector.shopFee > 0) body["application_fee"] = collector.shopFee;
 
-          const doPay = (payload: Record<string, unknown>, key: string) =>
-            fetch("https://api.mercadopago.com/v1/payments", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${collector.accessToken}`,
-                "content-type": "application/json",
-                "X-Idempotency-Key": key,
-              },
-              body: JSON.stringify(payload),
-            });
+          const doPay = async (payload: Record<string, unknown>, key: string) => {
+            try {
+              return await fetch("https://api.mercadopago.com/v1/payments", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${collector.accessToken}`,
+                  "content-type": "application/json",
+                  "X-Idempotency-Key": key,
+                },
+                body: JSON.stringify(payload),
+              });
+            } catch (error) {
+              console.error("Mercado Pago: exceção ao enviar pagamento", {
+                request_payload: safePaymentPayload(payload),
+                idempotency_key: key,
+                exception:
+                  error instanceof Error
+                    ? {
+                        name: error.name,
+                        message: error.message,
+                        stack: error.stack,
+                        cause: error.cause,
+                      }
+                    : error,
+              });
+              throw error;
+            }
+          };
 
           const key = `card-${appointment.id}-${Date.now()}`;
           let response = await doPay(body, key);
           if (!response.ok && collector.shopFee > 0) {
-            const detail = JSON.stringify(await response.clone().json().catch(() => ({})));
+            const detail = (await response.clone().text().catch(() => ""));
             if (detail.includes("application_fee") || detail.includes("marketplace")) {
               delete body["application_fee"];
               response = await doPay(body, `${key}-nofee`);
             }
           }
-          const payment = (await response.json().catch(() => ({}))) as {
+          const paymentResponseBody = await readMpResponse(response);
+          const payment = paymentResponseBody.payload as {
             id?: number | string;
             status?: string;
             status_detail?: string;
             message?: string;
           };
           if (!response.ok || !payment.id) {
-            console.error("Mercado Pago cartão salvo: recusado", response.status, payment);
+            logMpFailure("criação do pagamento com cartão", response, paymentResponseBody, body);
             return json(
               {
                 error: paymentErrorMessage(payment.status_detail, payment.status, payment.message),
@@ -942,7 +1018,17 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             payment_status: paymentStatus,
           });
         } catch (error) {
-          console.error("Mercado Pago cartões: erro inesperado", error);
+          console.error("Mercado Pago cartões: erro inesperado", {
+            exception:
+              error instanceof Error
+                ? {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                    cause: error.cause,
+                  }
+                : error,
+          });
           return json(
             {
               error: "Não foi possível processar o cartão agora.",
@@ -966,11 +1052,15 @@ async function ensureCustomer(
     `https://api.mercadopago.com/v1/customers/search?email=${encodeURIComponent(email)}`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
-  const found = (await search.json().catch(() => ({}))) as {
+  const searchBody = await readMpResponse(search);
+  const found = searchBody.payload as {
     results?: Array<{ id?: string }>;
   };
   if (search.ok && found.results?.[0]?.id) return { id: found.results[0].id as string };
-  if (!search.ok) return { id: null, detail: mpDetail(found, search.status) };
+  if (!search.ok) {
+    logMpFailure("busca do customer", search, searchBody);
+    return { id: null, detail: mpDetail(found, search.status) };
+  }
 
   const created = await fetch("https://api.mercadopago.com/v1/customers", {
     method: "POST",
@@ -980,8 +1070,13 @@ async function ensureCustomer(
       first_name: String(extra.name ?? "Cliente").split(" ")[0],
     }),
   });
-  const customer = (await created.json().catch(() => ({}))) as { id?: string };
+  const createdBody = await readMpResponse(created);
+  const customer = createdBody.payload as { id?: string };
   if (!created.ok || !customer.id) {
+    logMpFailure("criação do customer", created, createdBody, {
+      email: "[REDACTED_EMAIL]",
+      first_name: String(extra.name ?? "Cliente").split(" ")[0],
+    });
     return { id: null, detail: mpDetail(customer, created.status) };
   }
   return { id: customer.id };
@@ -1006,7 +1101,8 @@ async function saveCard(
       body: JSON.stringify({ token: cardToken }),
     },
   );
-  const card = (await response.json().catch(() => ({}))) as {
+  const responseBody = await readMpResponse(response);
+  const card = responseBody.payload as {
     id?: string;
     last_four_digits?: string;
     payment_method?: { name?: string; id?: string };
@@ -1016,7 +1112,9 @@ async function saveCard(
     message?: string;
   };
   if (!response.ok || !card.id) {
-    console.error("Mercado Pago: falha ao salvar cartão", response.status, card);
+    logMpFailure("vínculo do cartão ao customer", response, responseBody, {
+      token: "[REDACTED_CARD_TOKEN]",
+    });
     return {
       error: card.message ?? "Não foi possível salvar este cartão.",
       detail: mpDetail(card, response.status),
