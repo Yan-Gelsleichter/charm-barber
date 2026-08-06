@@ -908,6 +908,23 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
           const issuerId = tokenInfo?.issuer_id ?? tokenInfo?.issuer?.id ?? null;
 
+          // No Sandbox do Mercado Pago, vincular o segundo token depois que a
+          // cobrança foi concluída pode responder 500 (internal_server_error).
+          // O token de salvamento é independente e de uso único, então fazemos
+          // o vínculo antes da cobrança e só persistimos/exibimos o cartão
+          // localmente se o pagamento terminar aprovado.
+          let prelinkedCard: MercadoPagoCard | null = null;
+          let prelinkError: string | null = null;
+          if (parsed.data.save_card && !parsed.data.saved_card_id && parsed.data.save_card_token) {
+            const linked = await linkCardToCustomer(
+              collector.accessToken,
+              customerId,
+              parsed.data.save_card_token,
+            );
+            if ("error" in linked) prelinkError = linked.error;
+            else prelinkedCard = linked.card;
+          }
+
           const body: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
             token: parsed.data.card_token,
@@ -1037,11 +1054,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           let cardSaveError: string | null = null;
           if (parsed.data.save_card && !parsed.data.saved_card_id && paymentStatus === "pago") {
             try {
-              // Ao pagar com payer.id, o Mercado Pago já associa o cartão ao
-              // customer e devolve o cartão persistente na própria cobrança.
-              // Reutilizar um segundo card_token para POST /customers/:id/cards
-              // provoca internal_error em contas sandbox.
-              const saved = payment.card?.id
+              const cardReadyToPersist = prelinkedCard ?? payment.card ?? null;
+              const saved = cardReadyToPersist?.id
                 ? await persistSavedCard(
                     collector,
                     admin,
@@ -1049,15 +1063,17 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                     appointment.barbershop_id,
                     customerId,
                     {
-                      ...payment.card,
+                      ...cardReadyToPersist,
                       payment_method:
-                        payment.card.payment_method ??
+                        cardReadyToPersist.payment_method ??
                         (payment.payment_method_id ? { id: payment.payment_method_id } : undefined),
                     },
                     parsed.data.card_number,
                     parsed.data.save_card_as_default ?? false,
                   )
-                : await saveCard(
+                : prelinkError
+                  ? { error: prelinkError } as const
+                  : await saveCard(
                     collector,
                     admin,
                     user.id,
@@ -1173,11 +1189,32 @@ async function saveCard(
   cardNumber?: string | null,
   makeDefault = false,
 ) {
+  const linked = await linkCardToCustomer(collector.accessToken, customerId, cardToken);
+  if ("error" in linked) return linked;
+
+  return persistSavedCard(
+    collector,
+    admin,
+    userId,
+    barbershopId,
+    customerId,
+    linked.card,
+    cardNumber,
+    makeDefault,
+  );
+}
+
+/** Consome um token exclusivo e vincula o cartão ao customer recebedor. */
+async function linkCardToCustomer(
+  accessToken: string,
+  customerId: string,
+  cardToken: string,
+) {
   const response = await fetch(
     `https://api.mercadopago.com/v1/customers/${encodeURIComponent(customerId)}/cards`,
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${collector.accessToken}`, "content-type": "application/json" },
+      headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
       body: JSON.stringify({ token: cardToken }),
     },
   );
@@ -1192,17 +1229,7 @@ async function saveCard(
       detail: mpDetail(card, response.status),
     } as const;
   }
-
-  return persistSavedCard(
-    collector,
-    admin,
-    userId,
-    barbershopId,
-    customerId,
-    card,
-    cardNumber,
-    makeDefault,
-  );
+  return { card } as const;
 }
 
 /** Grava localmente um cartão que o Mercado Pago já vinculou ao customer. */
