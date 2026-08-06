@@ -11,8 +11,11 @@ const METHOD_LABEL: Record<string, string> = {
   pix: "PIX",
   card: "Cartão de crédito",
   cartao: "Cartão de crédito",
+  credit_card: "Cartão de crédito",
+  debit_card: "Cartão de débito",
   presencial: "Presencial na barbearia",
 };
+
 
 export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
   head: () => ({
