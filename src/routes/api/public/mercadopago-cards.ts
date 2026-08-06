@@ -968,6 +968,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             status?: string;
             status_detail?: string;
             message?: string;
+            card?: MercadoPagoCard;
           };
           if (!response.ok || !payment.id) {
             logMpFailure("criação do pagamento com cartão", response, paymentResponseBody, body);
@@ -1037,16 +1038,31 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           let cardSaveError: string | null = null;
           if (parsed.data.save_card && !parsed.data.saved_card_id && paymentStatus === "pago") {
             try {
-              const saved = await saveCard(
-                collector,
-                admin,
-                user.id,
-                appointment.barbershop_id,
-                customerId,
-                parsed.data.save_card_token ?? parsed.data.card_token,
-                parsed.data.card_number,
-                parsed.data.save_card_as_default ?? false,
-              );
+              // Ao pagar com payer.id, o Mercado Pago já associa o cartão ao
+              // customer e devolve o cartão persistente na própria cobrança.
+              // Reutilizar um segundo card_token para POST /customers/:id/cards
+              // provoca internal_error em contas sandbox.
+              const saved = payment.card?.id
+                ? await persistSavedCard(
+                    collector,
+                    admin,
+                    user.id,
+                    appointment.barbershop_id,
+                    customerId,
+                    payment.card,
+                    parsed.data.card_number,
+                    parsed.data.save_card_as_default ?? false,
+                  )
+                : await saveCard(
+                    collector,
+                    admin,
+                    user.id,
+                    appointment.barbershop_id,
+                    customerId,
+                    parsed.data.save_card_token ?? parsed.data.card_token,
+                    parsed.data.card_number,
+                    parsed.data.save_card_as_default ?? false,
+                  );
               if ("error" in saved) cardSaveError = saved.error ?? "Não foi possível salvar este cartão.";
               else cardSaved = true;
             } catch (saveError) {
@@ -1132,6 +1148,16 @@ async function ensureCustomer(
 }
 
 /** Vincula o token de cartão ao customer e grava no banco. */
+type MercadoPagoCard = {
+  id?: string;
+  last_four_digits?: string;
+  payment_method?: { name?: string; id?: string };
+  cardholder?: { name?: string };
+  expiration_month?: number;
+  expiration_year?: number;
+  message?: string;
+};
+
 async function saveCard(
   collector: Collector,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1152,15 +1178,7 @@ async function saveCard(
     },
   );
   const responseBody = await readMpResponse(response);
-  const card = responseBody.payload as {
-    id?: string;
-    last_four_digits?: string;
-    payment_method?: { name?: string; id?: string };
-    cardholder?: { name?: string };
-    expiration_month?: number;
-    expiration_year?: number;
-    message?: string;
-  };
+  const card = responseBody.payload as MercadoPagoCard;
   if (!response.ok || !card.id) {
     logMpFailure("vínculo do cartão ao customer", response, responseBody, {
       token: "[REDACTED_CARD_TOKEN]",
@@ -1170,6 +1188,32 @@ async function saveCard(
       detail: mpDetail(card, response.status),
     } as const;
   }
+
+  return persistSavedCard(
+    collector,
+    admin,
+    userId,
+    barbershopId,
+    customerId,
+    card,
+    cardNumber,
+    makeDefault,
+  );
+}
+
+/** Grava localmente um cartão que o Mercado Pago já vinculou ao customer. */
+async function persistSavedCard(
+  collector: Collector,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: { from: (table: string) => any },
+  userId: string,
+  barbershopId: string,
+  customerId: string,
+  card: MercadoPagoCard,
+  cardNumber?: string | null,
+  makeDefault = false,
+) {
+  if (!card.id) return { error: "O Mercado Pago não retornou o cartão salvo." } as const;
 
   const row = {
     user_id: userId,
