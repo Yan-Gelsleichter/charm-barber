@@ -498,7 +498,7 @@ export function SavedCards({
         throw new Error("Não foi possível identificar a bandeira do cartão pelo número informado.");
       }
 
-      const tokenId = await createCardToken(publicKey, {
+      const tokenPayload = {
         card_number: digits(form.number),
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),
@@ -509,13 +509,25 @@ export function SavedCards({
             ? { identification: { type: "CPF", number: digits(form.doc) } }
             : {}),
         },
-      });
-      return callCardsApi<{ payment_status: string }>({
+      };
+      const tokenId = await createCardToken(publicKey, tokenPayload);
+      // O token do Mercado Pago é de uso único: o pagamento consome o primeiro,
+      // então geramos um segundo token só para salvar o cartão no perfil.
+      const saveToken = form.save
+        ? await createCardToken(publicKey, tokenPayload).catch(() => null)
+        : null;
+      return callCardsApi<{
+        payment_status: string;
+        card_saved?: boolean;
+        card_save_error?: string | null;
+      }>({
         action: "pay",
         appointment_id: appointmentId,
         card_token: tokenId,
         payment_method_id: paymentMethodId,
         save_card: form.save,
+        ...(saveToken ? { save_card_token: saveToken } : {}),
+        save_card_as_default: form.save && form.makeDefault,
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),
       });
@@ -523,16 +535,35 @@ export function SavedCards({
     onSuccess: (data) => {
       setNewCardOpen(false);
       setPayError(null);
-      setForm({ number: "", name: "", expiry: "", cvv: "", doc: "", save: true });
+      const wantedSave = form.save;
+      setForm({
+        number: "",
+        name: "",
+        expiry: "",
+        cvv: "",
+        doc: "",
+        save: true,
+        makeDefault: true,
+      });
       try {
         sessionStorage.removeItem(draftKey(appointmentId));
       } catch {
         /* ignore */
       }
       queryClient.invalidateQueries({ queryKey: ["mp-saved-cards", appointmentId] });
+      queryClient.invalidateQueries({ queryKey: ["my-saved-cards"] });
 
       if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
+      if (wantedSave && data.payment_status === "pago") {
+        if (data.card_saved) toast.success("Cartão salvo para pagar em 1 clique.");
+        else if (data.card_save_error) {
+          toast.warning("Pagamento aprovado, mas o cartão não foi salvo", {
+            description: data.card_save_error,
+            duration: 8000,
+          });
+        }
+      }
       onPaid(data.payment_status);
     },
     onError: (e: Error) => {
