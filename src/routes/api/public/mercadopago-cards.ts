@@ -1047,7 +1047,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                 parsed.data.card_number,
                 parsed.data.save_card_as_default ?? false,
               );
-              if ("error" in saved) cardSaveError = saved.error;
+              if ("error" in saved) cardSaveError = saved.error ?? "Não foi possível salvar este cartão.";
               else cardSaved = true;
             } catch (saveError) {
               cardSaveError =
