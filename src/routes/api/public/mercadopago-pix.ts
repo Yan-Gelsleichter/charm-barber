@@ -73,11 +73,13 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           const supabaseUrl =
             process.env["SUPABASE_URL"] ||
             process.env["SB_URL"] ||
-            process.env["VITE_SUPABASE_URL"];
+            process.env["VITE_SUPABASE_URL"] ||
+            (import.meta.env.VITE_SUPABASE_URL as string | undefined);
           const publishableKey =
             process.env["SUPABASE_PUBLISHABLE_KEY"] ||
             process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+            (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined);
           const serviceKey =
             process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
             process.env["SB_SERVICE_ROLE_KEY"] ||
