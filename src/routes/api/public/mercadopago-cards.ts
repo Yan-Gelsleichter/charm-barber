@@ -758,17 +758,23 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
 
           // ---- pagar (1 clique com cartão salvo ou cartão novo) ----
+          let savedBrand: string | null = null;
           if (parsed.data.saved_card_id) {
             // O cartão salvo precisa ser do próprio usuário e da mesma conta recebedora.
             const { data: owned } = await admin
               .from("saved_cards")
-              .select("id, expiration_month, expiration_year")
+              .select("id, brand, expiration_month, expiration_year")
               .eq("id", parsed.data.saved_card_id)
               .eq("user_id", user.id)
               .eq("mp_collector_id", collector.collectorId)
               .maybeSingle();
             if (!owned) return json({ error: "Cartão não encontrado." }, 404);
-            const stored = owned as { expiration_month?: number; expiration_year?: number };
+            const stored = owned as {
+              brand?: string | null;
+              expiration_month?: number;
+              expiration_year?: number;
+            };
+            savedBrand = stored.brand ?? null;
             if (
               (stored.expiration_month || stored.expiration_year) &&
               !expiryValid(stored.expiration_month, stored.expiration_year)
@@ -782,9 +788,34 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ error: "Este agendamento já está pago.", payment_status: "pago" }, 409);
           }
 
+          // O Mercado Pago exige o meio de pagamento explícito, senão devolve
+          // "Cannot infer Payment Method". Usamos o dado do token e, na falta
+          // dele, a bandeira deduzida pelos primeiros dígitos do cartão.
+          const tokenInfo = await inspectCardToken(
+            collector.accessToken,
+            parsed.data.card_token,
+          );
+          const paymentMethodId = inferPaymentMethodId(
+            tokenInfo?.payment_method_id ?? tokenInfo?.payment_method?.id ?? null,
+            savedBrand,
+            parsed.data.card_number ?? tokenInfo?.first_six_digits ?? null,
+          );
+          if (!paymentMethodId) {
+            return json(
+              {
+                error:
+                  "Não foi possível identificar a bandeira do cartão. Confira o número e tente novamente.",
+                detail: "payment_method_id não pôde ser inferido",
+              },
+              400,
+            );
+          }
+          const issuerId = tokenInfo?.issuer_id ?? tokenInfo?.issuer?.id ?? null;
+
           const body: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
             token: parsed.data.card_token,
+            payment_method_id: paymentMethodId,
             description: `${(service as { name?: string } | null)?.name ?? "Serviço"} — agendamento`,
             installments: parsed.data.installments ?? 1,
             payer: { type: "customer", id: customerId, email: userEmail },
@@ -794,6 +825,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               barber_id: appointment.barber_id ?? null,
             },
           };
+          if (issuerId) body["issuer_id"] = String(issuerId);
           if (collector.shopFee > 0) body["application_fee"] = collector.shopFee;
 
           const doPay = (payload: Record<string, unknown>, key: string) =>
