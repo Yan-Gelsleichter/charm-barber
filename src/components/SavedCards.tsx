@@ -454,7 +454,7 @@ export function SavedCards({
 
   const payWithNew = useMutation({
     mutationFn: async () => {
-      if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      if (!publicKey) throw new Error("Pagamento com cartão indisponível no momento.");
       const invalidNumber = validateCardNumber(form.number);
       if (invalidNumber) throw new Error(invalidNumber);
       const invalidExpiry = validateExpiry(form.expiry);
@@ -463,25 +463,28 @@ export function SavedCards({
       if (invalidCvv) throw new Error(invalidCvv);
       const [month, year] = form.expiry.split("/");
       if (!month || !year) throw new Error("Informe a validade no formato MM/AA.");
+      const fullYear = digits(year).length === 2 ? `20${digits(year)}` : digits(year);
 
-      const token = await mp.createCardToken({
-        cardNumber: digits(form.number),
-        cardholderName: form.name.trim(),
-        cardExpirationMonth: digits(month),
-        cardExpirationYear: digits(year).length === 2 ? `20${digits(year)}` : digits(year),
-        securityCode: digits(form.cvv),
-        identificationType: "CPF",
-        identificationNumber: digits(form.doc),
+      const tokenId = await createCardToken(publicKey, {
+        card_number: digits(form.number),
+        expiration_month: Number(digits(month)),
+        expiration_year: Number(fullYear),
+        security_code: digits(form.cvv),
+        cardholder: {
+          name: form.name.trim(),
+          ...(digits(form.doc)
+            ? { identification: { type: "CPF", number: digits(form.doc) } }
+            : {}),
+        },
       });
-      if (!token.id) throw new Error("Dados do cartão inválidos.");
       return callCardsApi<{ payment_status: string }>({
         action: "pay",
         appointment_id: appointmentId,
-        card_token: token.id,
+        card_token: tokenId,
         save_card: form.save,
         card_number: digits(form.number),
         expiration_month: Number(digits(month)),
-        expiration_year: Number(digits(year).length === 2 ? `20${digits(year)}` : digits(year)),
+        expiration_year: Number(fullYear),
       });
     },
     onSuccess: (data) => {
