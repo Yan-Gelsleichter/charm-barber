@@ -482,7 +482,6 @@ export function SavedCards({
         appointment_id: appointmentId,
         card_token: tokenId,
         save_card: form.save,
-        card_number: digits(form.number),
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),
       });
