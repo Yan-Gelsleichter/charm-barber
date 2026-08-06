@@ -31,6 +31,9 @@ const requestSchema = z.discriminatedUnion("action", [
     saved_card_id: z.string().uuid().optional(),
     installments: z.number().int().min(1).max(12).optional(),
     save_card: z.boolean().optional(),
+    /** Segundo token (uso único) gerado só para vincular o cartão ao customer. */
+    save_card_token: z.string().min(10).max(120).optional(),
+    save_card_as_default: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
@@ -1028,16 +1031,31 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
 
           // Salva o cartão novo só depois de aprovado, se o cliente pediu.
+          // O token do pagamento é de uso único: usamos o segundo token enviado
+          // pelo navegador (save_card_token) para vincular o cartão ao customer.
+          let cardSaved = false;
+          let cardSaveError: string | null = null;
           if (parsed.data.save_card && !parsed.data.saved_card_id && paymentStatus === "pago") {
-            await saveCard(
-              collector,
-              admin,
-              user.id,
-              appointment.barbershop_id,
-              customerId,
-              parsed.data.card_token,
-              parsed.data.card_number,
-            ).catch(() => null);
+            try {
+              const saved = await saveCard(
+                collector,
+                admin,
+                user.id,
+                appointment.barbershop_id,
+                customerId,
+                parsed.data.save_card_token ?? parsed.data.card_token,
+                parsed.data.card_number,
+                parsed.data.save_card_as_default ?? false,
+              );
+              if ("error" in saved) cardSaveError = saved.error ?? "Não foi possível salvar este cartão.";
+              else cardSaved = true;
+            } catch (saveError) {
+              cardSaveError =
+                saveError instanceof Error ? saveError.message : "Não foi possível salvar este cartão.";
+            }
+            if (cardSaveError) {
+              console.error("Mercado Pago: cartão não foi salvo após o pagamento", cardSaveError);
+            }
           }
 
           return json({
@@ -1045,6 +1063,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             status: payment.status,
             status_detail: payment.status_detail,
             payment_status: paymentStatus,
+            card_saved: cardSaved,
+            card_save_error: cardSaveError,
           });
         } catch (error) {
           console.error("Mercado Pago cartões: erro inesperado", {
@@ -1121,6 +1141,7 @@ async function saveCard(
   customerId: string,
   cardToken: string,
   cardNumber?: string | null,
+  makeDefault = false,
 ) {
   const response = await fetch(
     `https://api.mercadopago.com/v1/customers/${encodeURIComponent(customerId)}/cards`,
@@ -1173,6 +1194,25 @@ async function saveCard(
   if (error) {
     console.error("Mercado Pago: falha ao gravar cartão salvo", error);
     return { error: "Não foi possível salvar este cartão.", detail: error.message } as const;
+  }
+
+  // Cartão padrão: o primeiro salvo vira padrão automaticamente; o cliente
+  // também pode pedir explicitamente que este passe a ser o padrão.
+  const savedId = (data as { id?: string } | null)?.id;
+  if (savedId) {
+    try {
+      const { count } = await admin
+        .from("saved_cards")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_default", true);
+      if (makeDefault || !count) {
+        await admin.from("saved_cards").update({ is_default: false }).eq("user_id", userId);
+        await admin.from("saved_cards").update({ is_default: true }).eq("id", savedId);
+      }
+    } catch (defaultError) {
+      console.warn("Mercado Pago: cartão salvo, mas padrão não foi definido", defaultError);
+    }
   }
   return { card: data } as const;
 }
