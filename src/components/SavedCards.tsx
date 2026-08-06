@@ -514,6 +514,8 @@ export function SavedCards({
       const tokenId = await createCardToken(publicKey, tokenPayload);
       const payment = await callCardsApi<{
         payment_status: string;
+        card_saved?: boolean;
+        card_save_error?: string | null;
       }>({
         action: "pay",
         appointment_id: appointmentId,
