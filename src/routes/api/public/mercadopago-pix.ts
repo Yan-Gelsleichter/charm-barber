@@ -255,9 +255,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
           // No split, a barbearia fica com (100 - comissão do barbeiro).
-          const shopFee = platform
-            ? 0
-            : barberSplit
+          const shopFee = barberSplit
             ? Number(((amount * (100 - barberSplit.commissionPercent)) / 100).toFixed(2))
             : 0;
 
