@@ -723,9 +723,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             collector = {
               accessToken: platform.accessToken,
               publicKey: platform.publicKey,
-              collectorId: platform.publicKey
-                ? `platform:${appointment.barbershop_id}`
-                : `platform:${appointment.barbershop_id}`,
+              collectorId: `platform:${appointment.barbershop_id}`,
               shopFee: 0,
             };
           }
