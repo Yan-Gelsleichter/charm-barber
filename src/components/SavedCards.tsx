@@ -559,18 +559,28 @@ export function SavedCards({
       }
     },
     onSuccess: (data) => {
-      setNewCardOpen(false);
+      const approved = data.payment_status === "pago";
       setPayError(null);
+      setFinishedStatus(data.payment_status);
       const wantedSave = form.save;
-      setForm({
-        number: "",
-        name: "",
-        expiry: "",
-        cvv: "",
-        doc: "",
-        save: true,
-        makeDefault: false,
-      });
+      // Só limpamos o formulário quando a cobrança foi aprovada. Em análise/pendente
+      // mantemos os campos preenchidos (apenas travados) para não confundir o cliente.
+      if (approved) {
+        setNewCardOpen(false);
+        setForm({
+          number: "",
+          name: "",
+          expiry: "",
+          cvv: "",
+          doc: "",
+          save: true,
+          makeDefault: false,
+        });
+        setNumberTouched(false);
+        setExpiryTouched(false);
+        setNewCvvTouched(false);
+        setDocTouched(false);
+      }
       try {
         sessionStorage.removeItem(draftKey(appointmentId));
       } catch {
@@ -579,7 +589,7 @@ export function SavedCards({
       queryClient.invalidateQueries({ queryKey: ["mp-saved-cards", appointmentId] });
       queryClient.invalidateQueries({ queryKey: ["my-saved-cards"] });
 
-      if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
+      if (approved) toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       if (wantedSave && data.payment_status === "pago") {
         if (data.card_saved) toast.success("Cartão salvo para pagar em 1 clique.");
