@@ -1195,6 +1195,7 @@ async function findCustomerCard(
   accessToken: string,
   customerId: string,
   expected: MercadoPagoCard | null,
+  knownCardIds: Set<string> = new Set(),
 ): Promise<MercadoPagoCard | null> {
   const response = await fetch(
     `https://api.mercadopago.com/v1/customers/${encodeURIComponent(customerId)}/cards`,
@@ -1208,14 +1209,15 @@ async function findCustomerCard(
   const cards = Array.isArray(responseBody.payload)
     ? (responseBody.payload as MercadoPagoCard[])
     : [];
-  if (cards.length === 0) return null;
+  const candidates = cards.filter((card) => !card.id || !knownCardIds.has(card.id));
+  if (candidates.length === 0) return null;
 
   const expectedLastFour = expected?.last_four_digits;
   const expectedMonth = expected?.expiration_month;
   const expectedYear = expected?.expiration_year;
   const expectedMethod = expected?.payment_method?.id;
   return (
-    cards.find((card) =>
+    candidates.find((card) =>
       (!expectedLastFour || card.last_four_digits === expectedLastFour) &&
       (!expectedMonth || card.expiration_month === expectedMonth) &&
       (!expectedYear || card.expiration_year === expectedYear) &&
@@ -1233,11 +1235,12 @@ async function waitForCustomerCard(
   accessToken: string,
   customerId: string,
   expected: MercadoPagoCard | null,
+  knownCardIds: Set<string> = new Set(),
 ): Promise<MercadoPagoCard | null> {
   const delays = [0, 300, 900];
   for (const delay of delays) {
     if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-    const card = await findCustomerCard(accessToken, customerId, expected);
+    const card = await findCustomerCard(accessToken, customerId, expected, knownCardIds);
     if (card?.id) return card;
   }
   return null;
@@ -1272,8 +1275,23 @@ async function saveCard(
   cardNumber?: string | null,
   makeDefault = false,
 ) {
+  const { data: knownRows } = await admin
+    .from("saved_cards")
+    .select("mp_card_id")
+    .eq("user_id", userId)
+    .eq("mp_collector_id", collector.collectorId);
+  const knownCardIds = new Set(
+    ((knownRows ?? []) as Array<{ mp_card_id?: string | null }>)
+      .map((row) => row.mp_card_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const expected = await inspectCardToken(collector.accessToken, cardToken);
   const linked = await linkCardToCustomer(collector.accessToken, customerId, cardToken);
-  if ("error" in linked) return linked;
+  const linkedCard =
+    "error" in linked
+      ? await waitForCustomerCard(collector.accessToken, customerId, expected, knownCardIds)
+      : linked.card;
+  if (!linkedCard?.id) return linked;
 
   return persistSavedCard(
     collector,
@@ -1281,7 +1299,7 @@ async function saveCard(
     userId,
     barbershopId,
     customerId,
-    linked.card,
+    linkedCard,
     cardNumber,
     makeDefault,
   );
