@@ -742,6 +742,9 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (parsed.data.action === "config") {
             return json({
               public_key: collector.publicKey,
+              // Informa ao navegador se estamos em modo de teste, para que ele
+              // prefira a chave pública TEST- injetada no build (VITE_MP_PUBLIC_KEY).
+              sandbox: Boolean(sandbox),
               amount,
               service_name: (service as { name?: string } | null)?.name ?? "Serviço",
             });
