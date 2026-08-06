@@ -31,6 +31,9 @@ const requestSchema = z.discriminatedUnion("action", [
     saved_card_id: z.string().uuid().optional(),
     installments: z.number().int().min(1).max(12).optional(),
     save_card: z.boolean().optional(),
+    /** Segundo token (uso único) gerado só para vincular o cartão ao customer. */
+    save_card_token: z.string().min(10).max(120).optional(),
+    save_card_as_default: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
