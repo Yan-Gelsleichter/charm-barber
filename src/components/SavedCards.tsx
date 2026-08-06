@@ -418,17 +418,18 @@ export function SavedCards({
 
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
-      if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      if (!publicKey) throw new Error("Pagamento com cartão indisponível no momento.");
       const invalid = validateCvv(cvv, card.brand, null);
       if (invalid) throw new Error(invalid);
-      const securityCode = digits(cvv);
 
-      const token = await mp.createCardToken({ cardId: card.id, securityCode });
-      if (!token.id) throw new Error("Não foi possível validar o cartão salvo.");
+      const tokenId = await createCardToken(publicKey, {
+        card_id: card.id,
+        security_code: digits(cvv),
+      });
       return callCardsApi<{ payment_status: string }>({
         action: "pay",
         appointment_id: appointmentId,
-        card_token: token.id,
+        card_token: tokenId,
         saved_card_id: card.id,
       });
     },
