@@ -869,7 +869,7 @@ export function SavedCards({
           </div>
           <Input
             inputMode="numeric"
-            placeholder="CPF do titular"
+            placeholder="CPF do titular (obrigatório)"
             value={form.doc}
             onChange={(e) => setForm((f) => ({ ...f, doc: digits(e.target.value).slice(0, 11) }))}
           />
