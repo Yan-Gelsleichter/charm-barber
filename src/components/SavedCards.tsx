@@ -26,16 +26,6 @@ export type SavedCard = {
   is_default?: boolean | null;
 };
 
-type MpInstance = {
-  createCardToken: (data: Record<string, unknown>) => Promise<{ id?: string; error?: unknown }>;
-};
-
-declare global {
-  interface Window {
-    MercadoPago?: new (publicKey: string, options?: { locale?: string }) => MpInstance;
-  }
-}
-
 async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -56,27 +46,35 @@ async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
   return data;
 }
 
-function loadMpSdk(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.MercadoPago) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>("script[data-mp-sdk]");
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () =>
-        reject(new Error("Falha ao carregar o Mercado Pago")),
-      );
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://sdk.mercadopago.com/js/v2";
-    script.async = true;
-    script.dataset["mpSdk"] = "1";
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Falha ao carregar o Mercado Pago"));
-    document.head.appendChild(script);
-  });
+/**
+ * Tokeniza o cartão direto no navegador pela API pública do Mercado Pago
+ * (/v1/card_tokens). Nenhum dado sensível (número/CVV) chega ao nosso servidor:
+ * só o token de uso único é enviado adiante.
+ */
+async function createCardToken(
+  publicKey: string,
+  payload: Record<string, unknown>,
+): Promise<string> {
+  const response = await fetch(
+    `https://api.mercadopago.com/v1/card_tokens?public_key=${encodeURIComponent(publicKey)}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  const data = (await response.json().catch(() => ({}))) as {
+    id?: string;
+    message?: string;
+    cause?: Array<{ description?: string; code?: string | number }>;
+  };
+  if (!response.ok || !data.id) {
+    const cause = data.cause?.[0]?.description;
+    throw new Error(cause || data.message || "Não foi possível validar os dados do cartão.");
+  }
+  return data.id;
 }
+
 
 function digits(value: string) {
   return value.replace(/\D/g, "");
