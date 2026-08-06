@@ -343,6 +343,8 @@ export function SavedCards({
   const [docTouched, setDocTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(draft?.newCardOpen ?? false);
   const [payError, setPayError] = useState<string | null>(null);
+  /** Status final da cobrança: trava o formulário e evita cliques duplicados. */
+  const [finishedStatus, setFinishedStatus] = useState<string | null>(null);
   const [form, setForm] = useState({
     number: "",
     name: draft?.name ?? "",
