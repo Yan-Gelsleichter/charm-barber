@@ -966,13 +966,15 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
 
           const paymentStatus = mapPaymentStatus(payment.status);
+          const paidNow = paymentStatus === "pago";
           const { error: updateError } = await admin
             .from("appointments")
             .update({
               payment_status: paymentStatus,
               payment_method: "credit_card",
               mp_payment_id: String(payment.id),
-              paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
+              paid_at: paidNow ? new Date().toISOString() : null,
+              ...(paidNow ? { status: "confirmado" } : {}),
             })
             .eq("id", appointment.id);
           if (updateError) {
@@ -980,11 +982,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             // Colunas extras podem não existir: garante ao menos o status.
             const { error: fallbackError } = await admin
               .from("appointments")
-              .update({ payment_status: paymentStatus })
+              .update({
+                payment_status: paymentStatus,
+                payment_method: "credit_card",
+                ...(paidNow ? { status: "confirmado" } : {}),
+              })
               .eq("id", appointment.id);
             if (fallbackError)
               console.error("Cartão salvo: fallback do status falhou", fallbackError);
           }
+
 
 
           // Recusado/expirado/cancelado volta como erro claro para o cliente tentar de novo.
