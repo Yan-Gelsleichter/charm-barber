@@ -624,7 +624,10 @@ export function SavedCards({
   );
 
   const charging = payWithSaved.isPending || payWithNew.isPending;
-  const busy = charging || removeCard.isPending;
+  // Cobrança já enviada (aprovada ou em análise): trava tudo para evitar duplo clique.
+  const locked = finishedStatus !== null;
+  const pendingReview = locked && finishedStatus !== "pago";
+  const busy = charging || removeCard.isPending || locked;
   const noSavedCards = !cardsQ.isLoading && cards.length === 0;
 
 
