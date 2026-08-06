@@ -228,8 +228,13 @@ async function inspectCardToken(accessToken: string, cardToken: string) {
     payment_method?: { id?: string; name?: string };
     issuer_id?: string | number;
     issuer?: { id?: string | number };
+    cardholder?: {
+      name?: string;
+      identification?: { type?: string; number?: string };
+    };
   } | null;
 }
+
 
 /** Validação de servidor: Luhn + validade, mesmo se o front falhar. */
 async function assertCardValid(
