@@ -217,6 +217,15 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               mp_payment_id: String(parsed.data.payment_id),
               paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
             });
+            if (paymentStatus === "pago") {
+              const { error: statusError } = await admin
+                .from("appointments")
+                .update({ status: "confirmado" })
+                .eq("id", appointment.id);
+              if (statusError) {
+                console.warn("Mercado Pago PIX: pagamento salvo, mas agendamento não foi confirmado", statusError);
+              }
+            }
 
             return json({
               status: payment.status,
@@ -362,18 +371,22 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             );
           }
 
+          const createdPaymentStatus = mapPaymentStatus(payment.status);
           await savePayment(admin, paymentColumnsAvailable, appointment.id, {
-            payment_status: mapPaymentStatus(payment.status),
+            payment_status: createdPaymentStatus,
             payment_method: "pix",
             mp_payment_id: String(payment.id),
-            paid_at: null,
+            paid_at: createdPaymentStatus === "pago" ? new Date().toISOString() : null,
           });
+          if (createdPaymentStatus === "pago") {
+            await admin.from("appointments").update({ status: "confirmado" }).eq("id", appointment.id);
+          }
 
           const transaction = payment.point_of_interaction?.transaction_data;
           return json({
             payment_id: payment.id,
             status: payment.status ?? "pending",
-            payment_status: mapPaymentStatus(payment.status),
+            payment_status: createdPaymentStatus,
             amount,
             reused: false,
             expires_at: payment.date_of_expiration ?? expiresAt.toISOString(),

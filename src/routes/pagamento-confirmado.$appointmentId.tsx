@@ -12,7 +12,9 @@ const METHOD_LABEL: Record<string, string> = {
   card: "Cartão de crédito",
   cartao: "Cartão de crédito",
   credit_card: "Cartão de crédito",
+  cartao_credito: "Cartão de crédito",
   debit_card: "Cartão de débito",
+  cartao_debito: "Cartão de débito",
   presencial: "Presencial na barbearia",
 };
 
@@ -43,6 +45,15 @@ function ConfirmacaoPage() {
 
   const q = useQuery({
     queryKey: ["appointment-confirmation", appointmentId],
+    // A confirmação do gateway e a atualização do banco podem chegar com poucos
+    // segundos de diferença. Continua consultando até refletir o pagamento.
+    refetchInterval: (query) => {
+      const row = query.state.data as
+        | { appointment?: { payment_status?: string | null } }
+        | undefined;
+      return row?.appointment?.payment_status === "pago" ? false : 1500;
+    },
+    refetchOnMount: "always",
     queryFn: async () => {
       let res = await supabase
         .from("appointments")

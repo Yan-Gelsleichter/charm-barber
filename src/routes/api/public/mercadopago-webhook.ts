@@ -73,8 +73,8 @@ function isDuplicate(error: { code?: string; message?: string } | null) {
 /** Nome amigável do meio de pagamento (PIX, cartão, boleto...). */
 function methodLabel(payment: { payment_type_id?: string; payment_method_id?: string }) {
   const type = (payment.payment_type_id ?? "").toLowerCase();
-  if (type === "credit_card") return "cartao_credito";
-  if (type === "debit_card") return "cartao_debito";
+  if (type === "credit_card") return "credit_card";
+  if (type === "debit_card") return "debit_card";
   if (type === "bank_transfer" || payment.payment_method_id === "pix") return "pix";
   return payment.payment_method_id ?? type ?? "outro";
 }
@@ -137,7 +137,6 @@ async function applyPayment(
     payment_method: methodLabel(payment),
     mp_payment_id: paymentId,
     paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
-    ...(paymentStatus === "pago" ? { status: "confirmado" } : {}),
   };
 
 
@@ -151,6 +150,14 @@ async function applyPayment(
     // libera o evento para que um reenvio possa tentar novamente
     if (claimed) {
       await admin.from("mp_webhook_events").delete().eq("event_id", eventId);
+    }
+  } else if (paymentStatus === "pago") {
+    const { error: statusError } = await admin
+      .from("appointments")
+      .update({ status: "confirmado" })
+      .eq("id", appointmentId);
+    if (statusError) {
+      console.warn("Webhook MP: pagamento salvo, mas agendamento não foi confirmado", statusError);
     }
   }
 
