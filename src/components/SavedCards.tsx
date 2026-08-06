@@ -377,7 +377,10 @@ export function SavedCards({
       callCardsApi<{ cards: SavedCard[] }>({ action: "list", appointment_id: appointmentId }),
   });
 
-  const publicKey = configQ.data?.public_key ?? null;
+  // Chave pública do MP: vem do servidor (conta conectada / sandbox) e, se faltar,
+  // cai na chave injetada no build (VITE_MP_PUBLIC_KEY) para o modo de teste.
+  const envPublicKey = ((import.meta.env.VITE_MP_PUBLIC_KEY as string | undefined) ?? "").trim();
+  const publicKey = configQ.data?.public_key ?? (envPublicKey || null);
 
   useEffect(() => {
     if (!publicKey) return;

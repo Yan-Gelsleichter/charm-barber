@@ -369,16 +369,23 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           const supabaseUrl =
             process.env["SUPABASE_URL"] ||
             process.env["SB_URL"] ||
-            process.env["VITE_SUPABASE_URL"];
+            process.env["VITE_SUPABASE_URL"] ||
+            (import.meta.env.VITE_SUPABASE_URL as string | undefined);
           const publishableKey =
             process.env["SUPABASE_PUBLISHABLE_KEY"] ||
             process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+            (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined);
           const serviceKey =
             process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
             process.env["SB_SERVICE_ROLE_KEY"] ||
             process.env["SERVICE_ROLE_KEY"];
           if (!supabaseUrl || !publishableKey || !serviceKey) {
+            console.error("Mercado Pago cartões: credenciais do banco ausentes no servidor", {
+              supabaseUrl: !!supabaseUrl,
+              publishableKey: !!publishableKey,
+              serviceKey: !!serviceKey,
+            });
             return json({ error: "O pagamento está temporariamente indisponível." }, 503);
           }
 
