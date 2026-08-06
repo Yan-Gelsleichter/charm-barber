@@ -956,21 +956,30 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           ).trim();
           const [firstName, ...restName] = holderName.split(/\s+/).filter(Boolean);
           const lastName = restName.join(" ");
-          const payerDoc =
+          const payerDoc = (
             parsed.data.payer_doc ??
-            (tokenInfo?.cardholder?.identification?.number ?? "").replace(/\D/g, "") ??
-            "";
+            tokenInfo?.cardholder?.identification?.number ??
+            ""
+          ).replace(/\D/g, "");
+          if (!isValidCPF(payerDoc)) {
+            return json(
+              {
+                error:
+                  "CPF do titular inválido ou ausente. Confira o CPF informado e tente novamente.",
+              },
+              400,
+            );
+          }
 
           const payer: Record<string, unknown> = {
             type: "customer",
             id: customerId,
             email: userEmail,
+            identification: { type: "CPF", number: payerDoc },
           };
           if (firstName) payer["first_name"] = firstName;
           if (lastName) payer["last_name"] = lastName;
-          if (payerDoc.length === 11) {
-            payer["identification"] = { type: "CPF", number: payerDoc };
-          }
+
 
           const serviceName = (service as { name?: string } | null)?.name ?? "Serviço";
           const body: Record<string, unknown> = {
