@@ -363,7 +363,12 @@ export function SavedCards({
   const configQ = useQuery({
     queryKey: ["mp-card-config", appointmentId],
     queryFn: () =>
-      callCardsApi<{ public_key: string | null; amount: number; service_name: string }>({
+      callCardsApi<{
+        public_key: string | null;
+        sandbox?: boolean;
+        amount: number;
+        service_name: string;
+      }>({
         action: "config",
         appointment_id: appointmentId,
       }),
@@ -375,10 +380,17 @@ export function SavedCards({
       callCardsApi<{ cards: SavedCard[] }>({ action: "list", appointment_id: appointmentId }),
   });
 
-  // Chave pública do MP: vem do servidor (conta conectada / sandbox) e, se faltar,
-  // cai na chave injetada no build (VITE_MP_PUBLIC_KEY) para o modo de teste.
+  // Chave pública do MP exposta ao navegador via variável do Vite.
   const envPublicKey = ((import.meta.env.VITE_MP_PUBLIC_KEY as string | undefined) ?? "").trim();
-  const publicKey = configQ.data?.public_key ?? (envPublicKey || null);
+  const serverPublicKey = (configQ.data?.public_key ?? "").trim();
+  const isTestKey = (k: string) => k.toUpperCase().startsWith("TEST-");
+  // Em modo de teste, a chave TEST- do build tem prioridade (evita misturar
+  // Public Key de produção com Access Token de teste => internal_error).
+  const publicKey =
+    (configQ.data?.sandbox && isTestKey(envPublicKey)
+      ? envPublicKey
+      : serverPublicKey || envPublicKey) || null;
+
 
 
 
