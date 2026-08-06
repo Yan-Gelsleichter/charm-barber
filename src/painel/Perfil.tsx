@@ -287,10 +287,11 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
 }
 
 function QrInviteSection({ barbershopId }: { barbershopId: string }) {
-  const inviteUrl = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/auth?barbershop_id=${encodeURIComponent(barbershopId)}`;
-  }, [barbershopId]);
+  const inviteUrl = useMemo(
+    () => `${publicAppOrigin()}/auth?barbershop_id=${encodeURIComponent(barbershopId)}`,
+    [barbershopId],
+  );
+
 
   async function copy() {
     try {
