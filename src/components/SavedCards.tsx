@@ -26,16 +26,6 @@ export type SavedCard = {
   is_default?: boolean | null;
 };
 
-type MpInstance = {
-  createCardToken: (data: Record<string, unknown>) => Promise<{ id?: string; error?: unknown }>;
-};
-
-declare global {
-  interface Window {
-    MercadoPago?: new (publicKey: string, options?: { locale?: string }) => MpInstance;
-  }
-}
-
 async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -56,27 +46,35 @@ async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
   return data;
 }
 
-function loadMpSdk(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.MercadoPago) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>("script[data-mp-sdk]");
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () =>
-        reject(new Error("Falha ao carregar o Mercado Pago")),
-      );
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://sdk.mercadopago.com/js/v2";
-    script.async = true;
-    script.dataset["mpSdk"] = "1";
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Falha ao carregar o Mercado Pago"));
-    document.head.appendChild(script);
-  });
+/**
+ * Tokeniza o cartão direto no navegador pela API pública do Mercado Pago
+ * (/v1/card_tokens). Nenhum dado sensível (número/CVV) chega ao nosso servidor:
+ * só o token de uso único é enviado adiante.
+ */
+async function createCardToken(
+  publicKey: string,
+  payload: Record<string, unknown>,
+): Promise<string> {
+  const response = await fetch(
+    `https://api.mercadopago.com/v1/card_tokens?public_key=${encodeURIComponent(publicKey)}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  const data = (await response.json().catch(() => ({}))) as {
+    id?: string;
+    message?: string;
+    cause?: Array<{ description?: string; code?: string | number }>;
+  };
+  if (!response.ok || !data.id) {
+    const cause = data.cause?.[0]?.description;
+    throw new Error(cause || data.message || "Não foi possível validar os dados do cartão.");
+  }
+  return data.id;
 }
+
 
 function digits(value: string) {
   return value.replace(/\D/g, "");
@@ -320,7 +318,7 @@ export function SavedCards({
   const queryClient = useQueryClient();
   const sectionRef = useRef<HTMLElement | null>(null);
   const draft = useMemo(() => readDraft(appointmentId), [appointmentId]);
-  const [mp, setMp] = useState<MpInstance | null>(null);
+  
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
     draft?.selectedCardId ?? null,
   );
@@ -382,19 +380,8 @@ export function SavedCards({
   const envPublicKey = ((import.meta.env.VITE_MP_PUBLIC_KEY as string | undefined) ?? "").trim();
   const publicKey = configQ.data?.public_key ?? (envPublicKey || null);
 
-  useEffect(() => {
-    if (!publicKey) return;
-    let active = true;
-    loadMpSdk()
-      .then(() => {
-        if (!active || !window.MercadoPago) return;
-        setMp(new window.MercadoPago(publicKey, { locale: "pt-BR" }));
-      })
-      .catch(() => setMp(null));
-    return () => {
-      active = false;
-    };
-  }, [publicKey]);
+
+
 
   const cards = cardsQ.data?.cards ?? [];
   const hasDefault = cards.some((c) => c.is_default);
@@ -431,17 +418,18 @@ export function SavedCards({
 
   const payWithSaved = useMutation({
     mutationFn: async (card: SavedCard) => {
-      if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      if (!publicKey) throw new Error("Pagamento com cartão indisponível no momento.");
       const invalid = validateCvv(cvv, card.brand, null);
       if (invalid) throw new Error(invalid);
-      const securityCode = digits(cvv);
 
-      const token = await mp.createCardToken({ cardId: card.id, securityCode });
-      if (!token.id) throw new Error("Não foi possível validar o cartão salvo.");
+      const tokenId = await createCardToken(publicKey, {
+        card_id: card.id,
+        security_code: digits(cvv),
+      });
       return callCardsApi<{ payment_status: string }>({
         action: "pay",
         appointment_id: appointmentId,
-        card_token: token.id,
+        card_token: tokenId,
         saved_card_id: card.id,
       });
     },
@@ -466,7 +454,7 @@ export function SavedCards({
 
   const payWithNew = useMutation({
     mutationFn: async () => {
-      if (!mp) throw new Error("Pagamento com cartão indisponível no momento.");
+      if (!publicKey) throw new Error("Pagamento com cartão indisponível no momento.");
       const invalidNumber = validateCardNumber(form.number);
       if (invalidNumber) throw new Error(invalidNumber);
       const invalidExpiry = validateExpiry(form.expiry);
@@ -475,25 +463,27 @@ export function SavedCards({
       if (invalidCvv) throw new Error(invalidCvv);
       const [month, year] = form.expiry.split("/");
       if (!month || !year) throw new Error("Informe a validade no formato MM/AA.");
+      const fullYear = digits(year).length === 2 ? `20${digits(year)}` : digits(year);
 
-      const token = await mp.createCardToken({
-        cardNumber: digits(form.number),
-        cardholderName: form.name.trim(),
-        cardExpirationMonth: digits(month),
-        cardExpirationYear: digits(year).length === 2 ? `20${digits(year)}` : digits(year),
-        securityCode: digits(form.cvv),
-        identificationType: "CPF",
-        identificationNumber: digits(form.doc),
+      const tokenId = await createCardToken(publicKey, {
+        card_number: digits(form.number),
+        expiration_month: Number(digits(month)),
+        expiration_year: Number(fullYear),
+        security_code: digits(form.cvv),
+        cardholder: {
+          name: form.name.trim(),
+          ...(digits(form.doc)
+            ? { identification: { type: "CPF", number: digits(form.doc) } }
+            : {}),
+        },
       });
-      if (!token.id) throw new Error("Dados do cartão inválidos.");
       return callCardsApi<{ payment_status: string }>({
         action: "pay",
         appointment_id: appointmentId,
-        card_token: token.id,
+        card_token: tokenId,
         save_card: form.save,
-        card_number: digits(form.number),
         expiration_month: Number(digits(month)),
-        expiration_year: Number(digits(year).length === 2 ? `20${digits(year)}` : digits(year)),
+        expiration_year: Number(fullYear),
       });
     },
     onSuccess: (data) => {
