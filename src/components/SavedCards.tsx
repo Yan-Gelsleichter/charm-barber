@@ -463,15 +463,20 @@ export function SavedCards({
       });
     },
     onSuccess: (data) => {
-      setCvv("");
+      const approved = data.payment_status === "pago";
+      if (approved) {
+        setCvv("");
+        setCvvTouched(false);
+      }
       setPayError(null);
+      setFinishedStatus(data.payment_status);
       try {
         sessionStorage.removeItem(draftKey(appointmentId));
       } catch {
         /* ignore */
       }
 
-      if (data.payment_status === "pago") toast.success("Pagamento aprovado!");
+      if (approved) toast.success("Pagamento aprovado!");
       else toast.info("Pagamento em análise pelo emissor.");
       onPaid(data.payment_status);
     },
