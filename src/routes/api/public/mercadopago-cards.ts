@@ -420,7 +420,7 @@ function mpDetail(payload: unknown, httpStatus?: number): string | null {
   return parts.length ? `Mercado Pago: ${parts.join(" | ")}` : null;
 }
 
-/** Credenciais de teste (platform) não cobram cartões reais. */
+/** Credenciais de teste (TEST-...) não cobram cartões reais. */
 function isSandboxToken(accessToken: string) {
   return accessToken.trim().toUpperCase().startsWith("TEST-");
 }
