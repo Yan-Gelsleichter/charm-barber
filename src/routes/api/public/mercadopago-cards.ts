@@ -732,7 +732,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json(
               {
                 error: platform
-                  ? "Modo de teste ligado, mas a Public Key de teste (MP_TEST_PUBLIC_KEY) não está configurada. Ela precisa ser a chave TEST- do mesmo aplicativo do Access Token de teste."
+                  ? "A Public Key da plataforma (MP_PUBLIC_KEY) não está configurada. Ela precisa ser a chave pública do mesmo aplicativo do MP_ACCESS_TOKEN."
                   : "Não foi possível obter a chave pública da conta Mercado Pago conectada. Reconecte a conta no painel (Pagamentos) para renovar a autorização.",
               },
               400,
@@ -756,9 +756,6 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (parsed.data.action === "config") {
             return json({
               public_key: collector.publicKey,
-              // Informa ao navegador se estamos em modo de teste, para que ele
-              // prefira a chave pública TEST- injetada no build (VITE_MP_PUBLIC_KEY).
-              platform: Boolean(platform),
               amount,
               service_name: (service as { name?: string } | null)?.name ?? "Serviço",
             });
