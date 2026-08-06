@@ -340,6 +340,7 @@ export function SavedCards({
   const [newCvvTouched, setNewCvvTouched] = useState(false);
   const [numberTouched, setNumberTouched] = useState(false);
   const [expiryTouched, setExpiryTouched] = useState(false);
+  const [docTouched, setDocTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(draft?.newCardOpen ?? false);
   const [payError, setPayError] = useState<string | null>(null);
   const [form, setForm] = useState({
