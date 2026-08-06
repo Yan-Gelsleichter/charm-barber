@@ -318,7 +318,7 @@ export function SavedCards({
   const queryClient = useQueryClient();
   const sectionRef = useRef<HTMLElement | null>(null);
   const draft = useMemo(() => readDraft(appointmentId), [appointmentId]);
-  const [mp, setMp] = useState<MpInstance | null>(null);
+  
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
     draft?.selectedCardId ?? null,
   );
