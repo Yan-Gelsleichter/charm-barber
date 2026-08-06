@@ -2,6 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { mpPlatformCredentials, credentialMismatch } from "@/lib/mp-platform.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { isValidCPF } from "@/lib/format";
+
+/** Valida os 11 dígitos do CPF (dígitos verificadores oficiais). */
+const isValidCPFDigits = (v: string) => isValidCPF(v);
+
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("config"), appointment_id: z.string().uuid() }),
