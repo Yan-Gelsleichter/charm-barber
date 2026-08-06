@@ -879,7 +879,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
-          if (appointment.payment_status === "pago") {
+          if (parsed.data.action === "pay" && appointment.payment_status === "pago") {
             return json({ error: "Este agendamento já está pago.", payment_status: "pago" }, 409);
           }
 
