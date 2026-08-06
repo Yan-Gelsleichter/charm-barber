@@ -58,7 +58,7 @@ function ConfirmacaoPage() {
       let res = await supabase
         .from("appointments")
         .select(
-          "id, appointment_time, service_id, customer_name, payment_status, payment_method, created_at",
+          "id, appointment_time, service_id, customer_name, payment_status, payment_method, paid_at",
         )
         .eq("id", appointmentId)
         .maybeSingle();
