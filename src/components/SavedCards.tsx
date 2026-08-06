@@ -512,26 +512,40 @@ export function SavedCards({
         },
       };
       const tokenId = await createCardToken(publicKey, tokenPayload);
-      // O token do Mercado Pago é de uso único: o pagamento consome o primeiro,
-      // então geramos um segundo token só para salvar o cartão no perfil.
-      const saveToken = form.save
-        ? await createCardToken(publicKey, tokenPayload).catch(() => null)
-        : null;
-      return callCardsApi<{
+      const payment = await callCardsApi<{
         payment_status: string;
-        card_saved?: boolean;
-        card_save_error?: string | null;
       }>({
         action: "pay",
         appointment_id: appointmentId,
         card_token: tokenId,
         payment_method_id: paymentMethodId,
-        save_card: form.save,
-        ...(saveToken ? { save_card_token: saveToken } : {}),
-        save_card_as_default: form.save && form.makeDefault,
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),
       });
+
+      if (!form.save || payment.payment_status !== "pago") return payment;
+
+      // Tokens do Mercado Pago são de uso único. Só depois da cobrança aprovada
+      // geramos outro token, novo e exclusivo, para vincular o cartão ao customer.
+      try {
+        const saveToken = await createCardToken(publicKey, tokenPayload);
+        await callCardsApi<{ card: SavedCard }>({
+          action: "save",
+          appointment_id: appointmentId,
+          card_token: saveToken,
+          make_default: form.makeDefault,
+          expiration_month: Number(digits(month)),
+          expiration_year: Number(fullYear),
+        });
+        return { ...payment, card_saved: true, card_save_error: null };
+      } catch (saveError) {
+        return {
+          ...payment,
+          card_saved: false,
+          card_save_error:
+            saveError instanceof Error ? saveError.message : "Não foi possível salvar este cartão.",
+        };
+      }
     },
     onSuccess: (data) => {
       setNewCardOpen(false);

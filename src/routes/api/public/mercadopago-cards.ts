@@ -10,6 +10,7 @@ const requestSchema = z.discriminatedUnion("action", [
     action: z.literal("save"),
     appointment_id: z.string().uuid(),
     card_token: z.string().min(10).max(120),
+    make_default: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
@@ -839,6 +840,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               customerId,
               parsed.data.card_token,
               parsed.data.card_number,
+              parsed.data.make_default ?? false,
             );
             if ("error" in saved) {
               return json(
