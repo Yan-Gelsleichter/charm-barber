@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Switch } from "@/components/ui/switch";
 import { useDarkMode } from "@/lib/theme";
+import { publicAppOrigin } from "@/lib/app-url";
+
 
 const PRESET_COLORS = [
   "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899",
@@ -287,10 +289,11 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
 }
 
 function QrInviteSection({ barbershopId }: { barbershopId: string }) {
-  const inviteUrl = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/auth?barbershop_id=${encodeURIComponent(barbershopId)}`;
-  }, [barbershopId]);
+  const inviteUrl = useMemo(
+    () => `${publicAppOrigin()}/auth?barbershop_id=${encodeURIComponent(barbershopId)}`,
+    [barbershopId],
+  );
+
 
   async function copy() {
     try {
