@@ -1061,7 +1061,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                     customerId,
                     payment.card ?? tokenInfo ?? null,
                   );
-              const cardReadyToPersist = prelinkedCard ?? payment.card ?? reconciledCard;
+              const cardReadyToPersist =
+                prelinkedCard ?? (payment.card?.id ? payment.card : reconciledCard);
               const saved = cardReadyToPersist?.id
                 ? await persistSavedCard(
                     collector,
