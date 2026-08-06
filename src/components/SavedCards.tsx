@@ -424,10 +424,13 @@ export function SavedCards({
   const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
   const numberError = numberTouched ? validateCardNumber(form.number) : null;
   const expiryError = expiryTouched ? validateExpiry(form.expiry) : null;
+  const docError = docTouched ? validateCPF(form.doc) : null;
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
-    validateCvv(form.cvv, null, form.number),
+    validateCvv(form.cvv, null, form.number) ||
+    validateCPF(form.doc) ||
+    !form.name.trim(),
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
