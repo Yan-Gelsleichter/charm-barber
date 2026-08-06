@@ -422,11 +422,14 @@ export function SavedCards({
 
   const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
   const newCardBrand = detectCardBrand(form.number);
-  const savedCvvError = cvvTouched ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
-  const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
-  const numberError = numberTouched ? validateCardNumber(form.number) : null;
-  const expiryError = expiryTouched ? validateExpiry(form.expiry) : null;
-  const docError = docTouched ? validateCPF(form.doc) : null;
+  const settled = finishedStatus !== null;
+  const savedCvvError =
+    cvvTouched && !settled ? validateCvv(cvv, selectedCard?.brand ?? null, null) : null;
+  const newCardCvvError =
+    newCvvTouched && !settled ? validateCvv(form.cvv, null, form.number) : null;
+  const numberError = numberTouched && !settled ? validateCardNumber(form.number) : null;
+  const expiryError = expiryTouched && !settled ? validateExpiry(form.expiry) : null;
+  const docError = docTouched && !settled ? validateCPF(form.doc) : null;
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
