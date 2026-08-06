@@ -10,6 +10,7 @@ const requestSchema = z.discriminatedUnion("action", [
     action: z.literal("save"),
     appointment_id: z.string().uuid(),
     card_token: z.string().min(10).max(120),
+    make_default: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
@@ -839,6 +840,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               customerId,
               parsed.data.card_token,
               parsed.data.card_number,
+              parsed.data.make_default ?? false,
             );
             if ("error" in saved) {
               return json(
@@ -877,7 +879,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
-          if (appointment.payment_status === "pago") {
+          if (parsed.data.action === "pay" && appointment.payment_status === "pago") {
             return json({ error: "Este agendamento já está pago.", payment_status: "pago" }, 409);
           }
 
@@ -1054,15 +1056,19 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           let cardSaveError: string | null = null;
           if (parsed.data.save_card && !parsed.data.saved_card_id && paymentStatus === "pago") {
             try {
+              const cardFromPayment = payment.card?.id
+                ? payment.card
+                : await paymentCard(collector.accessToken, payment.id);
+              const expectedCard = cardFromPayment ?? payment.card ?? tokenInfo ?? null;
               const reconciledCard = prelinkedCard
                 ? null
-                : await findCustomerCard(
+                : await waitForCustomerCard(
                     collector.accessToken,
                     customerId,
-                    payment.card ?? tokenInfo ?? null,
+                    expectedCard,
                   );
               const cardReadyToPersist =
-                prelinkedCard ?? (payment.card?.id ? payment.card : reconciledCard);
+                prelinkedCard ?? cardFromPayment ?? reconciledCard;
               const saved = cardReadyToPersist?.id
                 ? await persistSavedCard(
                     collector,
@@ -1079,18 +1085,11 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                     parsed.data.card_number,
                     parsed.data.save_card_as_default ?? false,
                   )
-                : prelinkError
-                  ? { error: prelinkError } as const
-                  : await saveCard(
-                    collector,
-                    admin,
-                    user.id,
-                    appointment.barbershop_id,
-                    customerId,
-                    parsed.data.save_card_token ?? parsed.data.card_token,
-                    parsed.data.card_number,
-                    parsed.data.save_card_as_default ?? false,
-                  );
+                : {
+                    error:
+                      prelinkError ??
+                      "O Mercado Pago aprovou a cobrança, mas ainda não disponibilizou o cartão para salvamento.",
+                  } as const;
               if ("error" in saved) cardSaveError = saved.error ?? "Não foi possível salvar este cartão.";
               else cardSaved = true;
             } catch (saveError) {
@@ -1196,6 +1195,7 @@ async function findCustomerCard(
   accessToken: string,
   customerId: string,
   expected: MercadoPagoCard | null,
+  knownCardIds: Set<string> = new Set(),
 ): Promise<MercadoPagoCard | null> {
   const response = await fetch(
     `https://api.mercadopago.com/v1/customers/${encodeURIComponent(customerId)}/cards`,
@@ -1209,20 +1209,59 @@ async function findCustomerCard(
   const cards = Array.isArray(responseBody.payload)
     ? (responseBody.payload as MercadoPagoCard[])
     : [];
-  if (cards.length === 0) return null;
+  const candidates = cards.filter((card) => !card.id || !knownCardIds.has(card.id));
+  if (candidates.length === 0) return null;
 
   const expectedLastFour = expected?.last_four_digits;
   const expectedMonth = expected?.expiration_month;
   const expectedYear = expected?.expiration_year;
   const expectedMethod = expected?.payment_method?.id;
   return (
-    cards.find((card) =>
+    candidates.find((card) =>
       (!expectedLastFour || card.last_four_digits === expectedLastFour) &&
       (!expectedMonth || card.expiration_month === expectedMonth) &&
       (!expectedYear || card.expiration_year === expectedYear) &&
       (!expectedMethod || card.payment_method?.id === expectedMethod),
     ) ?? null
   );
+}
+
+/**
+ * O vínculo de cartão do Mercado Pago pode responder 500 e concluir alguns
+ * instantes depois. Reconsultamos a carteira para não reutilizar o token, que
+ * é de uso único e sempre falharia numa segunda tentativa.
+ */
+async function waitForCustomerCard(
+  accessToken: string,
+  customerId: string,
+  expected: MercadoPagoCard | null,
+  knownCardIds: Set<string> = new Set(),
+): Promise<MercadoPagoCard | null> {
+  const delays = [0, 300, 900];
+  for (const delay of delays) {
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+    const card = await findCustomerCard(accessToken, customerId, expected, knownCardIds);
+    if (card?.id) return card;
+  }
+  return null;
+}
+
+/** Busca novamente a cobrança, pois a resposta inicial pode omitir card.id. */
+async function paymentCard(
+  accessToken: string,
+  paymentId: string | number,
+): Promise<MercadoPagoCard | null> {
+  const response = await fetch(
+    `https://api.mercadopago.com/v1/payments/${encodeURIComponent(String(paymentId))}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  const responseBody = await readMpResponse(response);
+  if (!response.ok) {
+    logMpFailure("consulta da cobrança para salvar cartão", response, responseBody);
+    return null;
+  }
+  const detail = responseBody.payload as { card?: MercadoPagoCard };
+  return detail.card?.id ? detail.card : null;
 }
 
 async function saveCard(
@@ -1236,8 +1275,23 @@ async function saveCard(
   cardNumber?: string | null,
   makeDefault = false,
 ) {
+  const { data: knownRows } = await admin
+    .from("saved_cards")
+    .select("mp_card_id")
+    .eq("user_id", userId)
+    .eq("mp_collector_id", collector.collectorId);
+  const knownCardIds = new Set(
+    ((knownRows ?? []) as Array<{ mp_card_id?: string | null }>)
+      .map((row) => row.mp_card_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const expected = await inspectCardToken(collector.accessToken, cardToken);
   const linked = await linkCardToCustomer(collector.accessToken, customerId, cardToken);
-  if ("error" in linked) return linked;
+  const linkedCard =
+    "error" in linked
+      ? await waitForCustomerCard(collector.accessToken, customerId, expected, knownCardIds)
+      : linked.card;
+  if (!linkedCard?.id) return linked;
 
   return persistSavedCard(
     collector,
@@ -1245,7 +1299,7 @@ async function saveCard(
     userId,
     barbershopId,
     customerId,
-    linked.card,
+    linkedCard,
     cardNumber,
     makeDefault,
   );
