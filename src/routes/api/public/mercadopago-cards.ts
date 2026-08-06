@@ -1141,6 +1141,7 @@ async function saveCard(
   customerId: string,
   cardToken: string,
   cardNumber?: string | null,
+  makeDefault = false,
 ) {
   const response = await fetch(
     `https://api.mercadopago.com/v1/customers/${encodeURIComponent(customerId)}/cards`,
