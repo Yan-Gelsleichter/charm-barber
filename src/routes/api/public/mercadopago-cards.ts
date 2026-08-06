@@ -2,6 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { mpPlatformCredentials, credentialMismatch } from "@/lib/mp-platform.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { isValidCPF } from "@/lib/format";
+
+/** Valida os 11 dígitos do CPF (dígitos verificadores oficiais). */
+const isValidCPFDigits = (v: string) => isValidCPF(v);
+
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("config"), appointment_id: z.string().uuid() }),
@@ -37,7 +42,11 @@ const requestSchema = z.discriminatedUnion("action", [
     save_card_as_default: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
     /** CPF do titular (somente dígitos) — exigido pelas emissoras brasileiras. */
-    payer_doc: z.string().regex(/^\d{11}$/).optional(),
+    payer_doc: z
+      .string()
+      .regex(/^\d{11}$/, "CPF deve conter 11 dígitos.")
+      .refine(isValidCPFDigits, "CPF inválido.")
+      .optional(),
     cardholder_name: z.string().min(2).max(80).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
@@ -947,21 +956,30 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           ).trim();
           const [firstName, ...restName] = holderName.split(/\s+/).filter(Boolean);
           const lastName = restName.join(" ");
-          const payerDoc =
+          const payerDoc = (
             parsed.data.payer_doc ??
-            (tokenInfo?.cardholder?.identification?.number ?? "").replace(/\D/g, "") ??
-            "";
+            tokenInfo?.cardholder?.identification?.number ??
+            ""
+          ).replace(/\D/g, "");
+          if (!isValidCPF(payerDoc)) {
+            return json(
+              {
+                error:
+                  "CPF do titular inválido ou ausente. Confira o CPF informado e tente novamente.",
+              },
+              400,
+            );
+          }
 
           const payer: Record<string, unknown> = {
             type: "customer",
             id: customerId,
             email: userEmail,
+            identification: { type: "CPF", number: payerDoc },
           };
           if (firstName) payer["first_name"] = firstName;
           if (lastName) payer["last_name"] = lastName;
-          if (payerDoc.length === 11) {
-            payer["identification"] = { type: "CPF", number: payerDoc };
-          }
+
 
           const serviceName = (service as { name?: string } | null)?.name ?? "Serviço";
           const body: Record<string, unknown> = {

@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { maskCPF, validateCPF } from "@/lib/format";
 
 export type SavedCard = {
   id: string;
@@ -339,6 +340,7 @@ export function SavedCards({
   const [newCvvTouched, setNewCvvTouched] = useState(false);
   const [numberTouched, setNumberTouched] = useState(false);
   const [expiryTouched, setExpiryTouched] = useState(false);
+  const [docTouched, setDocTouched] = useState(false);
   const [newCardOpen, setNewCardOpen] = useState(draft?.newCardOpen ?? false);
   const [payError, setPayError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -422,10 +424,13 @@ export function SavedCards({
   const newCardCvvError = newCvvTouched ? validateCvv(form.cvv, null, form.number) : null;
   const numberError = numberTouched ? validateCardNumber(form.number) : null;
   const expiryError = expiryTouched ? validateExpiry(form.expiry) : null;
+  const docError = docTouched ? validateCPF(form.doc) : null;
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
-    validateCvv(form.cvv, null, form.number),
+    validateCvv(form.cvv, null, form.number) ||
+    validateCPF(form.doc) ||
+    !form.name.trim(),
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
@@ -492,7 +497,8 @@ export function SavedCards({
       }
       if (!form.name.trim()) throw new Error("Informe o nome impresso no cartão.");
       const doc = digits(form.doc);
-      if (doc.length !== 11) throw new Error("Informe o CPF do titular (11 dígitos).");
+      const invalidDoc = validateCPF(doc);
+      if (invalidDoc) throw new Error(invalidDoc);
 
       const tokenPayload = {
         card_number: digits(form.number),
@@ -867,12 +873,24 @@ export function SavedCards({
               )}
             </div>
           </div>
-          <Input
-            inputMode="numeric"
-            placeholder="CPF do titular (obrigatório)"
-            value={form.doc}
-            onChange={(e) => setForm((f) => ({ ...f, doc: digits(e.target.value).slice(0, 11) }))}
-          />
+          <div>
+            <Input
+              inputMode="numeric"
+              placeholder="CPF do titular (obrigatório)"
+              value={maskCPF(form.doc)}
+              aria-invalid={Boolean(docError)}
+              aria-describedby={docError ? "new-card-doc-error" : undefined}
+              onBlur={() => setDocTouched(true)}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, doc: digits(e.target.value).slice(0, 11) }))
+              }
+            />
+            {docError && (
+              <p id="new-card-doc-error" className="mt-1 text-[11px] text-destructive">
+                {docError}
+              </p>
+            )}
+          </div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
