@@ -36,7 +36,8 @@ function Home() {
   });
   const currentBarbershopId = barber?.barbershop_id ?? shopIdQ.data ?? null;
   const { data: shop } = useShopConfig(currentBarbershopId);
-  useApplyPrimaryColor(shop?.primary_color ?? null);
+  // Cliente sempre usa a cor padrão do app (a cor do admin não interfere aqui)
+  useApplyPrimaryColor(null);
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
