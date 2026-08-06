@@ -793,7 +793,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json(
               {
                 error:
-                  "A conta do Mercado Pago está em modo de teste (platform). Conecte as credenciais de produção no painel (Pagamentos) para cobrar cartões reais.",
+                  "A conta do Mercado Pago está em modo de teste (sandbox). Conecte as credenciais de produção no painel (Pagamentos) para cobrar cartões reais.",
                 detail: "Access token de teste (TEST-...)",
               },
               400,
