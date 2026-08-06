@@ -696,6 +696,33 @@ export function SavedCards({
         </div>
       )}
 
+      {locked && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
+            pendingReview
+              ? "border-border/60 bg-secondary/40 text-muted-foreground"
+              : "border-success/40 bg-success/10 text-success",
+          )}
+        >
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold">
+              {pendingReview ? "Pagamento enviado e em análise pelo emissor" : "Pagamento aprovado"}
+            </p>
+            <p className="mt-0.5">
+              {pendingReview
+                ? "Recebemos sua cobrança e o banco está analisando. Não é preciso pagar de novo — acompanhe o resultado na tela de confirmação."
+                : "Tudo certo! Seu agendamento já está pago."}
+            </p>
+          </div>
+        </div>
+      )}
+
+
+
       {!cardsQ.isLoading && !newCardOpen && cards.length > 0 && !hasDefault && (
         <p className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
           Você ainda não definiu um cartão padrão. Escolha abaixo qual cartão usar agora ou adicione
