@@ -148,6 +148,11 @@ async function inspectCardToken(accessToken: string, cardToken: string) {
     expiration_month?: number;
     expiration_year?: number;
     last_four_digits?: string;
+    first_six_digits?: string;
+    payment_method_id?: string;
+    payment_method?: { id?: string; name?: string };
+    issuer_id?: string | number;
+    issuer?: { id?: string | number };
   } | null;
 }
 
