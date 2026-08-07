@@ -391,7 +391,9 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
         )}
       </section>
 
-      {mode === "split" && <ComissoesBarbeiros shopId={shopId} />}
+      {mode === "split" && (
+        <ComissoesBarbeiros shopId={shopId} shopMpUserId={statusQ.data?.mp_user_id ?? null} />
+      )}
 
 
       <section className="surface space-y-4 p-4">
@@ -455,7 +457,13 @@ type BarberRow = {
 };
 
 /** Lista de barbeiros com comissão individual e status de conexão (modo split). */
-function ComissoesBarbeiros({ shopId }: { shopId: string | null }) {
+function ComissoesBarbeiros({
+  shopId,
+  shopMpUserId,
+}: {
+  shopId: string | null;
+  shopMpUserId?: string | null;
+}) {
   const qc = useQueryClient();
   const { platformReady, platformEnv } = usePlatformMp();
   const [draft, setDraft] = useState<Record<string, string>>({});
