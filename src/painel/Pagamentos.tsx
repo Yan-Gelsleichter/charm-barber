@@ -106,6 +106,7 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
       return (data as { mp_user_id?: string | null } | null) ?? null;
     },
   });
+  const { platformReady, platformEnv } = usePlatformMp();
   const connected = !!meQ.data?.mp_user_id;
 
   const disconnect = useMutation({
