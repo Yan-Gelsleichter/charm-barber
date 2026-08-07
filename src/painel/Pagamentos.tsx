@@ -557,6 +557,8 @@ function ComissoesBarbeiros({ shopId }: { shopId: string | null }) {
                       <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
                         <CheckCircle2 className="size-3" /> Mercado Pago conectado
                       </p>
+                    ) : platformReady ? (
+                      <PlatformConnected env={platformEnv} />
                     ) : (
                       <p className="flex items-center gap-1 text-xs text-muted-foreground">
                         <AlertCircle className="size-3" /> Mercado Pago não conectado
