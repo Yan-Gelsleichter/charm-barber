@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { maskCPF, validateCPF } from "@/lib/format";
+import { SecuritySeal } from "@/components/SecuritySeal";
+
 
 export type SavedCard = {
   id: string;
@@ -674,6 +676,9 @@ export function SavedCards({
         <Zap className="size-4" /> Pagar com cartão nesta página
       </h2>
 
+      <SecuritySeal />
+
+
       {(configQ.isLoading || cardsQ.isLoading) && (
         <div className="flex justify-center py-3">
           <Loader2 className="animate-spin" />
@@ -1004,6 +1009,8 @@ export function SavedCards({
         </Button>
       )}
 
+      <SecuritySeal compact />
     </section>
+
   );
 }
