@@ -407,6 +407,8 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
               <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
                 <CheckCircle2 className="size-3" /> Conectado (conta {statusQ.data?.mp_user_id})
               </p>
+            ) : platformReady ? (
+              <PlatformConnected env={platformEnv} />
             ) : (
               <p className="flex items-center gap-1 text-xs text-muted-foreground">
                 <AlertCircle className="size-3" /> Não conectado
