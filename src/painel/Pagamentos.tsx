@@ -457,6 +457,7 @@ type BarberRow = {
 /** Lista de barbeiros com comissão individual e status de conexão (modo split). */
 function ComissoesBarbeiros({ shopId }: { shopId: string | null }) {
   const qc = useQueryClient();
+  const { platformReady, platformEnv } = usePlatformMp();
   const [draft, setDraft] = useState<Record<string, string>>({});
 
   const listQ = useQuery({
