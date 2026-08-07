@@ -674,6 +674,9 @@ export function SavedCards({
         <Zap className="size-4" /> Pagar com cartão nesta página
       </h2>
 
+      <SecuritySeal />
+
+
       {(configQ.isLoading || cardsQ.isLoading) && (
         <div className="flex justify-center py-3">
           <Loader2 className="animate-spin" />
