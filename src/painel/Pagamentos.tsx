@@ -561,9 +561,10 @@ function ComissoesBarbeiros({
                         <span className="ml-2 text-xs font-normal text-muted-foreground">(admin)</span>
                       )}
                     </p>
-                    {b.mp_user_id ? (
+                    {b.mp_user_id || (b.is_admin && shopMpUserId) ? (
                       <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
-                        <CheckCircle2 className="size-3" /> Mercado Pago conectado
+                        <CheckCircle2 className="size-3" /> Mercado Pago conectado (conta{" "}
+                        {b.mp_user_id ?? shopMpUserId})
                       </p>
                     ) : platformReady ? (
                       <PlatformConnected env={platformEnv} />
