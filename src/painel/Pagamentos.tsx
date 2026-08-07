@@ -57,6 +57,33 @@ const MODES: { id: PayoutMode; title: string; desc: string; icon: React.ElementT
   },
 ];
 
+/** Chaves do Mercado Pago configuradas no Supabase (conta da plataforma). */
+function usePlatformMp() {
+  const q = useQuery({
+    queryKey: ["mp-platform-status"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const res = await fetch("/api/public/mercadopago-status");
+      if (!res.ok) throw new Error("Falha ao verificar as chaves do Mercado Pago");
+      return (await res.json()) as {
+        configured: boolean;
+        env: "test" | "live" | null;
+        has_public_key: boolean;
+      };
+    },
+  });
+  return { platformReady: !!q.data?.configured, platformEnv: q.data?.env ?? null };
+}
+
+function PlatformConnected({ env }: { env: "test" | "live" | null }) {
+  return (
+    <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
+      <CheckCircle2 className="size-3" /> Conectado (chaves da barbearia no Supabase
+      {env === "test" ? " · teste" : ""})
+    </p>
+  );
+}
+
 export function PagamentosTab({ barber }: { barber: Barber }) {
   if (!barber.is_admin) return <MeuMercadoPago barber={barber} />;
   return <AdminPagamentos barber={barber} />;
