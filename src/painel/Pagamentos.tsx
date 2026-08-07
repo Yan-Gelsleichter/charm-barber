@@ -57,6 +57,33 @@ const MODES: { id: PayoutMode; title: string; desc: string; icon: React.ElementT
   },
 ];
 
+/** Chaves do Mercado Pago configuradas no Supabase (conta da plataforma). */
+function usePlatformMp() {
+  const q = useQuery({
+    queryKey: ["mp-platform-status"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const res = await fetch("/api/public/mercadopago-status");
+      if (!res.ok) throw new Error("Falha ao verificar as chaves do Mercado Pago");
+      return (await res.json()) as {
+        configured: boolean;
+        env: "test" | "live" | null;
+        has_public_key: boolean;
+      };
+    },
+  });
+  return { platformReady: !!q.data?.configured, platformEnv: q.data?.env ?? null };
+}
+
+function PlatformConnected({ env }: { env: "test" | "live" | null }) {
+  return (
+    <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
+      <CheckCircle2 className="size-3" /> Conectado (chaves da barbearia no Supabase
+      {env === "test" ? " · teste" : ""})
+    </p>
+  );
+}
+
 export function PagamentosTab({ barber }: { barber: Barber }) {
   if (!barber.is_admin) return <MeuMercadoPago barber={barber} />;
   return <AdminPagamentos barber={barber} />;
@@ -79,6 +106,7 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
       return (data as { mp_user_id?: string | null } | null) ?? null;
     },
   });
+  const { platformReady, platformEnv } = usePlatformMp();
   const connected = !!meQ.data?.mp_user_id;
 
   const disconnect = useMutation({
@@ -142,6 +170,8 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
               <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
                 <CheckCircle2 className="size-3" /> Conectada (conta {meQ.data?.mp_user_id})
               </p>
+            ) : platformReady ? (
+              <PlatformConnected env={platformEnv} />
             ) : (
               <p className="flex items-center gap-1 text-xs text-muted-foreground">
                 <AlertCircle className="size-3" /> Não conectada
@@ -288,6 +318,7 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
   });
 
 
+  const { platformReady, platformEnv } = usePlatformMp();
   const connected = !!statusQ.data?.mp_user_id;
 
   function connect() {
@@ -376,6 +407,8 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
               <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
                 <CheckCircle2 className="size-3" /> Conectado (conta {statusQ.data?.mp_user_id})
               </p>
+            ) : platformReady ? (
+              <PlatformConnected env={platformEnv} />
             ) : (
               <p className="flex items-center gap-1 text-xs text-muted-foreground">
                 <AlertCircle className="size-3" /> Não conectado
@@ -424,6 +457,7 @@ type BarberRow = {
 /** Lista de barbeiros com comissão individual e status de conexão (modo split). */
 function ComissoesBarbeiros({ shopId }: { shopId: string | null }) {
   const qc = useQueryClient();
+  const { platformReady, platformEnv } = usePlatformMp();
   const [draft, setDraft] = useState<Record<string, string>>({});
 
   const listQ = useQuery({
@@ -523,6 +557,8 @@ function ComissoesBarbeiros({ shopId }: { shopId: string | null }) {
                       <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
                         <CheckCircle2 className="size-3" /> Mercado Pago conectado
                       </p>
+                    ) : platformReady ? (
+                      <PlatformConnected env={platformEnv} />
                     ) : (
                       <p className="flex items-center gap-1 text-xs text-muted-foreground">
                         <AlertCircle className="size-3" /> Mercado Pago não conectado
