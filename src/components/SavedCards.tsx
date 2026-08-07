@@ -1009,6 +1009,8 @@ export function SavedCards({
         </Button>
       )}
 
+      <SecuritySeal compact />
     </section>
+
   );
 }
