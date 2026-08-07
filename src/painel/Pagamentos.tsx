@@ -318,6 +318,7 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
   });
 
 
+  const { platformReady, platformEnv } = usePlatformMp();
   const connected = !!statusQ.data?.mp_user_id;
 
   function connect() {
