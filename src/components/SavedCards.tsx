@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { maskCPF, validateCPF } from "@/lib/format";
+import { SecuritySeal } from "@/components/SecuritySeal";
+
 
 export type SavedCard = {
   id: string;
