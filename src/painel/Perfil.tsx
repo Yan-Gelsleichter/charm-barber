@@ -37,6 +37,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
   const fileRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [name, setName] = useState(barber.name ?? "");
   const [businessName, setBusinessName] = useState(barber.business_name ?? "");
   const [photoUrl, setPhotoUrl] = useState(barber.logo_url ?? "");
   const [color, setColor] = useState(barber.primary_color ?? "#3b82f6");
@@ -44,10 +45,11 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
   const { dark, setDark } = useDarkMode();
 
   useEffect(() => {
+    setName(barber.name ?? "");
     setBusinessName(barber.business_name ?? "");
     setPhotoUrl(barber.logo_url ?? "");
     setColor(barber.primary_color ?? "#3b82f6");
-  }, [barber.id, barber.business_name, barber.logo_url, barber.primary_color]);
+  }, [barber.id, barber.name, barber.business_name, barber.logo_url, barber.primary_color]);
 
   const change = useMutation({
     mutationFn: async () => {
@@ -66,9 +68,12 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
 
   const saveAppearance = useMutation({
     mutationFn: async () => {
+      const trimmedName = name.trim();
+      if (!trimmedName) throw new Error("O nome não pode ficar vazio");
       const { error } = await supabase
         .from("barbers")
         .update({
+          name: trimmedName,
           business_name: businessName.trim() || null,
           logo_url: photoUrl.trim() || null,
           primary_color: color || null,
@@ -77,7 +82,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Preferências salvas");
+      toast.success("Perfil salvo");
       qc.invalidateQueries({ queryKey: ["me-barber"] });
       qc.invalidateQueries({ queryKey: ["barbers-list"] });
       qc.invalidateQueries({ queryKey: ["shop-config"] });
@@ -133,6 +138,16 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         <div className="flex items-center gap-2">
           <Palette className="text-muted-foreground" size={18} />
           <h2 className="font-semibold">Personalização</h2>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="name">Nome</Label>
+          <Input
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Seu nome"
+          />
         </div>
 
         <div className="space-y-1">
