@@ -239,9 +239,12 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <div className="grid gap-2">
             {bloqueios.map((a) => {
               return (
-                <div key={a.id} className="surface flex items-center justify-between p-4">
-                  <div>
-                    <p className="font-semibold">
+                <div
+                  key={a.id}
+                  className="surface grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">
                       {fmtTime(a.start_time)} – {fmtTime(a.end_time)}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -251,6 +254,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="shrink-0"
                     onClick={() => {
                       if (confirm("Remover este bloqueio?")) removeBlock.mutate(a.id);
                     }}
@@ -284,12 +288,12 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                 <div
                   key={a.id}
                   className={cn(
-                    "surface flex items-center justify-between p-4",
+                    "surface grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-4",
                     atendido && "opacity-70",
                   )}
                 >
-                  <div>
-                    <p className="font-semibold">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">
                       {fmtTime(a.appointment_time)} · {a.customer_name}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -297,7 +301,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       {a.customer_phone}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <PaymentBadge status={a.payment_status} compact />
                     {atendido && (
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
@@ -309,6 +313,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="shrink-0"
                       onClick={() => {
                         if (confirm("Cancelar este agendamento?")) cancel.mutate(a.id);
                       }}
@@ -359,11 +364,14 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           </h2>
           <div className="grid gap-2">
             {cancelados.map((a) => (
-              <div key={a.id} className="surface flex items-center justify-between p-3 opacity-60">
-                <p className="text-sm line-through">
+              <div
+                key={a.id}
+                className="surface grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 opacity-60"
+              >
+                <p className="min-w-0 truncate text-sm line-through">
                   {fmtTime(a.appointment_time)} · {a.customer_name}
                 </p>
-                <span className="text-xs text-destructive">cancelado</span>
+                <span className="shrink-0 text-xs text-destructive">cancelado</span>
               </div>
             ))}
           </div>
