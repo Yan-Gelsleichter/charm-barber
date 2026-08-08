@@ -239,9 +239,12 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <div className="grid gap-2">
             {bloqueios.map((a) => {
               return (
-                <div key={a.id} className="surface flex items-center justify-between p-4">
-                  <div>
-                    <p className="font-semibold">
+                <div
+                  key={a.id}
+                  className="surface grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">
                       {fmtTime(a.start_time)} – {fmtTime(a.end_time)}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -251,6 +254,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="shrink-0"
                     onClick={() => {
                       if (confirm("Remover este bloqueio?")) removeBlock.mutate(a.id);
                     }}
