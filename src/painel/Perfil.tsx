@@ -68,9 +68,12 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
 
   const saveAppearance = useMutation({
     mutationFn: async () => {
+      const trimmedName = name.trim();
+      if (!trimmedName) throw new Error("O nome não pode ficar vazio");
       const { error } = await supabase
         .from("barbers")
         .update({
+          name: trimmedName,
           business_name: businessName.trim() || null,
           logo_url: photoUrl.trim() || null,
           primary_color: color || null,
@@ -79,7 +82,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Preferências salvas");
+      toast.success("Perfil salvo");
       qc.invalidateQueries({ queryKey: ["me-barber"] });
       qc.invalidateQueries({ queryKey: ["barbers-list"] });
       qc.invalidateQueries({ queryKey: ["shop-config"] });
