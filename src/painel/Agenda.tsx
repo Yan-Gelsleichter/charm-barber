@@ -364,11 +364,14 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           </h2>
           <div className="grid gap-2">
             {cancelados.map((a) => (
-              <div key={a.id} className="surface flex items-center justify-between p-3 opacity-60">
-                <p className="text-sm line-through">
+              <div
+                key={a.id}
+                className="surface grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 opacity-60"
+              >
+                <p className="min-w-0 truncate text-sm line-through">
                   {fmtTime(a.appointment_time)} · {a.customer_name}
                 </p>
-                <span className="text-xs text-destructive">cancelado</span>
+                <span className="shrink-0 text-xs text-destructive">cancelado</span>
               </div>
             ))}
           </div>
