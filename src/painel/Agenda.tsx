@@ -207,18 +207,24 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               Bloqueie um período deste dia para compromissos fora da barbearia. Os horários ficam
               indisponíveis para os clientes.
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1 text-xs text-muted-foreground">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 Início
                 <Input
                   type="time"
+                  className="min-w-0 max-w-full [appearance:none] [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left"
                   value={blockStart}
                   onChange={(e) => setBlockStart(e.target.value)}
                 />
               </label>
-              <label className="grid gap-1 text-xs text-muted-foreground">
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 Fim
-                <Input type="time" value={blockEnd} onChange={(e) => setBlockEnd(e.target.value)} />
+                <Input
+                  type="time"
+                  className="min-w-0 max-w-full [appearance:none] [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left"
+                  value={blockEnd}
+                  onChange={(e) => setBlockEnd(e.target.value)}
+                />
               </label>
             </div>
             <label className="grid gap-1 text-xs text-muted-foreground">
