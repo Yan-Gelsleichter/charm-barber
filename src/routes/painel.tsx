@@ -13,6 +13,7 @@ import {
   RefreshCw,
   UserRound,
   CreditCard,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +35,7 @@ import { HistoricoTab } from "@/painel/Historico";
 import { ClientesTab } from "@/painel/Clientes";
 import { PerfilTab } from "@/painel/Perfil";
 import { PagamentosTab } from "@/painel/Pagamentos";
+import { FaturamentoTab } from "@/painel/Faturamento";
 
 type Tab =
   | "dashboard"
@@ -44,6 +46,7 @@ type Tab =
   | "clientes"
   | "perfil"
   | "pagamentos"
+  | "faturamentos"
   | "historico";
 
 const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
@@ -55,6 +58,7 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
   { id: "pagamentos", label: "Pagamentos", icon: CreditCard },
+  { id: "faturamentos", label: "Faturamentos", icon: Wallet, adminOnly: true },
   { id: "perfil", label: "Perfil", icon: UserRound },
 ];
 
@@ -293,6 +297,7 @@ WHERE user_id = '${currentUid}';`;
         {tab === "historico" && <HistoricoTab barber={barber} />}
         {tab === "barbeiros" && barber.is_admin && <BarbeirosTab />}
         {tab === "pagamentos" && (barber.is_admin || splitOn) && <PagamentosTab barber={barber} />}
+        {tab === "faturamentos" && barber.is_admin && <FaturamentoTab barber={barber} />}
         {tab === "clientes" && <ClientesTab barber={barber} />}
         {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
 
