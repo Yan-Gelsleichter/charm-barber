@@ -35,7 +35,12 @@ export function ClientesTab({ barber }: { barber: Barber }) {
       }
       const { data, error } = await query;
       if (error) throw error;
-      return data as Client[];
+      // Registros técnicos (marcadores de cancelamento/remarcação e bloqueios de
+      // agenda) nunca devem aparecer como clientes reais.
+      return (data as Client[]).filter((c) => {
+        const n = (c.name ?? "").trim().toUpperCase();
+        return !n.startsWith("CANCELADO:") && !n.startsWith("BLOQUEIO:");
+      });
     },
   });
 
