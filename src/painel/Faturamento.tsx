@@ -237,9 +237,11 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                   {list.map((r, i) => {
                     const s = r.stats[rk.key];
                     return (
-                      <div
+                      <button
                         key={r.barbeiro.id}
-                        className="surface grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3"
+                        type="button"
+                        onClick={() => setDetalhe({ barbeiro: r.barbeiro, periodo: rk })}
+                        className="surface grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3 text-left transition-colors hover:border-primary"
                       >
                         <span className="brand-text w-6 text-center text-base font-bold">
                           {i + 1}º
