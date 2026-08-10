@@ -156,6 +156,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
   }, [q.data?.barbeiros, statsPorBarbeiro]);
 
   const [detalhe, setDetalhe] = useState<{ barbeiro: Barber; periodo: RankingPeriod } | null>(null);
+  const [exportando, setExportando] = useState(false);
 
   const servicosMap = useMemo(
     () => new Map((q.data?.sv ?? []).map((s) => [s.id, s])),
