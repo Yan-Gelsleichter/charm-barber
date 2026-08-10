@@ -268,6 +268,44 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
           );
         })}
       </div>
+
+      <Dialog open={!!detalhe} onOpenChange={(open) => !open && setDetalhe(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="truncate">{detalhe?.barbeiro.name}</DialogTitle>
+            <DialogDescription>
+              {detalhe?.periodo.title} · {detalheItens.length} atendimento
+              {detalheItens.length === 1 ? "" : "s"} · {brl(detalheTotal)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detalheItens.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nenhum atendimento neste período.
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {detalheItens.map((a) => (
+                <div
+                  key={a.id}
+                  className="surface grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{a.customer_name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
+                      {fmtDateTime(a.appointment_time)}
+                    </p>
+                  </div>
+                  <span className="brand-text shrink-0 text-sm font-semibold">
+                    {brl(precos.get(a.service_id) ?? 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
