@@ -1,10 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Trophy } from "lucide-react";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
-import { brl } from "@/lib/format";
+import { brl, fmtDateTime } from "@/lib/format";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 
 type Periodo = "hoje" | "semana" | "mes" | "ano";
