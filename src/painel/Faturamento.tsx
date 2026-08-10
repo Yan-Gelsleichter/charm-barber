@@ -155,6 +155,33 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     };
   }, [q.data?.barbeiros, statsPorBarbeiro]);
 
+  const [detalhe, setDetalhe] = useState<{ barbeiro: Barber; periodo: RankingPeriod } | null>(null);
+
+  const servicosMap = useMemo(
+    () => new Map((q.data?.sv ?? []).map((s) => [s.id, s])),
+    [q.data?.sv],
+  );
+
+  const detalheItens = useMemo(() => {
+    if (!detalhe) return [];
+    const ini = inicioDoPeriodo(detalhe.periodo.key).getTime();
+    return atendidos
+      .filter(
+        (a) =>
+          a.barber_id === detalhe.barbeiro.id &&
+          new Date(a.appointment_time).getTime() >= ini,
+      )
+      .sort(
+        (a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime(),
+      );
+  }, [detalhe, atendidos]);
+
+  const detalheTotal = useMemo(
+    () => detalheItens.reduce((sum, a) => sum + (precos.get(a.service_id) ?? 0), 0),
+    [detalheItens, precos],
+  );
+
+
   if (q.isLoading) {
     return (
       <div className="flex justify-center py-16">
