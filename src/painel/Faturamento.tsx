@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, Loader2, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +17,7 @@ import type { Appointment, Barber, Service } from "@/integrations/supabase/db-ty
 import { brl, fmtDateTime } from "@/lib/format";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 
-type Periodo = "hoje" | "semana" | "mes" | "ano";
+type Periodo = "hoje" | "semana" | "mes" | "ano" | "custom";
 
 const PERIODOS: { key: Periodo; label: string }[] = [
   { key: "hoje", label: "Hoje" },
@@ -24,13 +26,27 @@ const PERIODOS: { key: Periodo; label: string }[] = [
   { key: "ano", label: "Este ano" },
 ];
 
-function inicioDoPeriodo(p: Periodo): Date {
+function inicioDoPeriodo(p: Exclude<Periodo, "custom">): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   if (p === "semana") d.setDate(d.getDate() - d.getDay());
   else if (p === "mes") d.setDate(1);
   else if (p === "ano") d.setMonth(0, 1);
   return d;
+}
+
+function parseInicio(s: string): number | null {
+  if (!s) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+}
+
+function parseFim(s: string): number | null {
+  if (!s) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
 }
 
 interface BarberStats {
@@ -51,11 +67,32 @@ const RANKINGS: RankingPeriod[] = [
   { key: "ano", title: "Ranking do ano", sublabel: "atend. no ano" },
 ];
 
+const CUSTOM_RANKING: RankingPeriod = {
+  key: "custom",
+  title: "Ranking do período selecionado",
+  sublabel: "atend. no período",
+};
+
+const ZERO_STATS = (): Record<Periodo, BarberStats> => ({
+  hoje: { valor: 0, qtd: 0 },
+  semana: { valor: 0, qtd: 0 },
+  mes: { valor: 0, qtd: 0 },
+  ano: { valor: 0, qtd: 0 },
+  custom: { valor: 0, qtd: 0 },
+});
+
 export function FaturamentoTab({ barber }: { barber: Barber }) {
   const shopId = barber.barbershop_id ?? null;
 
+  const [de, setDe] = useState("");
+  const [ate, setAte] = useState("");
+
+  const customIni = parseInicio(de);
+  const customFim = parseFim(ate);
+  const customAtivo = customIni != null && customFim != null && customIni <= customFim;
+
   const q = useQuery({
-    queryKey: ["faturamento", shopId ?? barber.id],
+    queryKey: ["faturamento", shopId ?? barber.id, customAtivo ? `${de}_${ate}` : "padrao"],
     queryFn: async () => {
       let barbersQuery = supabase.from("barbers").select("*");
       barbersQuery = shopId
@@ -67,15 +104,18 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
       const ids = barbeiros.map((b) => b.id);
       if (ids.length === 0) return { barbeiros, ag: [] as Appointment[], sv: [] as Service[] };
 
-      const inicioAno = inicioDoPeriodo("ano").toISOString();
-      const agora = new Date().toISOString();
+      const inicioAnoMs = inicioDoPeriodo("ano").getTime();
+      const agoraMs = Date.now();
+      const desdeMs = customAtivo ? Math.min(inicioAnoMs, customIni!) : inicioAnoMs;
+      const ateMs = customAtivo ? Math.max(agoraMs, customFim!) : agoraMs;
+
       const [a, s] = await Promise.all([
         supabase
           .from("appointments")
           .select("*")
           .in("barber_id", ids)
-          .gte("appointment_time", inicioAno)
-          .lte("appointment_time", agora)
+          .gte("appointment_time", new Date(desdeMs).toISOString())
+          .lte("appointment_time", new Date(ateMs).toISOString())
           .order("appointment_time", { ascending: false }),
         supabase.from("services").select("*").in("barber_id", ids),
       ]);
@@ -99,61 +139,68 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     [q.data?.ag],
   );
 
-  const totais = useMemo(() => {
-    const t: Record<Periodo, { valor: number; qtd: number }> = {
-      hoje: { valor: 0, qtd: 0 },
-      semana: { valor: 0, qtd: 0 },
-      mes: { valor: 0, qtd: 0 },
-      ano: { valor: 0, qtd: 0 },
+  const faixas = useMemo(() => {
+    const agora = Date.now();
+    const f: Record<Periodo, { ini: number; fim: number } | null> = {
+      hoje: { ini: inicioDoPeriodo("hoje").getTime(), fim: agora },
+      semana: { ini: inicioDoPeriodo("semana").getTime(), fim: agora },
+      mes: { ini: inicioDoPeriodo("mes").getTime(), fim: agora },
+      ano: { ini: inicioDoPeriodo("ano").getTime(), fim: agora },
+      custom: customAtivo ? { ini: customIni!, fim: customFim! } : null,
     };
-    for (const p of PERIODOS) {
-      const ini = inicioDoPeriodo(p.key).getTime();
-      for (const a of atendidos) {
-        if (new Date(a.appointment_time).getTime() >= ini) {
-          t[p.key].valor += precos.get(a.service_id) ?? 0;
-          t[p.key].qtd += 1;
+    return f;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customAtivo, customIni, customFim, q.data]);
+
+  const totais = useMemo(() => {
+    const t = ZERO_STATS();
+    for (const a of atendidos) {
+      const time = new Date(a.appointment_time).getTime();
+      const v = precos.get(a.service_id) ?? 0;
+      for (const key of Object.keys(faixas) as Periodo[]) {
+        const fx = faixas[key];
+        if (fx && time >= fx.ini && time <= fx.fim) {
+          t[key].valor += v;
+          t[key].qtd += 1;
         }
       }
     }
     return t;
-  }, [atendidos, precos]);
+  }, [atendidos, precos, faixas]);
 
   const statsPorBarbeiro = useMemo(() => {
     const map = new Map<string, Record<Periodo, BarberStats>>();
-    for (const b of q.data?.barbeiros ?? []) {
-      map.set(b.id, {
-        hoje: { valor: 0, qtd: 0 },
-        semana: { valor: 0, qtd: 0 },
-        mes: { valor: 0, qtd: 0 },
-        ano: { valor: 0, qtd: 0 },
-      });
-    }
+    for (const b of q.data?.barbeiros ?? []) map.set(b.id, ZERO_STATS());
     for (const a of atendidos) {
       const row = map.get(a.barber_id);
       if (!row) continue;
       const v = precos.get(a.service_id) ?? 0;
-      const t = new Date(a.appointment_time).getTime();
-      for (const p of PERIODOS) {
-        if (t >= inicioDoPeriodo(p.key).getTime()) {
-          row[p.key].valor += v;
-          row[p.key].qtd += 1;
+      const time = new Date(a.appointment_time).getTime();
+      for (const key of Object.keys(faixas) as Periodo[]) {
+        const fx = faixas[key];
+        if (fx && time >= fx.ini && time <= fx.fim) {
+          row[key].valor += v;
+          row[key].qtd += 1;
         }
       }
     }
     return map;
-  }, [q.data?.barbeiros, atendidos, precos]);
+  }, [q.data?.barbeiros, atendidos, precos, faixas]);
 
   const rankings = useMemo(() => {
     const base = (q.data?.barbeiros ?? []).map((b) => ({
       barbeiro: b,
-      stats: statsPorBarbeiro.get(b.id)!,
+      stats: statsPorBarbeiro.get(b.id) ?? ZERO_STATS(),
     }));
+    const ordenar = (k: Periodo) =>
+      [...base].sort((x, y) => y.stats[k].valor - x.stats[k].valor || y.stats[k].qtd - x.stats[k].qtd);
     return {
-      hoje: [...base].sort((x, y) => y.stats.hoje.valor - x.stats.hoje.valor || y.stats.hoje.qtd - x.stats.hoje.qtd),
-      semana: [...base].sort((x, y) => y.stats.semana.valor - x.stats.semana.valor || y.stats.semana.qtd - x.stats.semana.qtd),
-      mes: [...base].sort((x, y) => y.stats.mes.valor - x.stats.mes.valor || y.stats.mes.qtd - x.stats.mes.qtd),
-      ano: [...base].sort((x, y) => y.stats.ano.valor - x.stats.ano.valor || y.stats.ano.qtd - x.stats.ano.qtd),
-    };
+      hoje: ordenar("hoje"),
+      semana: ordenar("semana"),
+      mes: ordenar("mes"),
+      ano: ordenar("ano"),
+      custom: ordenar("custom"),
+    } as Record<Periodo, { barbeiro: Barber; stats: Record<Periodo, BarberStats> }[]>;
   }, [q.data?.barbeiros, statsPorBarbeiro]);
 
   const [detalhe, setDetalhe] = useState<{ barbeiro: Barber; periodo: RankingPeriod } | null>(null);
@@ -166,17 +213,18 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
 
   const detalheItens = useMemo(() => {
     if (!detalhe) return [];
-    const ini = inicioDoPeriodo(detalhe.periodo.key).getTime();
+    const fx = faixas[detalhe.periodo.key];
+    if (!fx) return [];
     return atendidos
-      .filter(
-        (a) =>
-          a.barber_id === detalhe.barbeiro.id &&
-          new Date(a.appointment_time).getTime() >= ini,
-      )
+      .filter((a) => {
+        if (a.barber_id !== detalhe.barbeiro.id) return false;
+        const t = new Date(a.appointment_time).getTime();
+        return t >= fx.ini && t <= fx.fim;
+      })
       .sort(
         (a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime(),
       );
-  }, [detalhe, atendidos]);
+  }, [detalhe, atendidos, faixas]);
 
   const detalheTotal = useMemo(
     () => detalheItens.reduce((sum, a) => sum + (precos.get(a.service_id) ?? 0), 0),
@@ -230,8 +278,6 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     }
   }
 
-
-
   if (q.isLoading) {
     return (
       <div className="flex justify-center py-16">
@@ -247,6 +293,8 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
       </div>
     );
   }
+
+  const listasRanking: RankingPeriod[] = customAtivo ? [CUSTOM_RANKING, ...RANKINGS] : RANKINGS;
 
   return (
     <div className="space-y-4">
@@ -268,8 +316,68 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
         ))}
       </div>
 
+      <div className="surface space-y-3 p-3">
+        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Período personalizado
+        </h3>
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+          <div className="min-w-0 space-y-1">
+            <Label htmlFor="fat-de" className="text-[11px] text-muted-foreground">
+              De
+            </Label>
+            <Input
+              id="fat-de"
+              type="date"
+              value={de}
+              max={ate || undefined}
+              onChange={(e) => setDe(e.target.value)}
+              className="w-full min-w-0"
+            />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <Label htmlFor="fat-ate" className="text-[11px] text-muted-foreground">
+              Até
+            </Label>
+            <Input
+              id="fat-ate"
+              type="date"
+              value={ate}
+              min={de || undefined}
+              onChange={(e) => setAte(e.target.value)}
+              className="w-full min-w-0"
+            />
+          </div>
+        </div>
+
+        {customAtivo ? (
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+            <div className="min-w-0">
+              <p className="brand-text text-xl font-bold">{brl(totais.custom.valor)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {totais.custom.qtd} atendimento{totais.custom.qtd === 1 ? "" : "s"} no período
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDe("");
+                setAte("");
+              }}
+            >
+              Limpar
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Selecione a data inicial e final para ver o faturamento do período.
+          </p>
+        )}
+      </div>
+
       <div className="space-y-4">
-        {RANKINGS.map((rk) => {
+        {listasRanking.map((rk) => {
           const list = rankings[rk.key];
           const maior = list[0]?.stats[rk.key].valor ?? 0;
           return (
@@ -346,8 +454,6 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
               Exportar PDF
             </Button>
           )}
-
-
 
           {detalheItens.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
