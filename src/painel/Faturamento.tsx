@@ -1,10 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Trophy } from "lucide-react";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
-import { brl } from "@/lib/format";
+import { brl, fmtDateTime } from "@/lib/format";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 
 type Periodo = "hoje" | "semana" | "mes" | "ano";
@@ -148,6 +155,33 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     };
   }, [q.data?.barbeiros, statsPorBarbeiro]);
 
+  const [detalhe, setDetalhe] = useState<{ barbeiro: Barber; periodo: RankingPeriod } | null>(null);
+
+  const servicosMap = useMemo(
+    () => new Map((q.data?.sv ?? []).map((s) => [s.id, s])),
+    [q.data?.sv],
+  );
+
+  const detalheItens = useMemo(() => {
+    if (!detalhe) return [];
+    const ini = inicioDoPeriodo(detalhe.periodo.key).getTime();
+    return atendidos
+      .filter(
+        (a) =>
+          a.barber_id === detalhe.barbeiro.id &&
+          new Date(a.appointment_time).getTime() >= ini,
+      )
+      .sort(
+        (a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime(),
+      );
+  }, [detalhe, atendidos]);
+
+  const detalheTotal = useMemo(
+    () => detalheItens.reduce((sum, a) => sum + (precos.get(a.service_id) ?? 0), 0),
+    [detalheItens, precos],
+  );
+
+
   if (q.isLoading) {
     return (
       <div className="flex justify-center py-16">
@@ -203,9 +237,11 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                   {list.map((r, i) => {
                     const s = r.stats[rk.key];
                     return (
-                      <div
+                      <button
                         key={r.barbeiro.id}
-                        className="surface grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3"
+                        type="button"
+                        onClick={() => setDetalhe({ barbeiro: r.barbeiro, periodo: rk })}
+                        className="surface grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3 text-left transition-colors hover:border-primary"
                       >
                         <span className="brand-text w-6 text-center text-base font-bold">
                           {i + 1}º
@@ -223,7 +259,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                           </div>
                         </div>
                         <span className="shrink-0 text-sm font-semibold">{brl(s.valor)}</span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -232,6 +268,44 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
           );
         })}
       </div>
+
+      <Dialog open={!!detalhe} onOpenChange={(open) => !open && setDetalhe(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="truncate">{detalhe?.barbeiro.name}</DialogTitle>
+            <DialogDescription>
+              {detalhe?.periodo.title} · {detalheItens.length} atendimento
+              {detalheItens.length === 1 ? "" : "s"} · {brl(detalheTotal)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detalheItens.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nenhum atendimento neste período.
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {detalheItens.map((a) => (
+                <div
+                  key={a.id}
+                  className="surface grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{a.customer_name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
+                      {fmtDateTime(a.appointment_time)}
+                    </p>
+                  </div>
+                  <span className="brand-text shrink-0 text-sm font-semibold">
+                    {brl(precos.get(a.service_id) ?? 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
