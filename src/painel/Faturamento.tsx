@@ -25,6 +25,24 @@ function inicioDoPeriodo(p: Periodo): Date {
   return d;
 }
 
+interface BarberStats {
+  valor: number;
+  qtd: number;
+}
+
+interface RankingPeriod {
+  key: Periodo;
+  title: string;
+  sublabel: string;
+}
+
+const RANKINGS: RankingPeriod[] = [
+  { key: "hoje", title: "Ranking do dia", sublabel: "atend. no dia" },
+  { key: "semana", title: "Ranking da semana", sublabel: "atend. na semana" },
+  { key: "mes", title: "Ranking do mês", sublabel: "atend. no mês" },
+  { key: "ano", title: "Ranking do ano", sublabel: "atend. no ano" },
+];
+
 export function FaturamentoTab({ barber }: { barber: Barber }) {
   const shopId = barber.barbershop_id ?? null;
 
@@ -92,27 +110,43 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     return t;
   }, [atendidos, precos]);
 
-  const ranking = useMemo(() => {
-    const iniMes = inicioDoPeriodo("mes").getTime();
-    const map = new Map<string, { mes: number; ano: number; qtdMes: number; qtdAno: number }>();
+  const statsPorBarbeiro = useMemo(() => {
+    const map = new Map<string, Record<Periodo, BarberStats>>();
     for (const b of q.data?.barbeiros ?? []) {
-      map.set(b.id, { mes: 0, ano: 0, qtdMes: 0, qtdAno: 0 });
+      map.set(b.id, {
+        hoje: { valor: 0, qtd: 0 },
+        semana: { valor: 0, qtd: 0 },
+        mes: { valor: 0, qtd: 0 },
+        ano: { valor: 0, qtd: 0 },
+      });
     }
     for (const a of atendidos) {
       const row = map.get(a.barber_id);
       if (!row) continue;
       const v = precos.get(a.service_id) ?? 0;
-      row.ano += v;
-      row.qtdAno += 1;
-      if (new Date(a.appointment_time).getTime() >= iniMes) {
-        row.mes += v;
-        row.qtdMes += 1;
+      const t = new Date(a.appointment_time).getTime();
+      for (const p of PERIODOS) {
+        if (t >= inicioDoPeriodo(p.key).getTime()) {
+          row[p.key].valor += v;
+          row[p.key].qtd += 1;
+        }
       }
     }
-    return (q.data?.barbeiros ?? [])
-      .map((b) => ({ barbeiro: b, ...map.get(b.id)! }))
-      .sort((x, y) => y.mes - x.mes || y.ano - x.ano);
+    return map;
   }, [q.data?.barbeiros, atendidos, precos]);
+
+  const rankings = useMemo(() => {
+    const base = (q.data?.barbeiros ?? []).map((b) => ({
+      barbeiro: b,
+      stats: statsPorBarbeiro.get(b.id)!,
+    }));
+    return {
+      hoje: [...base].sort((x, y) => y.stats.hoje.valor - x.stats.hoje.valor || y.stats.hoje.qtd - x.stats.hoje.qtd),
+      semana: [...base].sort((x, y) => y.stats.semana.valor - x.stats.semana.valor || y.stats.semana.qtd - x.stats.semana.qtd),
+      mes: [...base].sort((x, y) => y.stats.mes.valor - x.stats.mes.valor || y.stats.mes.qtd - x.stats.mes.qtd),
+      ano: [...base].sort((x, y) => y.stats.ano.valor - x.stats.ano.valor || y.stats.ano.qtd - x.stats.ano.qtd),
+    };
+  }, [q.data?.barbeiros, statsPorBarbeiro]);
 
   if (q.isLoading) {
     return (
@@ -129,8 +163,6 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
       </div>
     );
   }
-
-  const maior = ranking[0]?.mes ?? 0;
 
   return (
     <div className="space-y-4">
@@ -152,40 +184,53 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
         ))}
       </div>
 
-      <div className="space-y-2">
-        <h3 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          <Trophy className="size-4" /> Ranking do mês
-        </h3>
+      <div className="space-y-4">
+        {RANKINGS.map((rk) => {
+          const list = rankings[rk.key];
+          const maior = list[0]?.stats[rk.key].valor ?? 0;
+          return (
+            <div key={rk.key} className="space-y-2">
+              <h3 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                <Trophy className="size-4" /> {rk.title}
+              </h3>
 
-        {ranking.length === 0 ? (
-          <div className="surface p-6 text-center text-sm text-muted-foreground">
-            Nenhum barbeiro cadastrado.
-          </div>
-        ) : (
-          <div className="grid gap-2">
-            {ranking.map((r, i) => (
-              <div
-                key={r.barbeiro.id}
-                className="surface grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3"
-              >
-                <span className="brand-text w-6 text-center text-base font-bold">{i + 1}º</span>
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{r.barbeiro.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {r.qtdMes} no mês · {brl(r.ano)} no ano ({r.qtdAno})
-                  </p>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="brand-gradient h-full rounded-full"
-                      style={{ width: `${maior > 0 ? Math.round((r.mes / maior) * 100) : 0}%` }}
-                    />
-                  </div>
+              {list.length === 0 ? (
+                <div className="surface p-6 text-center text-sm text-muted-foreground">
+                  Nenhum barbeiro cadastrado.
                 </div>
-                <span className="shrink-0 text-sm font-semibold">{brl(r.mes)}</span>
-              </div>
-            ))}
-          </div>
-        )}
+              ) : (
+                <div className="grid gap-2">
+                  {list.map((r, i) => {
+                    const s = r.stats[rk.key];
+                    return (
+                      <div
+                        key={r.barbeiro.id}
+                        className="surface grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3"
+                      >
+                        <span className="brand-text w-6 text-center text-base font-bold">
+                          {i + 1}º
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{r.barbeiro.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.qtd} {rk.sublabel}
+                          </p>
+                          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                            <div
+                              className="brand-gradient h-full rounded-full"
+                              style={{ width: `${maior > 0 ? Math.round((s.valor / maior) * 100) : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold">{brl(s.valor)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
