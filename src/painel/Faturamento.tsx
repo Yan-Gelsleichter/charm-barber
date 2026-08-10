@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Trophy } from "lucide-react";
+import { Download, Loader2, Trophy } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -156,6 +157,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
   }, [q.data?.barbeiros, statsPorBarbeiro]);
 
   const [detalhe, setDetalhe] = useState<{ barbeiro: Barber; periodo: RankingPeriod } | null>(null);
+  const [exportando, setExportando] = useState(false);
 
   const servicosMap = useMemo(
     () => new Map((q.data?.sv ?? []).map((s) => [s.id, s])),
@@ -180,6 +182,54 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     () => detalheItens.reduce((sum, a) => sum + (precos.get(a.service_id) ?? 0), 0),
     [detalheItens, precos],
   );
+
+  async function exportarPdf() {
+    if (!detalhe) return;
+    setExportando(true);
+    try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF();
+      const titulo = barber.business_name?.trim() || "Barbearia";
+
+      doc.setFontSize(16);
+      doc.text(titulo, 14, 18);
+      doc.setFontSize(12);
+      doc.text(`${detalhe.periodo.title} — ${detalhe.barbeiro.name}`, 14, 26);
+      doc.setFontSize(10);
+      doc.text(`Emitido em ${fmtDateTime(new Date())}`, 14, 32);
+
+      autoTable(doc, {
+        startY: 38,
+        head: [["Cliente", "Serviço", "Data/Hora", "Valor"]],
+        body: detalheItens.map((a) => [
+          a.customer_name,
+          servicosMap.get(a.service_id)?.name ?? "Serviço",
+          fmtDateTime(a.appointment_time),
+          brl(precos.get(a.service_id) ?? 0),
+        ]),
+        foot: [
+          [
+            `${detalheItens.length} atendimento${detalheItens.length === 1 ? "" : "s"}`,
+            "",
+            "Total",
+            brl(detalheTotal),
+          ],
+        ],
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [30, 30, 30] },
+        footStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: "bold" },
+      });
+
+      const slug = detalhe.barbeiro.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      doc.save(`faturamento-${slug}-${detalhe.periodo.key}.pdf`);
+    } finally {
+      setExportando(false);
+    }
+  }
+
 
 
   if (q.isLoading) {
@@ -278,6 +328,26 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
               {detalheItens.length === 1 ? "" : "s"} · {brl(detalheTotal)}
             </DialogDescription>
           </DialogHeader>
+
+          {detalheItens.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={exportarPdf}
+              disabled={exportando}
+              className="w-full"
+            >
+              {exportando ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              Exportar PDF
+            </Button>
+          )}
+
+
 
           {detalheItens.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
