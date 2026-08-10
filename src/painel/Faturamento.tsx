@@ -181,6 +181,54 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     [detalheItens, precos],
   );
 
+  async function exportarPdf() {
+    if (!detalhe) return;
+    setExportando(true);
+    try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF();
+      const titulo = barber.business_name?.trim() || "Barbearia";
+
+      doc.setFontSize(16);
+      doc.text(titulo, 14, 18);
+      doc.setFontSize(12);
+      doc.text(`${detalhe.periodo.title} — ${detalhe.barbeiro.name}`, 14, 26);
+      doc.setFontSize(10);
+      doc.text(`Emitido em ${fmtDateTime(new Date())}`, 14, 32);
+
+      autoTable(doc, {
+        startY: 38,
+        head: [["Cliente", "Serviço", "Data/Hora", "Valor"]],
+        body: detalheItens.map((a) => [
+          a.customer_name,
+          servicosMap.get(a.service_id)?.name ?? "Serviço",
+          fmtDateTime(a.appointment_time),
+          brl(precos.get(a.service_id) ?? 0),
+        ]),
+        foot: [
+          [
+            `${detalheItens.length} atendimento${detalheItens.length === 1 ? "" : "s"}`,
+            "",
+            "Total",
+            brl(detalheTotal),
+          ],
+        ],
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [30, 30, 30] },
+        footStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: "bold" },
+      });
+
+      const slug = detalhe.barbeiro.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      doc.save(`faturamento-${slug}-${detalhe.periodo.key}.pdf`);
+    } finally {
+      setExportando(false);
+    }
+  }
+
+
 
   if (q.isLoading) {
     return (
