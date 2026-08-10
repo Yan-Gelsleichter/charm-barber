@@ -259,7 +259,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                           </div>
                         </div>
                         <span className="shrink-0 text-sm font-semibold">{brl(s.valor)}</span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
