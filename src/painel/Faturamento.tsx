@@ -328,6 +328,26 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
             </DialogDescription>
           </DialogHeader>
 
+          {detalheItens.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={exportarPdf}
+              disabled={exportando}
+              className="w-full"
+            >
+              {exportando ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              Exportar PDF
+            </Button>
+          )}
+
+
+
           {detalheItens.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               Nenhum atendimento neste período.
