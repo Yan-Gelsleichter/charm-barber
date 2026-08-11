@@ -125,19 +125,22 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
                   (cancelado ? " opacity-60" : "")
                 }
               >
-                <div>
-                  <p className={"font-semibold " + (cancelado ? "line-through" : "")}>
+                <div className="min-w-0">
+                  <p className={cn("font-semibold", cancelado && "line-through")}>
                     {a.customer_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {sv?.name ?? "Serviço"} · {fmtDateTime(a.appointment_time)}
                   </p>
                 </div>
-                {cancelado ? (
-                  <span className="text-xs text-destructive">cancelado</span>
-                ) : (
-                  <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
-                )}
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {!cancelado && <PaymentBadge status={a.payment_status} compact />}
+                  {cancelado ? (
+                    <span className="text-xs text-destructive">cancelado</span>
+                  ) : (
+                    <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
+                  )}
+                </div>
               </div>
             );
           })}
