@@ -67,20 +67,6 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     },
   });
 
-  const cancel = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("appointments")
-        .update({ status: "cancelado" })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Agendamento cancelado");
-      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockStart, setBlockStart] = useState("12:00");
@@ -294,38 +280,33 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                 <div
                   key={a.id}
                   className={cn(
-                    "surface grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-4",
+                    "surface flex flex-col gap-2 p-4",
                     atendido && "opacity-70",
                   )}
                 >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">
-                      {fmtTime(a.appointment_time)} · {a.customer_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {sv?.name ?? "Serviço"} · {sv?.duration_minutes ?? "?"} min ·{" "}
-                      {a.customer_phone}
-                    </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold leading-tight">
+                        {a.customer_name}
+                      </p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {sv?.name ?? "Serviço"} · {sv?.duration_minutes ?? "?"} min
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-semibold text-primary">{sv ? brl(sv.price) : "—"}</p>
+                      <p className="text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</p>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+
+                  <div className="flex flex-wrap items-center gap-2">
                     <PaymentBadge status={a.payment_status} compact />
                     {atendido && (
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                         Atendido
                       </span>
                     )}
-                    <span className="brand-text font-bold">{sv ? brl(sv.price) : ""}</span>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0"
-                      onClick={() => {
-                        if (confirm("Cancelar este agendamento?")) cancel.mutate(a.id);
-                      }}
-                    >
-                      <X className="text-destructive" />
-                    </Button>
+                    <span className="text-xs text-muted-foreground">{a.customer_phone}</span>
                   </div>
                 </div>
               );
