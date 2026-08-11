@@ -1,6 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Lock, BadgeDollarSign } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
