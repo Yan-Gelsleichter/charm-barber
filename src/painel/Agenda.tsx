@@ -346,6 +346,40 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                     )}
                     <span className="brand-text font-bold">{sv ? brl(sv.price) : ""}</span>
 
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          disabled={marcarPagamento.isPending}
+                        >
+                          <BadgeDollarSign className="mr-1 size-4" />
+                          Pagamento
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => marcarPagamento.mutate({ id: a.id, metodo: "pix" })}
+                        >
+                          Marcar como pago (PIX)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            marcarPagamento.mutate({ id: a.id, metodo: "credit_card" })
+                          }
+                        >
+                          Marcar como pago (Cartão)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => marcarPagamento.mutate({ id: a.id, metodo: null })}
+                        >
+                          Marcar como pendente
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+
                     <Button
                       variant="ghost"
                       size="icon"
