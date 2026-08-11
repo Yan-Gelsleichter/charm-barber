@@ -82,6 +82,36 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const marcarPagamento = useMutation({
+    mutationFn: async ({
+      id,
+      metodo,
+    }: {
+      id: string;
+      metodo: "pix" | "credit_card" | null;
+    }) => {
+      const { error } = await supabase
+        .from("appointments")
+        .update(
+          metodo
+            ? {
+                payment_status: "pago",
+                payment_method: metodo,
+                paid_at: new Date().toISOString(),
+              }
+            : { payment_status: "pendente", payment_method: null, paid_at: null },
+        )
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pagamento atualizado");
+      qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockStart, setBlockStart] = useState("12:00");
   const [blockEnd, setBlockEnd] = useState("13:00");
