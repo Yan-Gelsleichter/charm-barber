@@ -67,20 +67,6 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     },
   });
 
-  const cancel = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("appointments")
-        .update({ status: "cancelado" })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Agendamento cancelado");
-      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockStart, setBlockStart] = useState("12:00");
