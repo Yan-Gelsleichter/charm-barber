@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PaymentBadge } from "@/components/PaymentBadge";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
@@ -467,7 +468,10 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                   className="surface grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{a.customer_name}</p>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="truncate font-medium">{a.customer_name}</p>
+                      <PaymentBadge status={a.payment_status} compact />
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">
                       {servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
                       {fmtDateTime(a.appointment_time)}
