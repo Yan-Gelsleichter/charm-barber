@@ -1,6 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Lock, BadgeDollarSign } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -81,6 +88,36 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const marcarPagamento = useMutation({
+    mutationFn: async ({
+      id,
+      metodo,
+    }: {
+      id: string;
+      metodo: "pix" | "credit_card" | null;
+    }) => {
+      const { error } = await supabase
+        .from("appointments")
+        .update(
+          metodo
+            ? {
+                payment_status: "pago",
+                payment_method: metodo,
+                paid_at: new Date().toISOString(),
+              }
+            : { payment_status: "pendente", payment_method: null, paid_at: null },
+        )
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pagamento atualizado");
+      qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockStart, setBlockStart] = useState("12:00");
@@ -315,6 +352,40 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       </span>
                     )}
                     <span className="brand-text font-bold">{sv ? brl(sv.price) : ""}</span>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          disabled={marcarPagamento.isPending}
+                        >
+                          <BadgeDollarSign className="mr-1 size-4" />
+                          Pagamento
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => marcarPagamento.mutate({ id: a.id, metodo: "pix" })}
+                        >
+                          Marcar como pago (PIX)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            marcarPagamento.mutate({ id: a.id, metodo: "credit_card" })
+                          }
+                        >
+                          Marcar como pago (Cartão)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => marcarPagamento.mutate({ id: a.id, metodo: null })}
+                        >
+                          Marcar como pendente
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
 
                     <Button
                       variant="ghost"
