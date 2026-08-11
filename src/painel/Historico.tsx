@@ -6,6 +6,7 @@ import type { Appointment, Barber, Service } from "@/integrations/supabase/db-ty
 import { brl, fmtDateTime } from "@/lib/format";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 import { cn } from "@/lib/utils";
+import { PaymentBadge } from "@/components/PaymentBadge";
 
 type Periodo = "semana" | "mes" | "ano";
 
