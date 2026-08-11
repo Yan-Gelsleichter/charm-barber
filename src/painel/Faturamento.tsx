@@ -321,8 +321,8 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
         <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Período personalizado
         </h3>
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-          <div className="min-w-0 space-y-1">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="min-w-0 space-y-1 overflow-hidden">
             <Label htmlFor="fat-de" className="text-[11px] text-muted-foreground">
               De
             </Label>
@@ -332,10 +332,10 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
               value={de}
               max={ate || undefined}
               onChange={(e) => setDe(e.target.value)}
-              className="w-full min-w-0"
+              className="h-10 w-full min-w-0 px-2 text-sm"
             />
           </div>
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 space-y-1 overflow-hidden">
             <Label htmlFor="fat-ate" className="text-[11px] text-muted-foreground">
               Até
             </Label>
@@ -345,7 +345,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
               value={ate}
               min={de || undefined}
               onChange={(e) => setAte(e.target.value)}
-              className="w-full min-w-0"
+              className="h-10 w-full min-w-0 px-2 text-sm"
             />
           </div>
         </div>
