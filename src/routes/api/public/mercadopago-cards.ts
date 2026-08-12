@@ -831,7 +831,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             );
           }
 
-          const customer = await ensureCustomer(collector.accessToken, userEmail, {
+          const customer = await ensureCustomer(collector.accessToken, payerEmail, {
             name: appointment.customer_name,
           });
           if (!customer.id) {
