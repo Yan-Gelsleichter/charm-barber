@@ -143,3 +143,18 @@ export function buildSlots(params: {
   slots.sort((a, b) => a.start.getTime() - b.start.getTime());
   return slots;
 }
+
+/** Status de pagamento que representam recusa/falha no cartão. */
+const REJECTED_PAYMENT_STATUSES = new Set(["falhou", "recusado", "rejected", "rejeitado"]);
+
+/**
+ * Remove da visão do barbeiro os agendamentos cujo pagamento no cartão foi
+ * recusado — o cliente precisa refazer o pagamento para o horário valer.
+ */
+export function hideRejectedPayments<T extends { payment_status?: string | null }>(
+  appointments: T[],
+): T[] {
+  return appointments.filter(
+    (a) => !REJECTED_PAYMENT_STATUSES.has((a.payment_status || "").trim().toLowerCase()),
+  );
+}

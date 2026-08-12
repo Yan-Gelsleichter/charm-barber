@@ -4,7 +4,7 @@ import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtTime } from "@/lib/format";
-import { filterActiveAppointments } from "@/lib/availability";
+import { filterActiveAppointments, hideRejectedPayments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
 
 export function DashboardTab({ barber }: { barber: Barber }) {
@@ -41,7 +41,9 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const priceMap = new Map((q.data?.services ?? []).map((s) => [s.id, Number(s.price)]));
-  const appointments = filterActiveAppointments(q.data?.appointments ?? []);
+  const appointments = hideRejectedPayments(
+    filterActiveAppointments(q.data?.appointments ?? []),
+  );
 
   const sum = (from: Date) =>
     appointments
@@ -98,23 +100,26 @@ export function DashboardTab({ barber }: { barber: Barber }) {
               return (
                 <div
                   key={a.id}
-                  className={`surface flex items-center justify-between p-4 ${atendido ? "opacity-70" : ""}`}
+                  className={`surface flex flex-col gap-2 p-4 ${atendido ? "opacity-70" : ""}`}
                 >
-                  <div>
-                    <p className="font-semibold">{a.customer_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {sv?.name ?? "Serviço"} · {fmtTime(a.appointment_time)}
-                    </p>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{a.customer_name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {sv?.name ?? "Serviço"} · {fmtTime(a.appointment_time)}
+                      </p>
+                    </div>
+                    <span className="brand-text shrink-0 font-bold">
+                      {sv ? brl(sv.price) : "—"}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <PaymentBadge status={a.payment_status} compact />
                     {atendido && (
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                         Atendido
                       </span>
                     )}
-                    <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
-
                   </div>
                 </div>
               );
@@ -136,20 +141,21 @@ export function DashboardTab({ barber }: { barber: Barber }) {
             {proximos.map((a) => {
               const sv = q.data?.services.find((s) => s.id === a.service_id);
               return (
-                <div key={a.id} className="surface flex items-center justify-between p-4">
-                  <div>
-                    <p className="font-semibold">{a.customer_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {sv?.name ?? "Serviço"} ·{" "}
-                      {new Date(a.appointment_time).toLocaleDateString("pt-BR")} ·{" "}
-                      {fmtTime(a.appointment_time)}
-                    </p>
+                <div key={a.id} className="surface flex flex-col gap-2 p-4">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{a.customer_name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {sv?.name ?? "Serviço"} ·{" "}
+                        {new Date(a.appointment_time).toLocaleDateString("pt-BR")} ·{" "}
+                        {fmtTime(a.appointment_time)}
+                      </p>
+                    </div>
+                    <span className="brand-text shrink-0 font-bold">
+                      {sv ? brl(sv.price) : "—"}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <PaymentBadge status={a.payment_status} compact />
-                    <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
-                  </div>
-
+                  <PaymentBadge status={a.payment_status} compact />
                 </div>
               );
             })}

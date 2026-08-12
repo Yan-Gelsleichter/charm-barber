@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
-import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
+import { filterActiveAppointments, hideRejectedPayments, isCancellationMarker } from "@/lib/availability";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
 
@@ -56,7 +56,7 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
   const todos = useMemo(
     () =>
       [
-        ...filterActiveAppointments(q.data?.ag ?? []),
+        ...hideRejectedPayments(filterActiveAppointments(q.data?.ag ?? [])),
         ...(q.data?.ag ?? []).filter((a) => a.status === "cancelado" && !isCancellationMarker(a)),
       ].sort(
         (a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime(),
