@@ -974,12 +974,27 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             );
           }
 
+          // O Mercado Pago exige payer.email no pagamento com cartão.
+          // Pegamos automaticamente da sessão (ou do cadastro do agendamento),
+          // sem pedir que o cliente redigite na hora de pagar.
+          const payerEmail = userEmail || appointmentEmail;
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)) {
+            return json(
+              {
+                error:
+                  "Não encontramos um e-mail válido no seu cadastro. Atualize seu e-mail no perfil e tente novamente.",
+              },
+              400,
+            );
+          }
+
           const payer: Record<string, unknown> = {
             type: "customer",
             id: customerId,
-            email: userEmail,
+            email: payerEmail,
             identification: { type: "CPF", number: payerDoc },
           };
+
           if (firstName) payer["first_name"] = firstName;
           if (lastName) payer["last_name"] = lastName;
 
