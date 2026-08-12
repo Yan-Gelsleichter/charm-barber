@@ -19,6 +19,8 @@ import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { PhoneInput } from "@/components/PhoneInput";
+import { EmailInput } from "@/components/EmailInput";
+
 
 
 export function AgendaTab({ barber }: { barber: Barber }) {
@@ -346,14 +348,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               </label>
               <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 E-mail (opcional)
-                <Input
-                  type="email"
+                <EmailInput
                   maxLength={120}
                   value={novoEmail}
-                  placeholder="cliente@email.com"
-                  onChange={(e) => setNovoEmail(e.target.value)}
+                  onChange={setNovoEmail}
                 />
               </label>
+
             </div>
             <label className="grid gap-1 text-xs text-muted-foreground">
               Serviço
