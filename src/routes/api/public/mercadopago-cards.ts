@@ -459,7 +459,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ error: "Faça login novamente para continuar." }, 401);
           }
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
-          if (!parsed.success) return json({ error: "Dados inválidos." }, 400);
+          if (!parsed.success) {
+            // Mostra qual campo falhou (sem expor valores sensíveis).
+            const issue = parsed.error.issues[0];
+            const field = issue?.path.join(".") || "campo";
+            return json(
+              { error: "Dados inválidos.", detail: `${field}: ${issue?.message ?? "inválido"}` },
+              400,
+            );
+          }
+
 
           const supabaseUrl =
             process.env["SUPABASE_URL"] ||
