@@ -299,8 +299,11 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             }
           }
 
-          // Novo PIX: chave de idempotência única por tentativa, sempre no mesmo agendamento.
-          const attemptKey = `appointment-${appointment.id}-${Date.now()}`;
+          // Cada tentativa gera identificação nova (nunca reaproveita a anterior):
+          // chave de idempotência e external_reference únicos, sensíveis ao valor.
+          const attemptId = `${Date.now().toString(36)}-${Math.round(amount * 100)}-${crypto.randomUUID().slice(0, 8)}`;
+          const attemptKey = `pix-${appointment.id}-${attemptId}`;
+          const attemptReference = `${appointment.id}:${attemptId}`;
           const expiresAt = new Date(Date.now() + 30 * 60_000);
           const paymentBody: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
