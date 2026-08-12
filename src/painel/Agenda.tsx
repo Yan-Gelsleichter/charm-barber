@@ -12,6 +12,7 @@ import {
   buildSlots,
   cancelledAppointmentIds,
   filterActiveAppointments,
+  hideRejectedPayments,
   isCancellationMarker,
   isBlock,
 } from "@/lib/availability";

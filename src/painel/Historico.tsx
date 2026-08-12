@@ -56,7 +56,7 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
   const todos = useMemo(
     () =>
       [
-        ...filterActiveAppointments(q.data?.ag ?? []),
+        ...hideRejectedPayments(filterActiveAppointments(q.data?.ag ?? [])),
         ...(q.data?.ag ?? []).filter((a) => a.status === "cancelado" && !isCancellationMarker(a)),
       ].sort(
         (a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime(),
