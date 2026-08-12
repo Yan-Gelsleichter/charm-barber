@@ -18,6 +18,8 @@ import {
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
+import { PhoneInput } from "@/components/PhoneInput";
+
 
 export function AgendaTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
