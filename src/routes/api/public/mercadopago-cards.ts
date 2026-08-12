@@ -20,42 +20,43 @@ const requestSchema = z.discriminatedUnion("action", [
     card_token: z.string().min(10).max(120),
     make_default: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
-    expiration_month: z.number().int().min(1).max(12).optional(),
-    expiration_year: z.number().int().min(2000).max(2100).optional(),
+    expiration_month: z.coerce.number().int().min(1).max(12).optional(),
+    expiration_year: z.coerce.number().int().min(2000).max(2100).optional(),
   }),
   z.object({
     action: z.literal("pay"),
     appointment_id: z.string().uuid(),
     card_token: z.string().min(10).max(120),
-    payment_method_id: z.enum([
-      "visa",
-      "master",
-      "amex",
-      "elo",
-      "hipercard",
-      "diners",
-      "discover",
-      "jcb",
-    ]).optional(),
+    /** Bandeira detectada no navegador; o servidor revalida pelo token. */
+    payment_method_id: z
+      .string()
+      .min(2)
+      .max(30)
+      .transform((v) => v.trim().toLowerCase())
+      .optional(),
     saved_card_id: z.string().uuid().optional(),
-    installments: z.number().int().min(1).max(12).optional(),
+    installments: z.coerce.number().int().min(1).max(12).optional(),
     save_card: z.boolean().optional(),
     /** Segundo token (uso único) gerado só para vincular o cartão ao customer. */
     save_card_token: z.string().min(10).max(120).optional(),
     save_card_as_default: z.boolean().optional(),
     card_number: z.string().min(12).max(25).optional(),
-    /** CPF do titular (somente dígitos) — exigido pelas emissoras brasileiras. */
+    /** E-mail do pagador vindo do cadastro (o servidor revalida). */
+    payer_email: z.string().max(160).optional(),
+    /** CPF do titular (somente dígitos ou formatado). */
     payer_doc: z
       .string()
-      .regex(/^\d{11}$/, "CPF deve conter 11 dígitos.")
+      .transform((v) => v.replace(/\D/g, ""))
+      .refine((v) => /^\d{11}$/.test(v), "CPF deve conter 11 dígitos.")
       .refine(isValidCPFDigits, "CPF inválido.")
       .optional(),
     cardholder_name: z.string().min(2).max(80).optional(),
-    expiration_month: z.number().int().min(1).max(12).optional(),
-    expiration_year: z.number().int().min(2000).max(2100).optional(),
+    expiration_month: z.coerce.number().int().min(1).max(12).optional(),
+    expiration_year: z.coerce.number().int().min(2000).max(2100).optional(),
     /** Device fingerprint (security.js) exigido pelo antifraude do Mercado Pago. */
     device_id: z.string().min(4).max(200).optional(),
   }),
+
 
 
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
@@ -458,7 +459,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json({ error: "Faça login novamente para continuar." }, 401);
           }
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
-          if (!parsed.success) return json({ error: "Dados inválidos." }, 400);
+          if (!parsed.success) {
+            // Mostra qual campo falhou (sem expor valores sensíveis).
+            const issue = parsed.error.issues[0];
+            const field = issue?.path.join(".") || "campo";
+            return json(
+              { error: "Dados inválidos.", detail: `${field}: ${issue?.message ?? "inválido"}` },
+              400,
+            );
+          }
+
 
           const supabaseUrl =
             process.env["SUPABASE_URL"] ||
