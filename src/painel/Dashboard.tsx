@@ -4,7 +4,7 @@ import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtTime } from "@/lib/format";
-import { filterActiveAppointments } from "@/lib/availability";
+import { filterActiveAppointments, hideRejectedPayments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
 
 export function DashboardTab({ barber }: { barber: Barber }) {
@@ -41,7 +41,9 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const priceMap = new Map((q.data?.services ?? []).map((s) => [s.id, Number(s.price)]));
-  const appointments = filterActiveAppointments(q.data?.appointments ?? []);
+  const appointments = hideRejectedPayments(
+    filterActiveAppointments(q.data?.appointments ?? []),
+  );
 
   const sum = (from: Date) =>
     appointments
