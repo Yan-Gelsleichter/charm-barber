@@ -462,10 +462,11 @@ function mpDetail(payload: unknown, httpStatus?: number): string | null {
   return parts.length ? `Mercado Pago: ${parts.join(" | ")}` : null;
 }
 
-/** Credenciais de teste (TEST-...) não cobram cartões reais. */
+/** Só credenciais de produção são aceitas; TEST-... é sempre bloqueado. */
 function isSandboxToken(accessToken: string) {
-  return accessToken.trim().toUpperCase().startsWith("TEST-");
+  return isTestCredential(accessToken);
 }
+
 
 export const Route = createFileRoute("/api/public/mercadopago-cards")({
   server: {
