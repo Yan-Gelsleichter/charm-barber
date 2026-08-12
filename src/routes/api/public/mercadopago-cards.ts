@@ -4,6 +4,7 @@ import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { isValidCPF } from "@/lib/format";
+import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
 
 /** Valida os 11 dígitos do CPF (dígitos verificadores oficiais). */
 const isValidCPFDigits = (v: string) => isValidCPF(v);
