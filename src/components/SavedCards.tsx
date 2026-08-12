@@ -523,6 +523,9 @@ export function SavedCards({
       const invalidDoc = validateCPF(doc);
       if (invalidDoc) throw new Error(invalidDoc);
 
+      // O Mercado Pago exige o payload exatamente neste formato:
+      // número sem espaços, mês/ano numéricos (ano com 4 dígitos), CVV numérico
+      // e o titular com nome e documento (CPF só com dígitos).
       const tokenPayload = {
         card_number: digits(form.number),
         expiration_month: Number(digits(month)),
@@ -534,6 +537,9 @@ export function SavedCards({
         },
       };
       const tokenId = await createCardToken(publicKey, tokenPayload);
+      // E-mail do pagador vem do cadastro (obrigatório para o Mercado Pago).
+      const { data: sessionData } = await supabase.auth.getSession();
+      const payerEmail = sessionData.session?.user.email ?? undefined;
       const payment = await callCardsApi<{
         payment_status: string;
         card_saved?: boolean;
@@ -544,10 +550,12 @@ export function SavedCards({
         card_token: tokenId,
         payment_method_id: paymentMethodId,
         payer_doc: doc,
+        ...(payerEmail ? { payer_email: payerEmail } : {}),
         cardholder_name: form.name.trim(),
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),
       });
+
 
 
       if (!form.save || payment.payment_status !== "pago") return payment;
