@@ -4,6 +4,7 @@ import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { isValidCPF } from "@/lib/format";
+import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
 
 /** Valida os 11 dígitos do CPF (dígitos verificadores oficiais). */
 const isValidCPFDigits = (v: string) => isValidCPF(v);
@@ -660,6 +661,12 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (!userEmail || !appointmentEmail || userEmail !== appointmentEmail) {
             return json({ error: "Você não tem acesso a este agendamento." }, 403);
           }
+
+          // payer.email é obrigatório em toda cobrança com cartão (inclusive em
+          // retentativas e no salvamento do cartão): resolvemos uma única vez.
+          const payerEmail = resolvePayerEmail(userEmail, appointmentEmail);
+          if (!payerEmail) return json({ error: PAYER_EMAIL_ERROR }, 400);
+
           if (!appointment.barbershop_id) {
             return json({ error: "O agendamento não está vinculado a uma barbearia." }, 400);
           }
@@ -824,7 +831,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             );
           }
 
-          const customer = await ensureCustomer(collector.accessToken, userEmail, {
+          const customer = await ensureCustomer(collector.accessToken, payerEmail, {
             name: appointment.customer_name,
           });
           if (!customer.id) {
@@ -974,19 +981,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             );
           }
 
-          // O Mercado Pago exige payer.email no pagamento com cartão.
-          // Pegamos automaticamente da sessão (ou do cadastro do agendamento),
-          // sem pedir que o cliente redigite na hora de pagar.
-          const payerEmail = userEmail || appointmentEmail;
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)) {
-            return json(
-              {
-                error:
-                  "Não encontramos um e-mail válido no seu cadastro. Atualize seu e-mail no perfil e tente novamente.",
-              },
-              400,
-            );
-          }
+          // payerEmail já foi resolvido e validado acima (obrigatório pelo MP).
+
 
           const payer: Record<string, unknown> = {
             type: "customer",
