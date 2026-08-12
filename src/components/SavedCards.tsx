@@ -34,10 +34,12 @@ async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   if (!accessToken) throw new Error("Sua sessão expirou. Faça login novamente.");
+  // Identificador do dispositivo exigido pelo antifraude do Mercado Pago.
+  const deviceId = await getMpDeviceId().catch(() => null);
   const response = await fetch("/api/public/mercadopago-cards", {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(deviceId ? { ...body, device_id: deviceId } : body),
   });
   const data = (await response.json().catch(() => ({}))) as {
     error?: string;
@@ -49,6 +51,7 @@ async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
   }
   return data;
 }
+
 
 /**
  * Tokeniza o cartão direto no navegador pela API pública do Mercado Pago
