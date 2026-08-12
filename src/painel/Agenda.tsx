@@ -241,6 +241,21 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     });
   }, [date, refService, q.data, servicesMap]);
 
+  const novoSlots = useMemo(() => {
+    const sv = servicesMap.get(novoServico);
+    if (!sv || !q.data) return [];
+    return buildSlots({
+      date,
+      service: sv,
+      hours: q.data.hours,
+      appointments: q.data.appointments,
+      servicesMap,
+      blocks: q.data.blocks,
+    });
+  }, [date, novoServico, q.data, servicesMap]);
+
+
+
   const reschedSlots = useMemo(() => {
     if (!reschedTarget || !q.data || !reschedQ.data) return [];
     const sv = servicesMap.get(reschedTarget.service_id);
