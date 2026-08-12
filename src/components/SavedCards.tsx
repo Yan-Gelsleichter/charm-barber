@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { maskCPF, validateCPF } from "@/lib/format";
 import { SecuritySeal } from "@/components/SecuritySeal";
+import { getMpDeviceId, loadMpSecurityScript } from "@/lib/mp-device";
+
 
 
 export type SavedCard = {
@@ -34,10 +36,12 @@ async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   if (!accessToken) throw new Error("Sua sessão expirou. Faça login novamente.");
+  // Identificador do dispositivo exigido pelo antifraude do Mercado Pago.
+  const deviceId = await getMpDeviceId().catch(() => null);
   const response = await fetch("/api/public/mercadopago-cards", {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(deviceId ? { ...body, device_id: deviceId } : body),
   });
   const data = (await response.json().catch(() => ({}))) as {
     error?: string;
@@ -49,6 +53,7 @@ async function callCardsApi<T>(body: Record<string, unknown>): Promise<T> {
   }
   return data;
 }
+
 
 /**
  * Tokeniza o cartão direto no navegador pela API pública do Mercado Pago
@@ -356,6 +361,12 @@ export function SavedCards({
     save: true,
     makeDefault: false,
   });
+
+  // Carrega cedo o script de segurança do Mercado Pago (device fingerprint).
+  useEffect(() => {
+    loadMpSecurityScript();
+  }, []);
+
 
   // Mantém a escolha do método mesmo ao alternar telas/recarregar (nunca guarda dados do cartão).
   useEffect(() => {
