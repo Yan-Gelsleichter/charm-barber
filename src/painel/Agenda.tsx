@@ -315,6 +315,95 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Novo agendamento
+          </h2>
+          <Button variant="outline" size="sm" onClick={() => setNovoOpen((v) => !v)}>
+            <Plus className="mr-1 size-4" />
+            {novoOpen ? "Fechar" : "Agendar cliente"}
+          </Button>
+        </div>
+
+        {novoOpen && (
+          <div className="surface grid gap-3 p-4">
+            <p className="text-xs text-muted-foreground">
+              Informe os dados do cliente e escolha um horário livre do dia selecionado.
+            </p>
+            <label className="grid gap-1 text-xs text-muted-foreground">
+              Nome do cliente
+              <Input
+                value={novoNome}
+                maxLength={80}
+                placeholder="Ex.: João Silva"
+                onChange={(e) => setNovoNome(e.target.value)}
+              />
+            </label>
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                WhatsApp / Telefone
+                <PhoneInput value={novoTelefone} onChange={setNovoTelefone} />
+              </label>
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                E-mail (opcional)
+                <Input
+                  type="email"
+                  maxLength={120}
+                  value={novoEmail}
+                  placeholder="cliente@email.com"
+                  onChange={(e) => setNovoEmail(e.target.value)}
+                />
+              </label>
+            </div>
+            <label className="grid gap-1 text-xs text-muted-foreground">
+              Serviço
+              <select
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                value={novoServico}
+                onChange={(e) => setNovoServico(e.target.value)}
+              >
+                <option value="">Selecione um serviço</option>
+                {(q.data?.services ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} · {s.duration_minutes} min · {brl(s.price)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {!novoServico ? (
+              <p className="text-xs text-muted-foreground">Selecione um serviço para ver os horários.</p>
+            ) : novoSlots.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem expediente neste dia.</p>
+            ) : (
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {novoSlots.map((s) => (
+                  <button
+                    key={s.start.toISOString()}
+                    type="button"
+                    disabled={!s.available || criarAgendamento.isPending}
+                    onClick={() => {
+                      if (confirm(`Agendar ${novoNome || "cliente"} às ${fmtTime(s.start)}?`))
+                        criarAgendamento.mutate(s.start);
+                    }}
+                    className={cn(
+                      "rounded-lg border px-2 py-2 text-center text-xs font-medium transition",
+                      s.available
+                        ? "border-border bg-card/60 hover:border-primary hover:text-primary"
+                        : "slot-strike cursor-not-allowed border-destructive/30 bg-card/40 opacity-60",
+                    )}
+                  >
+                    {fmtTime(s.start)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Bloqueios
           </h2>
           <Button variant="outline" size="sm" onClick={() => setBlockOpen((v) => !v)}>
