@@ -373,8 +373,61 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       </span>
                     )}
                     <span className="text-xs text-muted-foreground">{a.customer_phone}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => {
+                        setReschedId((cur) => (cur === a.id ? null : a.id));
+                        setReschedDate(new Date(a.appointment_time).toISOString().slice(0, 10));
+                      }}
+                    >
+                      <RefreshCw className="mr-1 size-4" />
+                      {reschedId === a.id ? "Fechar" : "Remarcar"}
+                    </Button>
                   </div>
+
+                  {reschedId === a.id && (
+                    <div className="grid gap-3 rounded-lg border border-border/60 bg-card/40 p-3">
+                      <label className="grid gap-1 text-xs text-muted-foreground">
+                        Nova data
+                        <Input
+                          type="date"
+                          className="min-w-0 max-w-full"
+                          value={reschedDate}
+                          onChange={(e) => setReschedDate(e.target.value)}
+                        />
+                      </label>
+                      {reschedQ.isLoading ? (
+                        <p className="text-xs text-muted-foreground">Carregando horários...</p>
+                      ) : reschedSlots.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Sem expediente nesta data.</p>
+                      ) : (
+                        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                          {reschedSlots.map((s) => (
+                            <button
+                              key={s.start.toISOString()}
+                              type="button"
+                              disabled={!s.available || reagendar.isPending}
+                              onClick={() => {
+                                if (confirm(`Remarcar para ${fmtTime(s.start)}?`)) reagendar.mutate(s.start);
+                              }}
+                              className={cn(
+                                "rounded-lg border px-2 py-2 text-center text-xs font-medium transition",
+                                s.available
+                                  ? "border-border bg-card/60 hover:border-primary hover:text-primary"
+                                  : "slot-strike cursor-not-allowed border-destructive/30 bg-card/40 opacity-60",
+                              )}
+                            >
+                              {fmtTime(s.start)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+
               );
             })}
           </div>
