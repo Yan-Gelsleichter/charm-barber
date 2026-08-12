@@ -980,19 +980,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             );
           }
 
-          // O Mercado Pago exige payer.email no pagamento com cartão.
-          // Pegamos automaticamente da sessão (ou do cadastro do agendamento),
-          // sem pedir que o cliente redigite na hora de pagar.
-          const payerEmail = userEmail || appointmentEmail;
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)) {
-            return json(
-              {
-                error:
-                  "Não encontramos um e-mail válido no seu cadastro. Atualize seu e-mail no perfil e tente novamente.",
-              },
-              400,
-            );
-          }
+          // payerEmail já foi resolvido e validado acima (obrigatório pelo MP).
+
 
           const payer: Record<string, unknown> = {
             type: "customer",
