@@ -856,19 +856,19 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
 
           if (
-            !platform &&
             isSandboxToken(collector.accessToken) &&
             (parsed.data.action === "pay" || parsed.data.action === "save")
           ) {
             return json(
               {
                 error:
-                  "A conta do Mercado Pago está em modo de teste (sandbox). Conecte as credenciais de produção no painel (Pagamentos) para cobrar cartões reais.",
+                  "Credenciais de teste (TEST-...) não são aceitas. Configure as chaves de produção do Mercado Pago (MP_ACCESS_TOKEN e MP_PUBLIC_KEY) ou reconecte a conta no painel (Pagamentos).",
                 detail: "Access token de teste (TEST-...)",
               },
               400,
             );
           }
+
 
           const customer = await ensureCustomer(collector.accessToken, payerEmail, {
             name: appointment.customer_name,
