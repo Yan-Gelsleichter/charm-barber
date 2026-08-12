@@ -19,6 +19,8 @@ import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { PhoneInput } from "@/components/PhoneInput";
+import { EmailInput } from "@/components/EmailInput";
+
 
 
 export function AgendaTab({ barber }: { barber: Barber }) {
