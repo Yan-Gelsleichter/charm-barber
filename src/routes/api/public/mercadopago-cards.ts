@@ -3,6 +3,7 @@ import { mpPlatformCredentials, credentialMismatch } from "@/lib/mp-platform.ser
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { sanitizeMpDeviceId } from "@/lib/mp-device-id";
 import { isValidCPF } from "@/lib/format";
 import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
 import { logPaymentAttempt, logPaymentResult } from "@/lib/mp-audit.server";
@@ -54,7 +55,10 @@ const requestSchema = z.discriminatedUnion("action", [
     expiration_month: z.coerce.number().int().min(1).max(12).optional(),
     expiration_year: z.coerce.number().int().min(2000).max(2100).optional(),
     /** Device fingerprint (security.js) exigido pelo antifraude do Mercado Pago. */
-    device_id: z.string().min(4).max(200).optional(),
+    device_id: z
+      .unknown()
+      .optional()
+      .transform((v) => sanitizeMpDeviceId(v) ?? undefined),
   }),
 
 
@@ -1074,7 +1078,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
           // O antifraude do Mercado Pago recusa (cc_rejected_high_risk) quando
           // não recebe o identificador do dispositivo do comprador.
-          const deviceId = parsed.data.device_id ?? null;
+          const deviceId = sanitizeMpDeviceId(parsed.data.device_id);
 
           const doPay = async (payload: Record<string, unknown>, key: string) => {
             try {
