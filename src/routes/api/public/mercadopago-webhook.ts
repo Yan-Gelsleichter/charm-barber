@@ -109,7 +109,9 @@ async function applyPayment(
   paymentId: string,
   eventId: string,
 ) {
-  const appointmentId = payment.external_reference || payment.metadata?.appointment_id;
+  // A external_reference é única por tentativa: "<appointment_id>:<sufixo>".
+  const appointmentId =
+    payment.external_reference?.split(":")[0] || payment.metadata?.appointment_id;
   if (!appointmentId) return new Response("no appointment", { status: 200 });
 
   // aprovado -> pago | pendente | estornado (refunded/charged_back) | cancelado/expirado/falhou
