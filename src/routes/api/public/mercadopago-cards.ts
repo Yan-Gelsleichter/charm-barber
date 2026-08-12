@@ -994,6 +994,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             binary_mode: false,
             payer,
             external_reference: appointment.id,
+            // Recebe payment.created / payment.updated automaticamente.
+            notification_url: mpNotificationUrl(),
             additional_info: {
               items: [
                 {
