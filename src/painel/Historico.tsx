@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
-import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
+import { filterActiveAppointments, hideRejectedPayments, isCancellationMarker } from "@/lib/availability";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
 

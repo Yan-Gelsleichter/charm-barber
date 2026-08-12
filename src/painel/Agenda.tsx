@@ -283,7 +283,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
   const allAppts = q.data?.appointments ?? [];
   const ativosAll = filterActiveAppointments(allAppts);
-  const ativos = ativosAll.filter((a) => !isBlock(a));
+  const ativos = hideRejectedPayments(ativosAll.filter((a) => !isBlock(a)));
   const bloqueios = q.data?.blocks ?? [];
   const cancelMarkerTargets = cancelledAppointmentIds(
     allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
