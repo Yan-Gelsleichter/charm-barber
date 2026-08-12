@@ -17,6 +17,10 @@ async function resolveAccessToken(
   collectorId: string | null,
   paymentId: string,
 ): Promise<string | null> {
+  // Modo plataforma: todas as cobranças usam a conta fixa configurada.
+  const platform = mpPlatformCredentials();
+  if (platform?.accessToken) return platform.accessToken;
+
   if (collectorId) {
     const { data: barber } = await admin
       .from("barbers")
