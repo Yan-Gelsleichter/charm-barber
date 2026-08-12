@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X, Lock, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Lock, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,8 @@ import {
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
+import { PhoneInput } from "@/components/PhoneInput";
+
 
 export function AgendaTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
@@ -119,10 +121,65 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // ---- Novo agendamento manual (barbeiro) ----
+  const [novoOpen, setNovoOpen] = useState(false);
+  const [novoNome, setNovoNome] = useState("");
+  const [novoTelefone, setNovoTelefone] = useState("");
+  const [novoEmail, setNovoEmail] = useState("");
+  const [novoServico, setNovoServico] = useState("");
+
+  const criarAgendamento = useMutation({
+    mutationFn: async (inicio: Date) => {
+      const nome = novoNome.trim();
+      if (!nome) throw new Error("Informe o nome do cliente.");
+      const telefone = novoTelefone.trim();
+      if (telefone.replace(/\D/g, "").length < 10) throw new Error("Informe um telefone válido.");
+      if (!novoServico) throw new Error("Selecione um serviço.");
+      const barbershopId = await getBarbershopIdByBarberId(barber.id);
+      const { error } = await supabase.from("appointments").insert({
+        barber_id: barber.id,
+        barbershop_id: barbershopId,
+        service_id: novoServico,
+        customer_name: nome,
+        customer_phone: telefone,
+        email: novoEmail.trim() || null,
+        appointment_time: inicio.toISOString(),
+        status: "confirmado",
+      });
+      if (error) throw error;
+
+      const { data: existentes } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("barber_id", barber.id)
+        .eq("whatsapp", telefone)
+        .limit(1);
+      if (!existentes?.length) {
+        await supabase.from("clients").insert({
+          barber_id: barber.id,
+          barbershop_id: barbershopId,
+          name: nome,
+          whatsapp: telefone,
+          email: novoEmail.trim() || null,
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success("Agendamento criado");
+      setNovoNome("");
+      setNovoTelefone("");
+      setNovoEmail("");
+      setNovoOpen(false);
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockStart, setBlockStart] = useState("12:00");
   const [blockEnd, setBlockEnd] = useState("13:00");
   const [blockReason, setBlockReason] = useState("");
+
 
   function timeOnDate(hhmm: string) {
     const [h, m] = hhmm.split(":").map(Number);
@@ -186,6 +243,21 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     });
   }, [date, refService, q.data, servicesMap]);
 
+  const novoSlots = useMemo(() => {
+    const sv = servicesMap.get(novoServico);
+    if (!sv || !q.data) return [];
+    return buildSlots({
+      date,
+      service: sv,
+      hours: q.data.hours,
+      appointments: q.data.appointments,
+      servicesMap,
+      blocks: q.data.blocks,
+    });
+  }, [date, novoServico, q.data, servicesMap]);
+
+
+
   const reschedSlots = useMemo(() => {
     if (!reschedTarget || !q.data || !reschedQ.data) return [];
     const sv = servicesMap.get(reschedTarget.service_id);
@@ -241,6 +313,95 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <ChevronRight />
         </Button>
       </div>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Novo agendamento
+          </h2>
+          <Button variant="outline" size="sm" onClick={() => setNovoOpen((v) => !v)}>
+            <Plus className="mr-1 size-4" />
+            {novoOpen ? "Fechar" : "Agendar cliente"}
+          </Button>
+        </div>
+
+        {novoOpen && (
+          <div className="surface grid gap-3 p-4">
+            <p className="text-xs text-muted-foreground">
+              Informe os dados do cliente e escolha um horário livre do dia selecionado.
+            </p>
+            <label className="grid gap-1 text-xs text-muted-foreground">
+              Nome do cliente
+              <Input
+                value={novoNome}
+                maxLength={80}
+                placeholder="Ex.: João Silva"
+                onChange={(e) => setNovoNome(e.target.value)}
+              />
+            </label>
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                WhatsApp / Telefone
+                <PhoneInput value={novoTelefone} onChange={setNovoTelefone} />
+              </label>
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                E-mail (opcional)
+                <Input
+                  type="email"
+                  maxLength={120}
+                  value={novoEmail}
+                  placeholder="cliente@email.com"
+                  onChange={(e) => setNovoEmail(e.target.value)}
+                />
+              </label>
+            </div>
+            <label className="grid gap-1 text-xs text-muted-foreground">
+              Serviço
+              <select
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                value={novoServico}
+                onChange={(e) => setNovoServico(e.target.value)}
+              >
+                <option value="">Selecione um serviço</option>
+                {(q.data?.services ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} · {s.duration_minutes} min · {brl(s.price)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {!novoServico ? (
+              <p className="text-xs text-muted-foreground">Selecione um serviço para ver os horários.</p>
+            ) : novoSlots.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem expediente neste dia.</p>
+            ) : (
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {novoSlots.map((s) => (
+                  <button
+                    key={s.start.toISOString()}
+                    type="button"
+                    disabled={!s.available || criarAgendamento.isPending}
+                    onClick={() => {
+                      if (confirm(`Agendar ${novoNome || "cliente"} às ${fmtTime(s.start)}?`))
+                        criarAgendamento.mutate(s.start);
+                    }}
+                    className={cn(
+                      "rounded-lg border px-2 py-2 text-center text-xs font-medium transition",
+                      s.available
+                        ? "border-border bg-card/60 hover:border-primary hover:text-primary"
+                        : "slot-strike cursor-not-allowed border-destructive/30 bg-card/40 opacity-60",
+                    )}
+                  >
+                    {fmtTime(s.start)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
 
       <section className="space-y-2">
         <div className="flex items-center justify-between">
