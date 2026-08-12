@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { mpPlatformCredentials, credentialMismatch } from "@/lib/mp-platform.server";
+import { mpPlatformCredentials, credentialMismatch, isTestCredential } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -462,10 +462,11 @@ function mpDetail(payload: unknown, httpStatus?: number): string | null {
   return parts.length ? `Mercado Pago: ${parts.join(" | ")}` : null;
 }
 
-/** Credenciais de teste (TEST-...) não cobram cartões reais. */
+/** Só credenciais de produção são aceitas; TEST-... é sempre bloqueado. */
 function isSandboxToken(accessToken: string) {
-  return accessToken.trim().toUpperCase().startsWith("TEST-");
+  return isTestCredential(accessToken);
 }
+
 
 export const Route = createFileRoute("/api/public/mercadopago-cards")({
   server: {
@@ -855,19 +856,19 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           }
 
           if (
-            !platform &&
             isSandboxToken(collector.accessToken) &&
             (parsed.data.action === "pay" || parsed.data.action === "save")
           ) {
             return json(
               {
                 error:
-                  "A conta do Mercado Pago está em modo de teste (sandbox). Conecte as credenciais de produção no painel (Pagamentos) para cobrar cartões reais.",
+                  "Credenciais de teste (TEST-...) não são aceitas. Configure as chaves de produção do Mercado Pago (MP_ACCESS_TOKEN e MP_PUBLIC_KEY) ou reconecte a conta no painel (Pagamentos).",
                 detail: "Access token de teste (TEST-...)",
               },
               400,
             );
           }
+
 
           const customer = await ensureCustomer(collector.accessToken, payerEmail, {
             name: appointment.customer_name,
