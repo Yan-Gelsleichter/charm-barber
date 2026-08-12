@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
+import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { paymentErrorMessage } from "./mercadopago-cards";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -307,6 +308,8 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             payment_method_id: "pix",
             external_reference: appointment.id,
             date_of_expiration: expiresAt.toISOString(),
+            // Recebe payment.created / payment.updated automaticamente.
+            notification_url: mpNotificationUrl(),
             metadata: {
               appointment_id: appointment.id,
               payout_mode: barberSplit ? "split" : "unica",

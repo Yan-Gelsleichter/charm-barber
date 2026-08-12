@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { mpPlatformCredentials, credentialMismatch } from "@/lib/mp-platform.server";
+import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { isValidCPF } from "@/lib/format";
@@ -993,6 +994,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             binary_mode: false,
             payer,
             external_reference: appointment.id,
+            // Recebe payment.created / payment.updated automaticamente.
+            notification_url: mpNotificationUrl(),
             additional_info: {
               items: [
                 {

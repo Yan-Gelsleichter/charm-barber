@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 
+import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mapPaymentStatus } from "./mercadopago-pix";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,6 +17,10 @@ async function resolveAccessToken(
   collectorId: string | null,
   paymentId: string,
 ): Promise<string | null> {
+  // Modo plataforma: todas as cobranças usam a conta fixa configurada.
+  const platform = mpPlatformCredentials();
+  if (platform?.accessToken) return platform.accessToken;
+
   if (collectorId) {
     const { data: barber } = await admin
       .from("barbers")
