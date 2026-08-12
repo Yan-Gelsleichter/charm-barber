@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { mpPlatformCredentials, credentialMismatch } from "@/lib/mp-platform.server";
+import { mpPlatformCredentials, credentialMismatch, isTestCredential } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
