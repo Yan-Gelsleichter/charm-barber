@@ -40,9 +40,24 @@ export function useApplyPrimaryColor(color?: string | null) {
     if (color && /^#[0-9a-fA-F]{6}$/.test(color)) {
       root.style.setProperty("--brand-from", color);
       root.style.setProperty("--brand-to", color);
+      root.style.setProperty("--primary", color);
+      root.style.setProperty("--ring", color);
+      // contraste do texto sobre a cor primária
+      const r = parseInt(color.slice(1, 3), 16) / 255;
+      const g = parseInt(color.slice(3, 5), 16) / 255;
+      const b = parseInt(color.slice(5, 7), 16) / 255;
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      root.style.setProperty(
+        "--primary-foreground",
+        lum > 0.55 ? "oklch(0.15 0.02 240)" : "oklch(0.99 0 0)",
+      );
     } else {
       root.style.removeProperty("--brand-from");
       root.style.removeProperty("--brand-to");
+      root.style.removeProperty("--primary");
+      root.style.removeProperty("--ring");
+      root.style.removeProperty("--primary-foreground");
     }
   }, [color]);
 }
+
