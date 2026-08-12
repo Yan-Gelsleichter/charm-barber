@@ -186,6 +186,21 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     });
   }, [date, refService, q.data, servicesMap]);
 
+  const reschedSlots = useMemo(() => {
+    if (!reschedTarget || !q.data || !reschedQ.data) return [];
+    const sv = servicesMap.get(reschedTarget.service_id);
+    if (!sv) return [];
+    return buildSlots({
+      date: new Date(`${reschedDate}T00:00:00`),
+      service: sv,
+      hours: q.data.hours,
+      appointments: reschedQ.data.appointments.filter((a) => a.id !== reschedTarget.id),
+      servicesMap,
+      blocks: reschedQ.data.blocks,
+    });
+  }, [reschedTarget, reschedDate, q.data, reschedQ.data, servicesMap]);
+
+
   function move(delta: number) {
     const d = new Date(date);
     d.setDate(d.getDate() + delta);
