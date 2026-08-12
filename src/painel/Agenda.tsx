@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Lock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +68,57 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   });
 
 
+  // ---- Reagendamento (barbeiro) ----
+  const [reschedId, setReschedId] = useState<string | null>(null);
+  const [reschedDate, setReschedDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const reschedTarget = (q.data?.appointments ?? []).find((a) => a.id === reschedId) ?? null;
+
+  const reschedQ = useQuery({
+    enabled: !!reschedId,
+    queryKey: ["remarcar-painel", barber.id, reschedDate],
+    queryFn: async () => {
+      const start = new Date(`${reschedDate}T00:00:00`);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      const [a, b] = await Promise.all([
+        supabase
+          .from("appointments")
+          .select("*")
+          .eq("barber_id", barber.id)
+          .gte("appointment_time", start.toISOString())
+          .lt("appointment_time", end.toISOString()),
+        supabase
+          .from("schedule_blocks")
+          .select("*")
+          .eq("barber_id", barber.id)
+          .gte("start_time", start.toISOString())
+          .lt("start_time", end.toISOString()),
+      ]);
+      if (a.error) throw a.error;
+      if (b.error) throw b.error;
+      return { appointments: a.data as Appointment[], blocks: b.data as ScheduleBlock[] };
+    },
+  });
+
+  const reagendar = useMutation({
+    mutationFn: async (novoInicio: Date) => {
+      if (!reschedId) return;
+      const { error } = await supabase
+        .from("appointments")
+        .update({ appointment_time: novoInicio.toISOString(), status: "confirmado" })
+        .eq("id", reschedId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Agendamento remarcado");
+      setReschedId(null);
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+      qc.invalidateQueries({ queryKey: ["remarcar-painel", barber.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockStart, setBlockStart] = useState("12:00");
   const [blockEnd, setBlockEnd] = useState("13:00");
@@ -134,6 +185,21 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       blocks: q.data.blocks,
     });
   }, [date, refService, q.data, servicesMap]);
+
+  const reschedSlots = useMemo(() => {
+    if (!reschedTarget || !q.data || !reschedQ.data) return [];
+    const sv = servicesMap.get(reschedTarget.service_id);
+    if (!sv) return [];
+    return buildSlots({
+      date: new Date(`${reschedDate}T00:00:00`),
+      service: sv,
+      hours: q.data.hours,
+      appointments: reschedQ.data.appointments.filter((a) => a.id !== reschedTarget.id),
+      servicesMap,
+      blocks: reschedQ.data.blocks,
+    });
+  }, [reschedTarget, reschedDate, q.data, reschedQ.data, servicesMap]);
+
 
   function move(delta: number) {
     const d = new Date(date);
@@ -307,8 +373,61 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       </span>
                     )}
                     <span className="text-xs text-muted-foreground">{a.customer_phone}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => {
+                        setReschedId((cur) => (cur === a.id ? null : a.id));
+                        setReschedDate(new Date(a.appointment_time).toISOString().slice(0, 10));
+                      }}
+                    >
+                      <RefreshCw className="mr-1 size-4" />
+                      {reschedId === a.id ? "Fechar" : "Remarcar"}
+                    </Button>
                   </div>
+
+                  {reschedId === a.id && (
+                    <div className="grid gap-3 rounded-lg border border-border/60 bg-card/40 p-3">
+                      <label className="grid gap-1 text-xs text-muted-foreground">
+                        Nova data
+                        <Input
+                          type="date"
+                          className="min-w-0 max-w-full"
+                          value={reschedDate}
+                          onChange={(e) => setReschedDate(e.target.value)}
+                        />
+                      </label>
+                      {reschedQ.isLoading ? (
+                        <p className="text-xs text-muted-foreground">Carregando horários...</p>
+                      ) : reschedSlots.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Sem expediente nesta data.</p>
+                      ) : (
+                        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                          {reschedSlots.map((s) => (
+                            <button
+                              key={s.start.toISOString()}
+                              type="button"
+                              disabled={!s.available || reagendar.isPending}
+                              onClick={() => {
+                                if (confirm(`Remarcar para ${fmtTime(s.start)}?`)) reagendar.mutate(s.start);
+                              }}
+                              className={cn(
+                                "rounded-lg border px-2 py-2 text-center text-xs font-medium transition",
+                                s.available
+                                  ? "border-border bg-card/60 hover:border-primary hover:text-primary"
+                                  : "slot-strike cursor-not-allowed border-destructive/30 bg-card/40 opacity-60",
+                              )}
+                            >
+                              {fmtTime(s.start)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+
               );
             })}
           </div>
