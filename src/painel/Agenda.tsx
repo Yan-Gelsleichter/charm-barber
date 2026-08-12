@@ -119,10 +119,65 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // ---- Novo agendamento manual (barbeiro) ----
+  const [novoOpen, setNovoOpen] = useState(false);
+  const [novoNome, setNovoNome] = useState("");
+  const [novoTelefone, setNovoTelefone] = useState("");
+  const [novoEmail, setNovoEmail] = useState("");
+  const [novoServico, setNovoServico] = useState("");
+
+  const criarAgendamento = useMutation({
+    mutationFn: async (inicio: Date) => {
+      const nome = novoNome.trim();
+      if (!nome) throw new Error("Informe o nome do cliente.");
+      const telefone = novoTelefone.trim();
+      if (telefone.replace(/\D/g, "").length < 10) throw new Error("Informe um telefone válido.");
+      if (!novoServico) throw new Error("Selecione um serviço.");
+      const barbershopId = await getBarbershopIdByBarberId(barber.id);
+      const { error } = await supabase.from("appointments").insert({
+        barber_id: barber.id,
+        barbershop_id: barbershopId,
+        service_id: novoServico,
+        customer_name: nome,
+        customer_phone: telefone,
+        email: novoEmail.trim() || null,
+        appointment_time: inicio.toISOString(),
+        status: "confirmado",
+      });
+      if (error) throw error;
+
+      const { data: existentes } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("barber_id", barber.id)
+        .eq("whatsapp", telefone)
+        .limit(1);
+      if (!existentes?.length) {
+        await supabase.from("clients").insert({
+          barber_id: barber.id,
+          barbershop_id: barbershopId,
+          name: nome,
+          whatsapp: telefone,
+          email: novoEmail.trim() || null,
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success("Agendamento criado");
+      setNovoNome("");
+      setNovoTelefone("");
+      setNovoEmail("");
+      setNovoOpen(false);
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockStart, setBlockStart] = useState("12:00");
   const [blockEnd, setBlockEnd] = useState("13:00");
   const [blockReason, setBlockReason] = useState("");
+
 
   function timeOnDate(hhmm: string) {
     const [h, m] = hhmm.split(":").map(Number);
