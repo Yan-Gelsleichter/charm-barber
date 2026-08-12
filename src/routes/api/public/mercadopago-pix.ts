@@ -309,7 +309,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
             transaction_amount: Number(amount.toFixed(2)),
             description: `${service.name ?? "Serviço"} — agendamento`,
             payment_method_id: "pix",
-            external_reference: appointment.id,
+            external_reference: attemptReference,
             date_of_expiration: expiresAt.toISOString(),
             // Recebe payment.created / payment.updated automaticamente.
             notification_url: mpNotificationUrl(),
