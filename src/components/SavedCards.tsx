@@ -362,6 +362,12 @@ export function SavedCards({
     makeDefault: false,
   });
 
+  // Carrega cedo o script de segurança do Mercado Pago (device fingerprint).
+  useEffect(() => {
+    loadMpSecurityScript();
+  }, []);
+
+
   // Mantém a escolha do método mesmo ao alternar telas/recarregar (nunca guarda dados do cartão).
   useEffect(() => {
     if (typeof window === "undefined") return;
