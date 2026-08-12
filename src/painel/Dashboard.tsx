@@ -141,20 +141,21 @@ export function DashboardTab({ barber }: { barber: Barber }) {
             {proximos.map((a) => {
               const sv = q.data?.services.find((s) => s.id === a.service_id);
               return (
-                <div key={a.id} className="surface flex items-center justify-between p-4">
-                  <div>
-                    <p className="font-semibold">{a.customer_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {sv?.name ?? "Serviço"} ·{" "}
-                      {new Date(a.appointment_time).toLocaleDateString("pt-BR")} ·{" "}
-                      {fmtTime(a.appointment_time)}
-                    </p>
+                <div key={a.id} className="surface flex flex-col gap-2 p-4">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{a.customer_name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {sv?.name ?? "Serviço"} ·{" "}
+                        {new Date(a.appointment_time).toLocaleDateString("pt-BR")} ·{" "}
+                        {fmtTime(a.appointment_time)}
+                      </p>
+                    </div>
+                    <span className="brand-text shrink-0 font-bold">
+                      {sv ? brl(sv.price) : "—"}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <PaymentBadge status={a.payment_status} compact />
-                    <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
-                  </div>
-
+                  <PaymentBadge status={a.payment_status} compact />
                 </div>
               );
             })}
