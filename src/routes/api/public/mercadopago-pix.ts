@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { mpPlatformCredentials } from "@/lib/mp-platform.server";
+import { mpPlatformCredentials, mpEnvGuardError } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { paymentErrorMessage } from "./mercadopago-cards";
 import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
@@ -189,6 +189,11 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
 
           // As contas conectadas (barbeiro no split, senão barbearia) têm
           // prioridade; MP_ACCESS_TOKEN é apenas fallback da plataforma.
+          if (parsed.data.action === "create") {
+            const envError = mpEnvGuardError();
+            if (envError) return json({ error: envError }, 503);
+          }
+
           const platform = mpPlatformCredentials();
           const accessToken =
             barberSplit?.accessToken ?? shop?.mp_access_token ?? platform?.accessToken;

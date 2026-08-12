@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { mpPlatformCredentials, credentialMismatch, isTestCredential } from "@/lib/mp-platform.server";
+import { mpPlatformCredentials, credentialMismatch, isTestCredential, mpEnvGuardError } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -853,6 +853,13 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               return json({ cards: legacy ?? [] });
             }
             return json({ cards: data ?? [] });
+          }
+
+          // Guarda de ambiente: exige MP_ACCESS_TOKEN e MP_PUBLIC_KEY de
+          // produção presentes antes de aceitar qualquer cobrança.
+          if (parsed.data.action === "pay" || parsed.data.action === "save") {
+            const envError = mpEnvGuardError();
+            if (envError) return json({ error: envError }, 503);
           }
 
           if (
