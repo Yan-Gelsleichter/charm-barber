@@ -1022,6 +1022,9 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (issuerId) body["issuer_id"] = String(issuerId);
           if (collector.shopFee > 0) body["application_fee"] = collector.shopFee;
 
+          // O antifraude do Mercado Pago recusa (cc_rejected_high_risk) quando
+          // não recebe o identificador do dispositivo do comprador.
+          const deviceId = parsed.data.device_id ?? null;
 
           const doPay = async (payload: Record<string, unknown>, key: string) => {
             try {
@@ -1031,10 +1034,12 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                   Authorization: `Bearer ${collector.accessToken}`,
                   "content-type": "application/json",
                   "X-Idempotency-Key": key,
+                  ...(deviceId ? { "X-meli-session-id": deviceId } : {}),
                 },
                 body: JSON.stringify(payload),
               });
             } catch (error) {
+
               console.error("Mercado Pago: exceção ao enviar pagamento", {
                 request_payload: safePaymentPayload(payload),
                 idempotency_key: key,
