@@ -1062,7 +1062,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             }
           };
 
-          const key = `card-${appointment.id}-${Date.now()}`;
+          const key = `card-${appointment.id}-${attemptId}`;
           let response = await doPay(body, key);
           if (!response.ok && collector.shopFee > 0) {
             const detail = (await response.clone().text().catch(() => ""));
