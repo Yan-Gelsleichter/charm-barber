@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/PasswordInput";
+import { EmailInput } from "@/components/EmailInput";
 import { Switch } from "@/components/ui/switch";
 import { useDarkMode } from "@/lib/theme";
 import { publicAppOrigin } from "@/lib/app-url";
@@ -21,6 +22,8 @@ const PRESET_COLORS = [
   "#ef4444", "#f59e0b", "#10b981", "#14b8a6",
   "#0ea5e9", "#eab308", "#84cc16", "#111827",
 ];
+
+const emailSchema = z.string().email();
 
 const schema = z
   .object({
@@ -42,6 +45,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
   const [photoUrl, setPhotoUrl] = useState(barber.logo_url ?? "");
   const [color, setColor] = useState(barber.primary_color ?? "#3b82f6");
   const [uploading, setUploading] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
   const { dark, setDark } = useDarkMode();
 
   useEffect(() => {
@@ -62,6 +66,37 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
       toast.success("Senha atualizada");
       setPassword("");
       setConfirm("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const changeEmail = useMutation({
+    mutationFn: async () => {
+      const value = newEmail.trim().toLowerCase();
+      if (!emailSchema.safeParse(value).success) throw new Error("Informe um e-mail válido");
+      if (email && value === email.toLowerCase())
+        throw new Error("Este já é o seu e-mail atual");
+      const { error } = await supabase.auth.updateUser(
+        { email: value },
+        { emailRedirectTo: `${publicAppOrigin()}/painel?tab=perfil` },
+      );
+      if (error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes("already") || msg.includes("registered") || msg.includes("exists"))
+          throw new Error("Este e-mail já está em uso por outra conta");
+        if (msg.includes("rate") || msg.includes("limit"))
+          throw new Error("Muitas tentativas. Aguarde alguns minutos e tente novamente");
+        if (msg.includes("invalid"))
+          throw new Error("E-mail inválido. Verifique e tente novamente");
+        throw new Error(error.message);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Confirmação enviada", {
+        description:
+          "Abra o link enviado para o novo e-mail (e para o atual, se solicitado) para concluir a alteração.",
+      });
+      setNewEmail("");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -267,6 +302,31 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
       ) : null}
 
 
+
+      <section className="surface space-y-4 p-4">
+        <div className="flex items-center gap-2">
+          <Mail className="text-muted-foreground" size={18} />
+          <h2 className="font-semibold">Alterar e-mail</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          E-mail atual: <span className="font-medium text-foreground">{email ?? "—"}</span>
+        </p>
+        <div className="space-y-2">
+          <Label htmlFor="newemail">Novo e-mail</Label>
+          <EmailInput id="newemail" value={newEmail} onChange={setNewEmail} />
+        </div>
+        <Button
+          variant="hero"
+          onClick={() => changeEmail.mutate()}
+          disabled={changeEmail.isPending || !newEmail.trim()}
+        >
+          {changeEmail.isPending ? <Loader2 className="animate-spin" /> : <Save />} Atualizar e-mail
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Por segurança, enviaremos um link de confirmação. A alteração só é concluída após você
+          confirmar pelo e-mail recebido.
+        </p>
+      </section>
 
       <section className="surface space-y-4 p-4">
         <div className="flex items-center gap-2">
