@@ -348,14 +348,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               </label>
               <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 E-mail (opcional)
-                <Input
-                  type="email"
+                <EmailInput
                   maxLength={120}
                   value={novoEmail}
-                  placeholder="cliente@email.com"
-                  onChange={(e) => setNovoEmail(e.target.value)}
+                  onChange={setNovoEmail}
                 />
               </label>
+
             </div>
             <label className="grid gap-1 text-xs text-muted-foreground">
               Serviço
