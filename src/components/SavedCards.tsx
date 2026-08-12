@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { maskCPF, validateCPF } from "@/lib/format";
 import { SecuritySeal } from "@/components/SecuritySeal";
+import { getMpDeviceId, loadMpSecurityScript } from "@/lib/mp-device";
+
 
 
 export type SavedCard = {
