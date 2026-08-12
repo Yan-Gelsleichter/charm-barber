@@ -660,6 +660,12 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (!userEmail || !appointmentEmail || userEmail !== appointmentEmail) {
             return json({ error: "Você não tem acesso a este agendamento." }, 403);
           }
+
+          // payer.email é obrigatório em toda cobrança com cartão (inclusive em
+          // retentativas e no salvamento do cartão): resolvemos uma única vez.
+          const payerEmail = resolvePayerEmail(userEmail, appointmentEmail);
+          if (!payerEmail) return json({ error: PAYER_EMAIL_ERROR }, 400);
+
           if (!appointment.barbershop_id) {
             return json({ error: "O agendamento não está vinculado a uma barbearia." }, 400);
           }
