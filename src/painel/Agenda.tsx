@@ -68,6 +68,57 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   });
 
 
+  // ---- Reagendamento (barbeiro) ----
+  const [reschedId, setReschedId] = useState<string | null>(null);
+  const [reschedDate, setReschedDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const reschedTarget = (q.data?.appointments ?? []).find((a) => a.id === reschedId) ?? null;
+
+  const reschedQ = useQuery({
+    enabled: !!reschedId,
+    queryKey: ["remarcar-painel", barber.id, reschedDate],
+    queryFn: async () => {
+      const start = new Date(`${reschedDate}T00:00:00`);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      const [a, b] = await Promise.all([
+        supabase
+          .from("appointments")
+          .select("*")
+          .eq("barber_id", barber.id)
+          .gte("appointment_time", start.toISOString())
+          .lt("appointment_time", end.toISOString()),
+        supabase
+          .from("schedule_blocks")
+          .select("*")
+          .eq("barber_id", barber.id)
+          .gte("start_time", start.toISOString())
+          .lt("start_time", end.toISOString()),
+      ]);
+      if (a.error) throw a.error;
+      if (b.error) throw b.error;
+      return { appointments: a.data as Appointment[], blocks: b.data as ScheduleBlock[] };
+    },
+  });
+
+  const reagendar = useMutation({
+    mutationFn: async (novoInicio: Date) => {
+      if (!reschedId) return;
+      const { error } = await supabase
+        .from("appointments")
+        .update({ appointment_time: novoInicio.toISOString(), status: "confirmado" })
+        .eq("id", reschedId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Agendamento remarcado");
+      setReschedId(null);
+      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+      qc.invalidateQueries({ queryKey: ["remarcar-painel", barber.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockStart, setBlockStart] = useState("12:00");
   const [blockEnd, setBlockEnd] = useState("13:00");
