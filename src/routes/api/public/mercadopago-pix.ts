@@ -324,7 +324,7 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               commission_percent: barberSplit?.commissionPercent ?? null,
             },
             payer: {
-              email: userEmail,
+              email: payerEmail,
               first_name: String(appointment.customer_name ?? "Cliente").split(" ")[0],
             },
           };
