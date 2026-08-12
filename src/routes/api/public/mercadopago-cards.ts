@@ -984,6 +984,11 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (lastName) payer["last_name"] = lastName;
 
 
+          // Identificação nova a cada tentativa (nunca reaproveita a anterior),
+          // sensível ao valor cobrado — exigência do antifraude do Mercado Pago.
+          const attemptId = `${Date.now().toString(36)}-${Math.round(amount * 100)}-${crypto.randomUUID().slice(0, 8)}`;
+          const attemptReference = `${appointment.id}:${attemptId}`;
+
           const serviceName = (service as { name?: string } | null)?.name ?? "Serviço";
           const body: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
@@ -995,7 +1000,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             capture: true,
             binary_mode: false,
             payer,
-            external_reference: appointment.id,
+            external_reference: attemptReference,
             // Recebe payment.created / payment.updated automaticamente.
             notification_url: mpNotificationUrl(),
             additional_info: {
@@ -1057,7 +1062,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             }
           };
 
-          const key = `card-${appointment.id}-${Date.now()}`;
+          const key = `card-${appointment.id}-${attemptId}`;
           let response = await doPay(body, key);
           if (!response.ok && collector.shopFee > 0) {
             const detail = (await response.clone().text().catch(() => ""));
