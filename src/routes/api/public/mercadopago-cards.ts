@@ -51,8 +51,10 @@ const requestSchema = z.discriminatedUnion("action", [
     cardholder_name: z.string().min(2).max(80).optional(),
     expiration_month: z.number().int().min(1).max(12).optional(),
     expiration_year: z.number().int().min(2000).max(2100).optional(),
-
+    /** Device fingerprint (security.js) exigido pelo antifraude do Mercado Pago. */
+    device_id: z.string().min(4).max(200).optional(),
   }),
+
 
   z.object({ action: z.literal("delete"), saved_card_id: z.string().uuid() }),
   z.object({ action: z.literal("my_cards") }),
