@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { isValidCPF } from "@/lib/format";
 import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
+import { logPaymentAttempt, logPaymentResult } from "@/lib/mp-audit.server";
 
 /** Valida os 11 dígitos do CPF (dígitos verificadores oficiais). */
 const isValidCPFDigits = (v: string) => isValidCPF(v);
@@ -1074,6 +1075,20 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           };
 
           const key = `card-${appointment.id}-${attemptId}`;
+          const auditBase = {
+            method: "credit_card" as const,
+            appointmentId: appointment.id,
+            barberId: appointment.barber_id ?? null,
+            payerEmail,
+            externalReference: attemptReference,
+            idempotencyKey: key,
+            amount: Number(amount.toFixed(2)),
+            installments: parsed.data.installments ?? 1,
+            deviceId,
+            savedCard: Boolean(parsed.data.saved_card_id),
+          };
+          logPaymentAttempt(auditBase);
+
           let response = await doPay(body, key);
           if (!response.ok && collector.shopFee > 0) {
             const detail = (await response.clone().text().catch(() => ""));
@@ -1091,6 +1106,14 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             payment_method_id?: string;
             card?: MercadoPagoCard;
           };
+          logPaymentResult({
+            ...auditBase,
+            httpStatus: response.status,
+            paymentId: payment.id ?? null,
+            status: payment.status ?? null,
+            statusDetail: payment.status_detail ?? null,
+            message: payment.message ?? null,
+          });
           if (!response.ok || !payment.id) {
             logMpFailure("criação do pagamento com cartão", response, paymentResponseBody, body);
             return json(
