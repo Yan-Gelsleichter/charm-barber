@@ -77,6 +77,7 @@ function json(body: unknown, status = 200) {
 
 function safePaymentPayload(payload: Record<string, unknown>) {
   const payer = payload["payer"] as Record<string, unknown> | undefined;
+  const identification = payer?.["identification"] as Record<string, unknown> | undefined;
   return {
     ...payload,
     token: payload["token"] ? "[REDACTED_CARD_TOKEN]" : undefined,
@@ -84,6 +85,9 @@ function safePaymentPayload(payload: Record<string, unknown>) {
       ? {
           ...payer,
           email: payer["email"] ? "[REDACTED_EMAIL]" : undefined,
+          identification: identification
+            ? { ...identification, number: "[REDACTED_DOCUMENT]" }
+            : undefined,
         }
       : undefined,
   };
@@ -106,7 +110,7 @@ async function readMpResponse(response: Response): Promise<{ raw: string; payloa
   }
 }
 
-async function logMpFailure(
+function logMpFailure(
   operation: string,
   response: Response,
   responseBody: { raw: string; payload: unknown },
