@@ -984,6 +984,11 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (lastName) payer["last_name"] = lastName;
 
 
+          // Identificação nova a cada tentativa (nunca reaproveita a anterior),
+          // sensível ao valor cobrado — exigência do antifraude do Mercado Pago.
+          const attemptId = `${Date.now().toString(36)}-${Math.round(amount * 100)}-${crypto.randomUUID().slice(0, 8)}`;
+          const attemptReference = `${appointment.id}:${attemptId}`;
+
           const serviceName = (service as { name?: string } | null)?.name ?? "Serviço";
           const body: Record<string, unknown> = {
             transaction_amount: Number(amount.toFixed(2)),
