@@ -21,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMeBarber } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
 import { usePayoutMode } from "@/hooks/use-payout-mode";
+import { usePaymentSync } from "@/hooks/use-payment-sync";
+
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
@@ -87,6 +89,8 @@ function PainelPage() {
   useApplyPrimaryColor(barber?.primary_color ?? shop?.primary_color ?? null);
   const { data: payoutMode } = usePayoutMode(barber?.barbershop_id ?? null);
   const splitOn = payoutMode === "split";
+  usePaymentSync(!!barber);
+
 
   useEffect(() => {
     if (mp === "ok") toast.success("Mercado Pago conectado!");
