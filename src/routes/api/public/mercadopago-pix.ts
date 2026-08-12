@@ -3,6 +3,7 @@ import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { paymentErrorMessage } from "./mercadopago-cards";
 import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
+import { logPaymentAttempt, logPaymentResult } from "@/lib/mp-audit.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -343,6 +344,17 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               body: JSON.stringify(body),
             });
 
+          const auditBase = {
+            method: "pix" as const,
+            appointmentId: appointment.id,
+            barberId: appointment.barber_id ?? null,
+            payerEmail,
+            externalReference: attemptReference,
+            idempotencyKey: attemptKey,
+            amount: Number(amount.toFixed(2)),
+          };
+          logPaymentAttempt(auditBase);
+
           let paymentResponse = await createPayment(paymentBody, attemptKey);
           if (!paymentResponse.ok && shopFee > 0) {
             const clone = await paymentResponse
@@ -372,6 +384,14 @@ export const Route = createFileRoute("/api/public/mercadopago-pix")({
               };
             };
           };
+          logPaymentResult({
+            ...auditBase,
+            httpStatus: paymentResponse.status,
+            paymentId: payment.id ?? null,
+            status: payment.status ?? null,
+            statusDetail: payment.status_detail ?? null,
+            message: payment.message ?? null,
+          });
           if (!paymentResponse.ok || !payment.id) {
             console.error("Mercado Pago PIX: criação recusada", paymentResponse.status, payment);
             return json(
