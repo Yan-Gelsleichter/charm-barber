@@ -155,7 +155,9 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                       {sv ? brl(sv.price) : "—"}
                     </span>
                   </div>
-                  <PaymentBadge status={a.payment_status} compact />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <PaymentBadge status={a.payment_status} compact />
+                  </div>
                 </div>
               );
             })}
