@@ -106,24 +106,34 @@ async function readMpResponse(response: Response): Promise<{ raw: string; payloa
   }
 }
 
-function logMpFailure(
+async function logMpFailure(
   operation: string,
   response: Response,
   responseBody: { raw: string; payload: unknown },
   requestPayload?: Record<string, unknown>,
 ) {
-  console.error(`Mercado Pago: ${operation} falhou`, {
+  const requestId =
+    response.headers.get("x-request-id") ??
+    response.headers.get("x-correlation-id") ??
+    response.headers.get("x-meli-session-id");
+  const entry = {
+    event: "mp_card_api_error",
+    operation,
+    at: new Date().toISOString(),
     http_status: response.status,
     http_status_text: response.statusText,
-    request_id:
-      response.headers.get("x-request-id") ??
-      response.headers.get("x-correlation-id") ??
-      response.headers.get("x-meli-session-id"),
+    request_id: requestId,
     response_headers: Object.fromEntries(response.headers.entries()),
     response_json: responseBody.payload,
     response_raw: responseBody.raw,
     ...(requestPayload ? { request_payload: safePaymentPayload(requestPayload) } : {}),
-  });
+  };
+
+  // O marcador fixo facilita localizar a tentativa nos logs do servidor. A
+  // versão serializada preserva integralmente arrays de `cause` e objetos
+  // aninhados que alguns visualizadores de console recolhem/achatam.
+  console.error("[mp-card-api-error]", entry);
+  console.log("[mp-card-api-error-json]", JSON.stringify(entry));
 }
 
 const BRAND_BINS: Array<[string, RegExp]> = [
@@ -463,6 +473,15 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             // Mostra qual campo falhou (sem expor valores sensíveis).
             const issue = parsed.error.issues[0];
             const field = issue?.path.join(".") || "campo";
+            console.error("[mp-card-request-validation-error]", {
+              event: "mp_card_request_validation_error",
+              at: new Date().toISOString(),
+              issues: parsed.error.issues.map((item) => ({
+                field: item.path.join(".") || "campo",
+                code: item.code,
+                message: item.message,
+              })),
+            });
             return json(
               { error: "Dados inválidos.", detail: `${field}: ${issue?.message ?? "inválido"}` },
               400,
@@ -1101,7 +1120,14 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
           let response = await doPay(body, key);
           if (!response.ok && collector.shopFee > 0) {
-            const detail = (await response.clone().text().catch(() => ""));
+            const firstFailure = await readMpResponse(response.clone());
+            await logMpFailure(
+              "criação do pagamento com cartão (tentativa com taxa)",
+              response,
+              firstFailure,
+              body,
+            );
+            const detail = firstFailure.raw;
             if (detail.includes("application_fee") || detail.includes("marketplace")) {
               delete body["application_fee"];
               response = await doPay(body, `${key}-nofee`);
@@ -1125,7 +1151,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             message: payment.message ?? null,
           });
           if (!response.ok || !payment.id) {
-            logMpFailure("criação do pagamento com cartão", response, paymentResponseBody, body);
+            await logMpFailure("criação do pagamento com cartão", response, paymentResponseBody, body);
             return json(
               {
                 error: paymentErrorMessage(payment.status_detail, payment.status, payment.message),
