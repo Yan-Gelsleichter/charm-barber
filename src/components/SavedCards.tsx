@@ -965,10 +965,12 @@ export function SavedCards({
                     className="flex-1"
                     onClick={() => {
                       setCvvTouched(true);
-                      if (validateCvv(cvv, card.brand, null)) return;
+                      if (validateCvv(cvv, card.brand, null) || billingIncomplete) return;
                       payWithSaved.mutate(card);
                     }}
-                    disabled={busy || Boolean(validateCvv(cvv, card.brand, null))}
+                    disabled={
+                      busy || billingIncomplete || Boolean(validateCvv(cvv, card.brand, null))
+                    }
                   >
                     {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
                     {payWithSaved.isPending ? "Processando…" : "Pagar agora"}
