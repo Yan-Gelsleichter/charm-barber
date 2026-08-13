@@ -413,10 +413,10 @@ export function SavedCards({
         if (!alive) return;
         setAddr((a) => ({
           ...a,
-          street: found.street_name,
-          neighborhood: found.neighborhood,
-          city: found.city,
-          uf: found.federal_unit,
+          street: maskAddressText(found.street_name),
+          neighborhood: maskAddressText(found.neighborhood),
+          city: maskAddressText(found.city),
+          uf: maskUF(found.federal_unit),
         }));
       })
       .catch((e: Error) => {
@@ -434,24 +434,26 @@ export function SavedCards({
   function payerExtras() {
     const tel = phoneDigits(phone);
     const zip = cepDigits(addr.zip);
+    const street = maskAddressText(addr.street);
     return {
       ...(tel.length >= 10
         ? { payer_phone: { area_code: tel.slice(0, 2), number: tel.slice(2) } }
         : {}),
-      ...(isValidCEP(zip) && addr.street
+      ...(isValidCEP(zip) && street
         ? {
             payer_address: {
               zip_code: zip,
-              street_name: addr.street,
-              street_number: addr.number.trim() || "S/N",
-              neighborhood: addr.neighborhood,
-              city: addr.city,
-              federal_unit: addr.uf,
+              street_name: street,
+              street_number: maskAddressNumber(addr.number) || "S/N",
+              neighborhood: maskAddressText(addr.neighborhood),
+              city: maskAddressText(addr.city),
+              federal_unit: maskUF(addr.uf),
             },
           }
         : {}),
     };
   }
+
 
   // Carrega cedo o script de segurança do Mercado Pago (device fingerprint).
   // (billingFields é montado mais abaixo, depois dos estados de carregamento.)
