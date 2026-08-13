@@ -528,7 +528,10 @@ export function SavedCards({
     validateExpiry(form.expiry) ||
     validateCvv(form.cvv, null, form.number) ||
     validateCPF(form.doc) ||
-    !form.name.trim(),
+    !form.name.trim() ||
+    !isValidCEP(addr.zip) ||
+    !addr.street ||
+    !addr.number.trim(),
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
