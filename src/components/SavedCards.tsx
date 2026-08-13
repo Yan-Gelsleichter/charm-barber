@@ -443,6 +443,7 @@ export function SavedCards({
   }
 
   // Carrega cedo o script de segurança do Mercado Pago (device fingerprint).
+  // (billingFields é montado mais abaixo, depois dos estados de carregamento.)
   useEffect(() => {
     loadMpSecurityScript();
   }, []);
