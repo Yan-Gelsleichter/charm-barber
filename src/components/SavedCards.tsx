@@ -782,6 +782,11 @@ export function SavedCards({
 
 
   // Dados de cobrança exigidos pelo Mercado Pago em qualquer cartão (novo ou salvo).
+  const fieldError = (field: keyof BillingErrors) => {
+    const message = showBillingError(field);
+    return message ? <p className="mt-1 text-[11px] text-destructive">{message}</p> : null;
+  };
+
   const billingFields = (
     <div className="space-y-2 rounded-lg border border-border/60 p-3">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -795,7 +800,8 @@ export function SavedCards({
             maxLength={9}
             disabled={busy}
             value={maskCEP(addr.zip)}
-            aria-invalid={Boolean(cepError)}
+            aria-invalid={Boolean(cepError || showBillingError("zip"))}
+            onBlur={() => touch("zip")}
             onChange={(e) => setAddr((a) => ({ ...a, zip: cepDigits(e.target.value) }))}
           />
           {cepLoading && (
@@ -803,62 +809,97 @@ export function SavedCards({
               <Loader2 className="size-3 animate-spin" /> Buscando endereço…
             </p>
           )}
-          {cepError && <p className="mt-1 text-[11px] text-destructive">{cepError}</p>}
+          {cepError ? (
+            <p className="mt-1 text-[11px] text-destructive">{cepError}</p>
+          ) : (
+            fieldError("zip")
+          )}
         </div>
-        <Input
-          placeholder="Número"
-          maxLength={10}
-          disabled={busy}
-          value={addr.number}
-          onChange={(e) => setAddr((a) => ({ ...a, number: maskAddressNumber(e.target.value) }))}
-        />
+        <div>
+          <Input
+            placeholder="Número"
+            maxLength={10}
+            disabled={busy}
+            value={addr.number}
+            aria-invalid={Boolean(showBillingError("number"))}
+            onBlur={() => touch("number")}
+            onChange={(e) => setAddr((a) => ({ ...a, number: maskAddressNumber(e.target.value) }))}
+          />
+          {fieldError("number")}
+        </div>
       </div>
-      <Input
-        placeholder="Rua"
-        maxLength={120}
-        disabled={busy}
-        value={addr.street}
-        onChange={(e) => setAddr((a) => ({ ...a, street: maskAddressText(e.target.value) }))}
-      />
+      <div>
+        <Input
+          placeholder="Rua"
+          maxLength={120}
+          disabled={busy}
+          value={addr.street}
+          aria-invalid={Boolean(showBillingError("street"))}
+          onBlur={() => touch("street")}
+          onChange={(e) => setAddr((a) => ({ ...a, street: maskAddressText(e.target.value) }))}
+        />
+        {fieldError("street")}
+      </div>
       <div className="grid grid-cols-2 gap-2">
-        <Input
-          placeholder="Bairro"
-          maxLength={120}
-          disabled={busy}
-          value={addr.neighborhood}
-          onChange={(e) =>
-            setAddr((a) => ({ ...a, neighborhood: maskAddressText(e.target.value) }))
-          }
-        />
-        <Input
-          placeholder="Cidade"
-          maxLength={120}
-          disabled={busy}
-          value={addr.city}
-          onChange={(e) => setAddr((a) => ({ ...a, city: maskAddressText(e.target.value) }))}
-        />
+        <div>
+          <Input
+            placeholder="Bairro"
+            maxLength={120}
+            disabled={busy}
+            value={addr.neighborhood}
+            aria-invalid={Boolean(showBillingError("neighborhood"))}
+            onBlur={() => touch("neighborhood")}
+            onChange={(e) =>
+              setAddr((a) => ({ ...a, neighborhood: maskAddressText(e.target.value) }))
+            }
+          />
+          {fieldError("neighborhood")}
+        </div>
+        <div>
+          <Input
+            placeholder="Cidade"
+            maxLength={120}
+            disabled={busy}
+            value={addr.city}
+            aria-invalid={Boolean(showBillingError("city"))}
+            onBlur={() => touch("city")}
+            onChange={(e) => setAddr((a) => ({ ...a, city: maskAddressText(e.target.value) }))}
+          />
+          {fieldError("city")}
+        </div>
       </div>
-      <Input
-        placeholder="Estado (UF)"
-        maxLength={2}
-        disabled={busy}
-        value={addr.uf}
-        onChange={(e) => setAddr((a) => ({ ...a, uf: maskUF(e.target.value) }))}
-      />
-      <PhoneInput
-        placeholder="WhatsApp / telefone"
-        disabled={busy}
-        value={phone}
-        onChange={setPhone}
-      />
+      <div>
+        <Input
+          placeholder="Estado (UF)"
+          maxLength={2}
+          disabled={busy}
+          value={addr.uf}
+          aria-invalid={Boolean(showBillingError("uf"))}
+          onBlur={() => touch("uf")}
+          onChange={(e) => setAddr((a) => ({ ...a, uf: maskUF(e.target.value) }))}
+        />
+        {fieldError("uf")}
+      </div>
+      <div>
+        <PhoneInput
+          placeholder="WhatsApp / telefone"
+          disabled={busy}
+          value={phone}
+          aria-invalid={Boolean(showBillingError("phone"))}
+          onBlur={() => touch("phone")}
+          onChange={(masked) => setPhone(phoneDigits(masked))}
+        />
+        {fieldError("phone")}
+      </div>
       {billingIncomplete && (
         <p className="text-[11px] text-muted-foreground">
-          Preencha CEP, número, endereço completo e telefone com DDD. Se a busca pelo CEP não
+          Preencha CEP, número, rua, bairro, cidade, UF e telefone com DDD. Se a busca pelo CEP não
           preencher tudo, você pode digitar manualmente.
         </p>
       )}
     </div>
   );
+
 
 
   return (
