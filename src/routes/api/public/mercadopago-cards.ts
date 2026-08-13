@@ -1117,6 +1117,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               payer: {
                 ...(firstName ? { first_name: firstName } : {}),
                 ...(lastName ? { last_name: lastName } : {}),
+                ...(mpPhone ? { phone: mpPhone } : {}),
+                ...(mpAddress
+                  ? {
+                      address: {
+                        zip_code: mpAddress.zip_code,
+                        street_name: mpAddress.street_name,
+                        street_number: mpAddress.street_number,
+                      },
+                    }
+                  : {}),
               },
             },
             metadata: {
