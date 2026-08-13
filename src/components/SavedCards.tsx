@@ -945,6 +945,7 @@ export function SavedCards({
 
             {selected && (
               <div className="mt-3 space-y-2">
+                {billingFields}
                 <div className="flex gap-2">
                   <Input
                     inputMode="numeric"
