@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { brl, fmtTime } from "@/lib/format";
+import { loadMpSecurityScript } from "@/lib/mp-device";
 
 type PixData = {
   payment_id: number | string;
