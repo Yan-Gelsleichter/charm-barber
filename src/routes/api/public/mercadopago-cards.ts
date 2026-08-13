@@ -1150,20 +1150,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                 ...(mpPhone ? { phone: mpPhone } : {}),
                 ...(mpAddress
                   ? {
+                      // additional_info.payer.address aceita apenas estes três
+                      // campos; city/federal_unit/neighborhood só em payer.address.
                       address: {
                         zip_code: mpAddress.zip_code,
                         street_name: mpAddress.street_name,
                         street_number: mpAddress.street_number,
-                        ...(mpAddress.neighborhood
-                          ? { neighborhood: mpAddress.neighborhood }
-                          : {}),
-                        ...(mpAddress.city ? { city: mpAddress.city } : {}),
-                        ...(mpAddress.federal_unit
-                          ? { federal_unit: mpAddress.federal_unit }
-                          : {}),
                       },
                     }
                   : {}),
+
               },
             },
             metadata: {
