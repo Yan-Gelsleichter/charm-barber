@@ -1060,51 +1060,8 @@ export function SavedCards({
             )}
           </div>
 
-          <div className="space-y-2 rounded-lg border border-border/60 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Endereço de cobrança
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Input
-                  inputMode="numeric"
-                  placeholder="CEP"
-                  disabled={busy}
-                  value={maskCEP(addr.zip)}
-                  aria-invalid={Boolean(cepError)}
-                  onChange={(e) => setAddr((a) => ({ ...a, zip: cepDigits(e.target.value) }))}
-                />
-                {cepLoading && (
-                  <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Loader2 className="size-3 animate-spin" /> Buscando endereço…
-                  </p>
-                )}
-                {cepError && <p className="mt-1 text-[11px] text-destructive">{cepError}</p>}
-              </div>
-              <Input
-                inputMode="numeric"
-                placeholder="Número"
-                disabled={busy}
-                value={addr.number}
-                onChange={(e) =>
-                  setAddr((a) => ({ ...a, number: e.target.value.slice(0, 10) }))
-                }
-              />
-            </div>
-            {addr.street && (
-              <p className="text-[11px] text-muted-foreground">
-                {addr.street}
-                {addr.neighborhood ? `, ${addr.neighborhood}` : ""} — {addr.city}/{addr.uf}
-              </p>
-            )}
-            <Input
-              inputMode="tel"
-              placeholder="WhatsApp / telefone"
-              disabled={busy}
-              value={phone}
-              onChange={(e) => setPhone(maskPhoneBR(e.target.value))}
-            />
-          </div>
+          {billingFields}
+
 
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
