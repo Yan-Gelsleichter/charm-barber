@@ -523,15 +523,19 @@ export function SavedCards({
   const numberError = numberTouched && !settled ? validateCardNumber(form.number) : null;
   const expiryError = expiryTouched && !settled ? validateExpiry(form.expiry) : null;
   const docError = docTouched && !settled ? validateCPF(form.doc) : null;
+  // O Mercado Pago só aceita a cobrança com telefone e endereço completos.
+  const billingIncomplete =
+    !isValidCEP(addr.zip) ||
+    !addr.street ||
+    !addr.number.trim() ||
+    phoneDigits(phone).length < 10;
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
     validateCvv(form.cvv, null, form.number) ||
     validateCPF(form.doc) ||
     !form.name.trim() ||
-    !isValidCEP(addr.zip) ||
-    !addr.street ||
-    !addr.number.trim(),
+    billingIncomplete,
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
