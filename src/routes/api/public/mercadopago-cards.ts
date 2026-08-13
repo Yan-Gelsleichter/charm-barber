@@ -11,6 +11,7 @@ import {
   validatePayerComplete,
 } from "@/lib/mp-payer.server";
 import { logPaymentAttempt, logPaymentResult } from "@/lib/mp-audit.server";
+import { cleanStreetNumber, cleanText, onlyDigits } from "@/lib/mp-normalize.server";
 
 /** Valida os 11 dígitos do CPF (dígitos verificadores oficiais). */
 const isValidCPFDigits = (v: string) => isValidCPF(v);
@@ -1035,7 +1036,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             tokenInfo?.cardholder?.name ??
             appointment.customer_name ??
             ""
-          ).trim();
+          );
           const [firstName, ...restName] = holderName.split(/\s+/).filter(Boolean);
           const lastName = restName.join(" ");
           const payerDoc = (
@@ -1068,8 +1069,8 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
           // Telefone e endereço completos melhoram a avaliação do antifraude.
           const phoneIn = parsed.data.payer_phone;
-          const areaCode = String(phoneIn?.area_code ?? "").replace(/\D/g, "");
-          const phoneNumber = String(phoneIn?.number ?? "").replace(/\D/g, "");
+          const areaCode = onlyDigits(String(phoneIn?.area_code ?? "")).slice(0, 4);
+          const phoneNumber = onlyDigits(String(phoneIn?.number ?? "")).slice(0, 15);
           const mpPhone =
             areaCode.length >= 2 && phoneNumber.length >= 8
               ? { area_code: areaCode, number: phoneNumber }
@@ -1077,16 +1078,21 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (mpPhone) payer["phone"] = mpPhone;
 
           const addrIn = parsed.data.payer_address;
-          const zipCode = String(addrIn?.zip_code ?? "").replace(/\D/g, "");
+          const zipCode = onlyDigits(String(addrIn?.zip_code ?? ""));
+          const streetName = cleanText(String(addrIn?.street_name ?? ""), 120);
           const mpAddress =
-            addrIn && /^\d{8}$/.test(zipCode) && addrIn.street_name.trim()
+            addrIn && /^\d{8}$/.test(zipCode) && streetName
               ? {
                   zip_code: zipCode,
-                  street_name: addrIn.street_name.trim(),
-                  street_number: (addrIn.street_number || "S/N").trim(),
-                  neighborhood: (addrIn.neighborhood ?? "").trim() || undefined,
-                  city: (addrIn.city ?? "").trim() || undefined,
-                  federal_unit: (addrIn.federal_unit ?? "").trim().toUpperCase() || undefined,
+                  street_name: streetName,
+                  street_number: cleanStreetNumber(String(addrIn.street_number ?? "")),
+                  neighborhood: cleanText(String(addrIn.neighborhood ?? ""), 120) || undefined,
+                  city: cleanText(String(addrIn.city ?? ""), 120) || undefined,
+                  federal_unit:
+                    String(addrIn.federal_unit ?? "")
+                      .replace(/[^a-zA-Z]/g, "")
+                      .toUpperCase()
+                      .slice(0, 2) || undefined,
                 }
               : null;
           if (mpAddress) payer["address"] = mpAddress;
