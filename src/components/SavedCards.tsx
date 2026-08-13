@@ -443,6 +443,7 @@ export function SavedCards({
   }
 
   // Carrega cedo o script de segurança do Mercado Pago (device fingerprint).
+  // (billingFields é montado mais abaixo, depois dos estados de carregamento.)
   useEffect(() => {
     loadMpSecurityScript();
   }, []);
@@ -523,15 +524,19 @@ export function SavedCards({
   const numberError = numberTouched && !settled ? validateCardNumber(form.number) : null;
   const expiryError = expiryTouched && !settled ? validateExpiry(form.expiry) : null;
   const docError = docTouched && !settled ? validateCPF(form.doc) : null;
+  // O Mercado Pago só aceita a cobrança com telefone e endereço completos.
+  const billingIncomplete =
+    !isValidCEP(addr.zip) ||
+    !addr.street ||
+    !addr.number.trim() ||
+    phoneDigits(phone).length < 10;
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
     validateCvv(form.cvv, null, form.number) ||
     validateCPF(form.doc) ||
     !form.name.trim() ||
-    !isValidCEP(addr.zip) ||
-    !addr.street ||
-    !addr.number.trim(),
+    billingIncomplete,
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
@@ -760,6 +765,58 @@ export function SavedCards({
   }
 
 
+  // Dados de cobrança exigidos pelo Mercado Pago em qualquer cartão (novo ou salvo).
+  const billingFields = (
+    <div className="space-y-2 rounded-lg border border-border/60 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Endereço de cobrança
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Input
+            inputMode="numeric"
+            placeholder="CEP"
+            disabled={busy}
+            value={maskCEP(addr.zip)}
+            aria-invalid={Boolean(cepError)}
+            onChange={(e) => setAddr((a) => ({ ...a, zip: cepDigits(e.target.value) }))}
+          />
+          {cepLoading && (
+            <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" /> Buscando endereço…
+            </p>
+          )}
+          {cepError && <p className="mt-1 text-[11px] text-destructive">{cepError}</p>}
+        </div>
+        <Input
+          inputMode="numeric"
+          placeholder="Número"
+          disabled={busy}
+          value={addr.number}
+          onChange={(e) => setAddr((a) => ({ ...a, number: e.target.value.slice(0, 10) }))}
+        />
+      </div>
+      {addr.street && (
+        <p className="text-[11px] text-muted-foreground">
+          {addr.street}
+          {addr.neighborhood ? `, ${addr.neighborhood}` : ""} — {addr.city}/{addr.uf}
+        </p>
+      )}
+      <Input
+        inputMode="tel"
+        placeholder="WhatsApp / telefone"
+        disabled={busy}
+        value={phone}
+        onChange={(e) => setPhone(maskPhoneBR(e.target.value))}
+      />
+      {billingIncomplete && (
+        <p className="text-[11px] text-muted-foreground">
+          CEP, número e telefone com DDD são obrigatórios pelo Mercado Pago.
+        </p>
+      )}
+    </div>
+  );
+
   return (
     <section ref={sectionRef} className="surface relative mt-5 space-y-3 p-4" aria-busy={busy}>
       {charging && (
@@ -888,6 +945,7 @@ export function SavedCards({
 
             {selected && (
               <div className="mt-3 space-y-2">
+                {billingFields}
                 <div className="flex gap-2">
                   <Input
                     inputMode="numeric"
@@ -907,10 +965,12 @@ export function SavedCards({
                     className="flex-1"
                     onClick={() => {
                       setCvvTouched(true);
-                      if (validateCvv(cvv, card.brand, null)) return;
+                      if (validateCvv(cvv, card.brand, null) || billingIncomplete) return;
                       payWithSaved.mutate(card);
                     }}
-                    disabled={busy || Boolean(validateCvv(cvv, card.brand, null))}
+                    disabled={
+                      busy || billingIncomplete || Boolean(validateCvv(cvv, card.brand, null))
+                    }
                   >
                     {payWithSaved.isPending ? <Loader2 className="animate-spin" /> : <Zap />}
                     {payWithSaved.isPending ? "Processando…" : "Pagar agora"}
@@ -1056,51 +1116,8 @@ export function SavedCards({
             )}
           </div>
 
-          <div className="space-y-2 rounded-lg border border-border/60 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Endereço de cobrança
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Input
-                  inputMode="numeric"
-                  placeholder="CEP"
-                  disabled={busy}
-                  value={maskCEP(addr.zip)}
-                  aria-invalid={Boolean(cepError)}
-                  onChange={(e) => setAddr((a) => ({ ...a, zip: cepDigits(e.target.value) }))}
-                />
-                {cepLoading && (
-                  <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Loader2 className="size-3 animate-spin" /> Buscando endereço…
-                  </p>
-                )}
-                {cepError && <p className="mt-1 text-[11px] text-destructive">{cepError}</p>}
-              </div>
-              <Input
-                inputMode="numeric"
-                placeholder="Número"
-                disabled={busy}
-                value={addr.number}
-                onChange={(e) =>
-                  setAddr((a) => ({ ...a, number: e.target.value.slice(0, 10) }))
-                }
-              />
-            </div>
-            {addr.street && (
-              <p className="text-[11px] text-muted-foreground">
-                {addr.street}
-                {addr.neighborhood ? `, ${addr.neighborhood}` : ""} — {addr.city}/{addr.uf}
-              </p>
-            )}
-            <Input
-              inputMode="tel"
-              placeholder="WhatsApp / telefone"
-              disabled={busy}
-              value={phone}
-              onChange={(e) => setPhone(maskPhoneBR(e.target.value))}
-            />
-          </div>
+          {billingFields}
+
 
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
