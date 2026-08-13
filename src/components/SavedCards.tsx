@@ -635,6 +635,7 @@ export function SavedCards({
         cardholder_name: form.name.trim(),
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),
+        ...payerExtras(),
       });
 
 
