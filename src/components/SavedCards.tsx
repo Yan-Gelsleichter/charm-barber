@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 import {
   maskCPF,
   validateCPF,
-  maskPhoneBR,
   phoneDigits,
   maskAddressNumber,
   maskAddressText,
@@ -389,6 +388,16 @@ export function SavedCards({
   const [phone, setPhone] = useState("");
   const [billingTouched, setBillingTouched] = useState<Record<string, boolean>>({});
   const touch = (field: string) => setBillingTouched((t) => ({ ...t, [field]: true }));
+  const touchAllBilling = () =>
+    setBillingTouched({
+      zip: true,
+      number: true,
+      street: true,
+      neighborhood: true,
+      city: true,
+      uf: true,
+      phone: true,
+    });
 
   // Telefone do cadastro (WhatsApp) para compor o objeto payer completo.
   useEffect(() => {
@@ -1050,6 +1059,7 @@ export function SavedCards({
                     className="flex-1"
                     onClick={() => {
                       setCvvTouched(true);
+                      touchAllBilling();
                       if (validateCvv(cvv, card.brand, null) || billingIncomplete) return;
                       payWithSaved.mutate(card);
                     }}
