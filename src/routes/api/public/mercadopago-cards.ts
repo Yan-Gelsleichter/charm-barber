@@ -110,6 +110,8 @@ function safePaymentPayload(payload: Record<string, unknown>) {
           identification: identification
             ? { ...identification, number: "[REDACTED_DOCUMENT]" }
             : undefined,
+          phone: payer["phone"] ? "[REDACTED_PHONE]" : undefined,
+          address: payer["address"] ? "[REDACTED_ADDRESS]" : undefined,
         }
       : undefined,
   };
