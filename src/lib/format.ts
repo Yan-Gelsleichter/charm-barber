@@ -87,9 +87,25 @@ export function normalizeText(value: string | null | undefined, max = 120): stri
     .slice(0, max);
 }
 
-/** Nome de rua/bairro/cidade: só letras (com acento), números e pontuação simples. */
+/**
+ * Nome de rua/bairro/cidade: só letras (com acento), números e pontuação simples.
+ * Não usa trim no fim para não atrapalhar quem ainda está digitando.
+ */
 export function maskAddressText(value: string, max = 120): string {
-  return normalizeText(value.replace(/[^\p{L}\p{N}\s.,'’\-/º°]/gu, ""), max);
+  return value
+    .replace(/[^\p{L}\p{N}\s.,'\u2019\-/\u00ba\u00b0]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^\s+/, "")
+    .slice(0, max);
+}
+
+/** Nome impresso no cartão: letras, espaço e pontuação simples. */
+export function maskPersonName(value: string, max = 80): string {
+  return value
+    .replace(/[^\p{L}\s.'\-]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^\s+/, "")
+    .slice(0, max);
 }
 
 /** Número do endereço: dígitos e letras curtas (ex.: 123B, S/N). */
