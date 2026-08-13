@@ -23,7 +23,7 @@ import {
   maskAddressNumber,
   maskAddressText,
   maskUF,
-  normalizeText,
+  maskPersonName,
 } from "@/lib/format";
 import { cepDigits, isValidCEP, lookupCEP, maskCEP } from "@/lib/cep";
 import { PhoneInput } from "@/components/PhoneInput";
@@ -1091,7 +1091,7 @@ export function SavedCards({
             onChange={(e) =>
               setForm((f) => ({
                 ...f,
-                name: normalizeText(e.target.value.replace(/[^\p{L}\s.'-]/gu, ""), 80),
+                name: maskPersonName(e.target.value),
               }))
             }
           />
