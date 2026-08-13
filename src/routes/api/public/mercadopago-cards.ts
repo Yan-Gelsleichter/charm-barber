@@ -5,7 +5,11 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { sanitizeMpDeviceId } from "@/lib/mp-device-id";
 import { isValidCPF } from "@/lib/format";
-import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
+import {
+  PAYER_EMAIL_ERROR,
+  resolvePayerEmail,
+  validatePayerComplete,
+} from "@/lib/mp-payer.server";
 import { logPaymentAttempt, logPaymentResult } from "@/lib/mp-audit.server";
 
 /** Valida os 11 dígitos do CPF (dígitos verificadores oficiais). */
