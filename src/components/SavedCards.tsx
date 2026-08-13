@@ -363,6 +363,85 @@ export function SavedCards({
     makeDefault: false,
   });
 
+  // Endereço do pagador: o cliente digita só CEP + número, o resto vem do ViaCEP.
+  const [addr, setAddr] = useState({
+    zip: "",
+    number: "",
+    street: "",
+    neighborhood: "",
+    city: "",
+    uf: "",
+  });
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
+
+  // Telefone do cadastro (WhatsApp) para compor o objeto payer completo.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const meta = (data.session?.user.user_metadata ?? {}) as Record<string, unknown>;
+      const raw = String(meta["whatsapp"] ?? meta["phone"] ?? meta["telefone"] ?? "");
+      if (alive && raw) setPhone(maskPhoneBR(raw));
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Busca automática do endereço assim que o CEP fica completo.
+  useEffect(() => {
+    const cep = cepDigits(addr.zip);
+    if (!isValidCEP(cep)) return;
+    let alive = true;
+    setCepLoading(true);
+    setCepError(null);
+    lookupCEP(cep)
+      .then((found) => {
+        if (!alive) return;
+        setAddr((a) => ({
+          ...a,
+          street: found.street_name,
+          neighborhood: found.neighborhood,
+          city: found.city,
+          uf: found.federal_unit,
+        }));
+      })
+      .catch((e: Error) => {
+        if (alive) setCepError(e.message);
+      })
+      .finally(() => {
+        if (alive) setCepLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [addr.zip]);
+
+  /** Dados extras do pagador (telefone e endereço) enviados ao Mercado Pago. */
+  function payerExtras() {
+    const tel = phoneDigits(phone);
+    const zip = cepDigits(addr.zip);
+    return {
+      ...(tel.length >= 10
+        ? { payer_phone: { area_code: tel.slice(0, 2), number: tel.slice(2) } }
+        : {}),
+      ...(isValidCEP(zip) && addr.street
+        ? {
+            payer_address: {
+              zip_code: zip,
+              street_name: addr.street,
+              street_number: addr.number.trim() || "S/N",
+              neighborhood: addr.neighborhood,
+              city: addr.city,
+              federal_unit: addr.uf,
+            },
+          }
+        : {}),
+    };
+  }
+
   // Carrega cedo o script de segurança do Mercado Pago (device fingerprint).
   useEffect(() => {
     loadMpSecurityScript();
