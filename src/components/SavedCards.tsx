@@ -796,12 +796,35 @@ export function SavedCards({
           onChange={(e) => setAddr((a) => ({ ...a, number: e.target.value.slice(0, 10) }))}
         />
       </div>
-      {addr.street && (
-        <p className="text-[11px] text-muted-foreground">
-          {addr.street}
-          {addr.neighborhood ? `, ${addr.neighborhood}` : ""} — {addr.city}/{addr.uf}
-        </p>
-      )}
+      <Input
+        placeholder="Rua"
+        disabled={busy}
+        value={addr.street}
+        onChange={(e) => setAddr((a) => ({ ...a, street: e.target.value }))}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          placeholder="Bairro"
+          disabled={busy}
+          value={addr.neighborhood}
+          onChange={(e) => setAddr((a) => ({ ...a, neighborhood: e.target.value }))}
+        />
+        <Input
+          placeholder="Cidade"
+          disabled={busy}
+          value={addr.city}
+          onChange={(e) => setAddr((a) => ({ ...a, city: e.target.value }))}
+        />
+      </div>
+      <Input
+        placeholder="Estado (UF)"
+        maxLength={2}
+        disabled={busy}
+        value={addr.uf}
+        onChange={(e) =>
+          setAddr((a) => ({ ...a, uf: e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase() }))
+        }
+      />
       <Input
         inputMode="tel"
         placeholder="WhatsApp / telefone"
@@ -811,7 +834,8 @@ export function SavedCards({
       />
       {billingIncomplete && (
         <p className="text-[11px] text-muted-foreground">
-          CEP, número e telefone com DDD são obrigatórios pelo Mercado Pago.
+          Preencha CEP, número, endereço completo e telefone com DDD. Se a busca pelo CEP não
+          preencher tudo, você pode digitar manualmente.
         </p>
       )}
     </div>
