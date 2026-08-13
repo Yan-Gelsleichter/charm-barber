@@ -26,6 +26,7 @@ import {
   maskPersonName,
 } from "@/lib/format";
 import { cepDigits, isValidCEP, lookupCEP, maskCEP } from "@/lib/cep";
+import { hasBillingErrors, validateBilling, type BillingErrors } from "@/lib/billing";
 import { PhoneInput } from "@/components/PhoneInput";
 
 import { SecuritySeal } from "@/components/SecuritySeal";
@@ -386,6 +387,8 @@ export function SavedCards({
   const [cepLoading, setCepLoading] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
+  const [billingTouched, setBillingTouched] = useState<Record<string, boolean>>({});
+  const touch = (field: string) => setBillingTouched((t) => ({ ...t, [field]: true }));
 
   // Telefone do cadastro (WhatsApp) para compor o objeto payer completo.
   useEffect(() => {
@@ -394,7 +397,7 @@ export function SavedCards({
       const { data } = await supabase.auth.getSession();
       const meta = (data.session?.user.user_metadata ?? {}) as Record<string, unknown>;
       const raw = String(meta["whatsapp"] ?? meta["phone"] ?? meta["telefone"] ?? "");
-      if (alive && raw) setPhone(maskPhoneBR(raw));
+      if (alive && raw) setPhone(phoneDigits(raw));
     })();
     return () => {
       alive = false;
@@ -538,11 +541,11 @@ export function SavedCards({
   const expiryError = expiryTouched && !settled ? validateExpiry(form.expiry) : null;
   const docError = docTouched && !settled ? validateCPF(form.doc) : null;
   // O Mercado Pago só aceita a cobrança com telefone e endereço completos.
-  const billingIncomplete =
-    !isValidCEP(addr.zip) ||
-    !addr.street ||
-    !addr.number.trim() ||
-    phoneDigits(phone).length < 10;
+  const billingErrors: BillingErrors = validateBilling(addr, phone);
+  const billingIncomplete = hasBillingErrors(billingErrors);
+  /** Só mostra o erro depois que o cliente encostou no campo. */
+  const showBillingError = (field: keyof BillingErrors) =>
+    billingTouched[field] ? (billingErrors[field] ?? null) : null;
   const newCardInvalid = Boolean(
     validateCardNumber(form.number) ||
     validateExpiry(form.expiry) ||
