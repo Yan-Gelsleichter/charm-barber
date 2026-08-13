@@ -97,6 +97,11 @@ function PagamentoPage() {
   const [payStatus, setPayStatus] = useState<string>("pendente");
   const paid = payStatus === "pago";
 
+  // Antifraude do Mercado Pago: gera o device_id assim que o checkout abre.
+  useEffect(() => {
+    loadMpSecurityScript();
+  }, []);
+
   const apptQ = useQuery({
     queryKey: ["appointment-pay", appointmentId],
     refetchInterval: paid ? false : 10_000,
