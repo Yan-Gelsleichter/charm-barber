@@ -15,8 +15,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { maskCPF, validateCPF, maskPhoneBR, phoneDigits } from "@/lib/format";
+import {
+  maskCPF,
+  validateCPF,
+  maskPhoneBR,
+  phoneDigits,
+  maskAddressNumber,
+  maskAddressText,
+  maskUF,
+  normalizeText,
+} from "@/lib/format";
 import { cepDigits, isValidCEP, lookupCEP, maskCEP } from "@/lib/cep";
+import { PhoneInput } from "@/components/PhoneInput";
+
 import { SecuritySeal } from "@/components/SecuritySeal";
 import { getMpDeviceId, loadMpSecurityScript } from "@/lib/mp-device";
 
