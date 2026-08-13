@@ -1143,6 +1143,13 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                         zip_code: mpAddress.zip_code,
                         street_name: mpAddress.street_name,
                         street_number: mpAddress.street_number,
+                        ...(mpAddress.neighborhood
+                          ? { neighborhood: mpAddress.neighborhood }
+                          : {}),
+                        ...(mpAddress.city ? { city: mpAddress.city } : {}),
+                        ...(mpAddress.federal_unit
+                          ? { federal_unit: mpAddress.federal_unit }
+                          : {}),
                       },
                     }
                   : {}),
