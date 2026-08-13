@@ -1253,6 +1253,8 @@ export function SavedCards({
                 setNumberTouched(true);
                 setExpiryTouched(true);
                 setNewCvvTouched(true);
+                setDocTouched(true);
+                touchAllBilling();
                 if (newCardInvalid) return;
                 payWithNew.mutate();
               }}
