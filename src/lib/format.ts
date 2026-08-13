@@ -72,3 +72,51 @@ export function validateCPF(value: string): string | null {
   if (!isValidCPF(d)) return "CPF inválido. Confira os números digitados.";
   return null;
 }
+
+/**
+ * Normalização de textos enviados ao Mercado Pago.
+ * Remove caracteres de controle, colapsa espaços repetidos e corta o excesso —
+ * o antifraude recusa payloads com espaços sobrando ou caracteres inválidos.
+ */
+export function normalizeText(value: string | null | undefined, max = 120): string {
+  return String(value ?? "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+/**
+ * Nome de rua/bairro/cidade: só letras (com acento), números e pontuação simples.
+ * Não usa trim no fim para não atrapalhar quem ainda está digitando.
+ */
+export function maskAddressText(value: string, max = 120): string {
+  return value
+    .replace(/[^\p{L}\p{N}\s.,'\u2019\-/\u00ba\u00b0]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^\s+/, "")
+    .slice(0, max);
+}
+
+/** Nome impresso no cartão: letras, espaço e pontuação simples. */
+export function maskPersonName(value: string, max = 80): string {
+  return value
+    .replace(/[^\p{L}\s.'\-]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^\s+/, "")
+    .slice(0, max);
+}
+
+/** Número do endereço: dígitos e letras curtas (ex.: 123B, S/N). */
+export function maskAddressNumber(value: string): string {
+  return value
+    .replace(/[^\p{L}\p{N}/\-]/gu, "")
+    .toUpperCase()
+    .slice(0, 10);
+}
+
+/** UF: duas letras maiúsculas. */
+export function maskUF(value: string): string {
+  return value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2);
+}
