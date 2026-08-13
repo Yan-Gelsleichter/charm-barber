@@ -55,25 +55,30 @@ const requestSchema = z.discriminatedUnion("action", [
       .refine((v) => /^\d{11}$/.test(v), "CPF deve conter 11 dígitos.")
       .refine(isValidCPFDigits, "CPF inválido.")
       .optional(),
-    cardholder_name: z.string().min(2).max(80).optional(),
+    cardholder_name: z.string().min(2).max(80).transform(cleanText).optional(),
     /** Telefone do pagador (antifraude do Mercado Pago). */
     payer_phone: z
       .object({
-        area_code: z.string().max(4),
-        number: z.string().max(15),
+        area_code: z.string().max(6).transform(onlyDigits),
+        number: z.string().max(20).transform(onlyDigits),
       })
       .optional(),
     /** Endereço do pagador preenchido pela busca de CEP (ViaCEP). */
     payer_address: z
       .object({
-        zip_code: z.string().max(9),
-        street_name: z.string().max(120),
-        street_number: z.string().max(12),
-        neighborhood: z.string().max(120).optional(),
-        city: z.string().max(120).optional(),
-        federal_unit: z.string().max(4).optional(),
+        zip_code: z.string().max(12).transform(onlyDigits),
+        street_name: z.string().max(160).transform((v) => cleanText(v, 120)),
+        street_number: z.string().max(20).transform(cleanStreetNumber),
+        neighborhood: z.string().max(160).transform((v) => cleanText(v, 120)).optional(),
+        city: z.string().max(160).transform((v) => cleanText(v, 120)).optional(),
+        federal_unit: z
+          .string()
+          .max(8)
+          .transform((v) => v.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2))
+          .optional(),
       })
       .optional(),
+
     expiration_month: z.coerce.number().int().min(1).max(12).optional(),
     expiration_year: z.coerce.number().int().min(2000).max(2100).optional(),
     /** Device fingerprint (security.js) exigido pelo antifraude do Mercado Pago. */
