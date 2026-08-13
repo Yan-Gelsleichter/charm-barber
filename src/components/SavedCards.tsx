@@ -776,6 +776,7 @@ export function SavedCards({
           <Input
             inputMode="numeric"
             placeholder="CEP"
+            maxLength={9}
             disabled={busy}
             value={maskCEP(addr.zip)}
             aria-invalid={Boolean(cepError)}
@@ -789,31 +790,36 @@ export function SavedCards({
           {cepError && <p className="mt-1 text-[11px] text-destructive">{cepError}</p>}
         </div>
         <Input
-          inputMode="numeric"
           placeholder="Número"
+          maxLength={10}
           disabled={busy}
           value={addr.number}
-          onChange={(e) => setAddr((a) => ({ ...a, number: e.target.value.slice(0, 10) }))}
+          onChange={(e) => setAddr((a) => ({ ...a, number: maskAddressNumber(e.target.value) }))}
         />
       </div>
       <Input
         placeholder="Rua"
+        maxLength={120}
         disabled={busy}
         value={addr.street}
-        onChange={(e) => setAddr((a) => ({ ...a, street: e.target.value }))}
+        onChange={(e) => setAddr((a) => ({ ...a, street: maskAddressText(e.target.value) }))}
       />
       <div className="grid grid-cols-2 gap-2">
         <Input
           placeholder="Bairro"
+          maxLength={120}
           disabled={busy}
           value={addr.neighborhood}
-          onChange={(e) => setAddr((a) => ({ ...a, neighborhood: e.target.value }))}
+          onChange={(e) =>
+            setAddr((a) => ({ ...a, neighborhood: maskAddressText(e.target.value) }))
+          }
         />
         <Input
           placeholder="Cidade"
+          maxLength={120}
           disabled={busy}
           value={addr.city}
-          onChange={(e) => setAddr((a) => ({ ...a, city: e.target.value }))}
+          onChange={(e) => setAddr((a) => ({ ...a, city: maskAddressText(e.target.value) }))}
         />
       </div>
       <Input
@@ -821,16 +827,13 @@ export function SavedCards({
         maxLength={2}
         disabled={busy}
         value={addr.uf}
-        onChange={(e) =>
-          setAddr((a) => ({ ...a, uf: e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase() }))
-        }
+        onChange={(e) => setAddr((a) => ({ ...a, uf: maskUF(e.target.value) }))}
       />
-      <Input
-        inputMode="tel"
+      <PhoneInput
         placeholder="WhatsApp / telefone"
         disabled={busy}
         value={phone}
-        onChange={(e) => setPhone(maskPhoneBR(e.target.value))}
+        onChange={setPhone}
       />
       {billingIncomplete && (
         <p className="text-[11px] text-muted-foreground">
@@ -840,6 +843,7 @@ export function SavedCards({
       )}
     </div>
   );
+
 
   return (
     <section ref={sectionRef} className="surface relative mt-5 space-y-3 p-4" aria-busy={busy}>
