@@ -1031,11 +1031,14 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           // Emissoras brasileiras exigem nome e CPF do titular. Sem esses campos
           // (e sem additional_info) a transação é barrada na antifraude do
           // Mercado Pago e nunca chega ao banco emissor.
-          const holderName = (
-            parsed.data.cardholder_name ??
-            tokenInfo?.cardholder?.name ??
-            appointment.customer_name ??
-            ""
+          const holderName = cleanText(
+            String(
+              parsed.data.cardholder_name ??
+                tokenInfo?.cardholder?.name ??
+                appointment.customer_name ??
+                "",
+            ),
+            80,
           );
           const [firstName, ...restName] = holderName.split(/\s+/).filter(Boolean);
           const lastName = restName.join(" ");
