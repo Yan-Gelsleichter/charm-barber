@@ -15,7 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { maskCPF, validateCPF } from "@/lib/format";
+import { maskCPF, validateCPF, maskPhoneBR, phoneDigits } from "@/lib/format";
+import { cepDigits, isValidCEP, lookupCEP, maskCEP } from "@/lib/cep";
 import { SecuritySeal } from "@/components/SecuritySeal";
 import { getMpDeviceId, loadMpSecurityScript } from "@/lib/mp-device";
 
@@ -362,6 +363,85 @@ export function SavedCards({
     makeDefault: false,
   });
 
+  // Endereço do pagador: o cliente digita só CEP + número, o resto vem do ViaCEP.
+  const [addr, setAddr] = useState({
+    zip: "",
+    number: "",
+    street: "",
+    neighborhood: "",
+    city: "",
+    uf: "",
+  });
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
+
+  // Telefone do cadastro (WhatsApp) para compor o objeto payer completo.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const meta = (data.session?.user.user_metadata ?? {}) as Record<string, unknown>;
+      const raw = String(meta["whatsapp"] ?? meta["phone"] ?? meta["telefone"] ?? "");
+      if (alive && raw) setPhone(maskPhoneBR(raw));
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Busca automática do endereço assim que o CEP fica completo.
+  useEffect(() => {
+    const cep = cepDigits(addr.zip);
+    if (!isValidCEP(cep)) return;
+    let alive = true;
+    setCepLoading(true);
+    setCepError(null);
+    lookupCEP(cep)
+      .then((found) => {
+        if (!alive) return;
+        setAddr((a) => ({
+          ...a,
+          street: found.street_name,
+          neighborhood: found.neighborhood,
+          city: found.city,
+          uf: found.federal_unit,
+        }));
+      })
+      .catch((e: Error) => {
+        if (alive) setCepError(e.message);
+      })
+      .finally(() => {
+        if (alive) setCepLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [addr.zip]);
+
+  /** Dados extras do pagador (telefone e endereço) enviados ao Mercado Pago. */
+  function payerExtras() {
+    const tel = phoneDigits(phone);
+    const zip = cepDigits(addr.zip);
+    return {
+      ...(tel.length >= 10
+        ? { payer_phone: { area_code: tel.slice(0, 2), number: tel.slice(2) } }
+        : {}),
+      ...(isValidCEP(zip) && addr.street
+        ? {
+            payer_address: {
+              zip_code: zip,
+              street_name: addr.street,
+              street_number: addr.number.trim() || "S/N",
+              neighborhood: addr.neighborhood,
+              city: addr.city,
+              federal_unit: addr.uf,
+            },
+          }
+        : {}),
+    };
+  }
+
   // Carrega cedo o script de segurança do Mercado Pago (device fingerprint).
   useEffect(() => {
     loadMpSecurityScript();
@@ -448,7 +528,10 @@ export function SavedCards({
     validateExpiry(form.expiry) ||
     validateCvv(form.cvv, null, form.number) ||
     validateCPF(form.doc) ||
-    !form.name.trim(),
+    !form.name.trim() ||
+    !isValidCEP(addr.zip) ||
+    !addr.street ||
+    !addr.number.trim(),
   );
 
   // Limpa o CVV e o estado de erro ao trocar de cartão.
@@ -476,6 +559,7 @@ export function SavedCards({
         card_token: tokenId,
         saved_card_id: card.id,
         payment_method_id: paymentMethodId,
+        ...payerExtras(),
       });
     },
     onSuccess: (data) => {
@@ -554,6 +638,7 @@ export function SavedCards({
         cardholder_name: form.name.trim(),
         expiration_month: Number(digits(month)),
         expiration_year: Number(fullYear),
+        ...payerExtras(),
       });
 
 
@@ -970,6 +1055,53 @@ export function SavedCards({
               </p>
             )}
           </div>
+
+          <div className="space-y-2 rounded-lg border border-border/60 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Endereço de cobrança
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Input
+                  inputMode="numeric"
+                  placeholder="CEP"
+                  disabled={busy}
+                  value={maskCEP(addr.zip)}
+                  aria-invalid={Boolean(cepError)}
+                  onChange={(e) => setAddr((a) => ({ ...a, zip: cepDigits(e.target.value) }))}
+                />
+                {cepLoading && (
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" /> Buscando endereço…
+                  </p>
+                )}
+                {cepError && <p className="mt-1 text-[11px] text-destructive">{cepError}</p>}
+              </div>
+              <Input
+                inputMode="numeric"
+                placeholder="Número"
+                disabled={busy}
+                value={addr.number}
+                onChange={(e) =>
+                  setAddr((a) => ({ ...a, number: e.target.value.slice(0, 10) }))
+                }
+              />
+            </div>
+            {addr.street && (
+              <p className="text-[11px] text-muted-foreground">
+                {addr.street}
+                {addr.neighborhood ? `, ${addr.neighborhood}` : ""} — {addr.city}/{addr.uf}
+              </p>
+            )}
+            <Input
+              inputMode="tel"
+              placeholder="WhatsApp / telefone"
+              disabled={busy}
+              value={phone}
+              onChange={(e) => setPhone(maskPhoneBR(e.target.value))}
+            />
+          </div>
+
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"

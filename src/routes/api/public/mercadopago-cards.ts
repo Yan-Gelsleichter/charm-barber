@@ -52,6 +52,24 @@ const requestSchema = z.discriminatedUnion("action", [
       .refine(isValidCPFDigits, "CPF inválido.")
       .optional(),
     cardholder_name: z.string().min(2).max(80).optional(),
+    /** Telefone do pagador (antifraude do Mercado Pago). */
+    payer_phone: z
+      .object({
+        area_code: z.string().max(4),
+        number: z.string().max(15),
+      })
+      .optional(),
+    /** Endereço do pagador preenchido pela busca de CEP (ViaCEP). */
+    payer_address: z
+      .object({
+        zip_code: z.string().max(9),
+        street_name: z.string().max(120),
+        street_number: z.string().max(12),
+        neighborhood: z.string().max(120).optional(),
+        city: z.string().max(120).optional(),
+        federal_unit: z.string().max(4).optional(),
+      })
+      .optional(),
     expiration_month: z.coerce.number().int().min(1).max(12).optional(),
     expiration_year: z.coerce.number().int().min(2000).max(2100).optional(),
     /** Device fingerprint (security.js) exigido pelo antifraude do Mercado Pago. */
@@ -92,6 +110,8 @@ function safePaymentPayload(payload: Record<string, unknown>) {
           identification: identification
             ? { ...identification, number: "[REDACTED_DOCUMENT]" }
             : undefined,
+          phone: payer["phone"] ? "[REDACTED_PHONE]" : undefined,
+          address: payer["address"] ? "[REDACTED_ADDRESS]" : undefined,
         }
       : undefined,
   };
@@ -1040,6 +1060,31 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (firstName) payer["first_name"] = firstName;
           if (lastName) payer["last_name"] = lastName;
 
+          // Telefone e endereço completos melhoram a avaliação do antifraude.
+          const phoneIn = parsed.data.payer_phone;
+          const areaCode = String(phoneIn?.area_code ?? "").replace(/\D/g, "");
+          const phoneNumber = String(phoneIn?.number ?? "").replace(/\D/g, "");
+          const mpPhone =
+            areaCode.length >= 2 && phoneNumber.length >= 8
+              ? { area_code: areaCode, number: phoneNumber }
+              : null;
+          if (mpPhone) payer["phone"] = mpPhone;
+
+          const addrIn = parsed.data.payer_address;
+          const zipCode = String(addrIn?.zip_code ?? "").replace(/\D/g, "");
+          const mpAddress =
+            addrIn && /^\d{8}$/.test(zipCode) && addrIn.street_name.trim()
+              ? {
+                  zip_code: zipCode,
+                  street_name: addrIn.street_name.trim(),
+                  street_number: (addrIn.street_number || "S/N").trim(),
+                  neighborhood: (addrIn.neighborhood ?? "").trim() || undefined,
+                  city: (addrIn.city ?? "").trim() || undefined,
+                  federal_unit: (addrIn.federal_unit ?? "").trim().toUpperCase() || undefined,
+                }
+              : null;
+          if (mpAddress) payer["address"] = mpAddress;
+
 
           // Identificação nova a cada tentativa (nunca reaproveita a anterior),
           // sensível ao valor cobrado — exigência do antifraude do Mercado Pago.
@@ -1074,6 +1119,16 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               payer: {
                 ...(firstName ? { first_name: firstName } : {}),
                 ...(lastName ? { last_name: lastName } : {}),
+                ...(mpPhone ? { phone: mpPhone } : {}),
+                ...(mpAddress
+                  ? {
+                      address: {
+                        zip_code: mpAddress.zip_code,
+                        street_name: mpAddress.street_name,
+                        street_number: mpAddress.street_number,
+                      },
+                    }
+                  : {}),
               },
             },
             metadata: {

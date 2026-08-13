@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { brl, fmtTime } from "@/lib/format";
+import { loadMpSecurityScript } from "@/lib/mp-device";
 
 type PixData = {
   payment_id: number | string;
@@ -95,6 +96,11 @@ function PagamentoPage() {
   const [pix, setPix] = useState<PixData | null>(null);
   const [payStatus, setPayStatus] = useState<string>("pendente");
   const paid = payStatus === "pago";
+
+  // Antifraude do Mercado Pago: gera o device_id assim que o checkout abre.
+  useEffect(() => {
+    loadMpSecurityScript();
+  }, []);
 
   const apptQ = useQuery({
     queryKey: ["appointment-pay", appointmentId],
