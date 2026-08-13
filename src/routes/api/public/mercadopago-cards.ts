@@ -1058,6 +1058,31 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           if (firstName) payer["first_name"] = firstName;
           if (lastName) payer["last_name"] = lastName;
 
+          // Telefone e endereço completos melhoram a avaliação do antifraude.
+          const phoneIn = parsed.data.payer_phone;
+          const areaCode = String(phoneIn?.area_code ?? "").replace(/\D/g, "");
+          const phoneNumber = String(phoneIn?.number ?? "").replace(/\D/g, "");
+          const mpPhone =
+            areaCode.length >= 2 && phoneNumber.length >= 8
+              ? { area_code: areaCode, number: phoneNumber }
+              : null;
+          if (mpPhone) payer["phone"] = mpPhone;
+
+          const addrIn = parsed.data.payer_address;
+          const zipCode = String(addrIn?.zip_code ?? "").replace(/\D/g, "");
+          const mpAddress =
+            addrIn && /^\d{8}$/.test(zipCode) && addrIn.street_name.trim()
+              ? {
+                  zip_code: zipCode,
+                  street_name: addrIn.street_name.trim(),
+                  street_number: (addrIn.street_number || "S/N").trim(),
+                  neighborhood: (addrIn.neighborhood ?? "").trim() || undefined,
+                  city: (addrIn.city ?? "").trim() || undefined,
+                  federal_unit: (addrIn.federal_unit ?? "").trim().toUpperCase() || undefined,
+                }
+              : null;
+          if (mpAddress) payer["address"] = mpAddress;
+
 
           // Identificação nova a cada tentativa (nunca reaproveita a anterior),
           // sensível ao valor cobrado — exigência do antifraude do Mercado Pago.
