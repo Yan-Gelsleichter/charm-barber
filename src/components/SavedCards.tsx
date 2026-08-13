@@ -1085,10 +1085,17 @@ export function SavedCards({
           </div>
           <Input
             placeholder="Nome impresso no cartão"
+            maxLength={80}
             disabled={busy}
             value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                name: normalizeText(e.target.value.replace(/[^\p{L}\s.'-]/gu, ""), 80),
+              }))
+            }
           />
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Input
