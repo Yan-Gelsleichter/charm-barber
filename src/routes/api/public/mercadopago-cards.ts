@@ -1089,6 +1089,19 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               : null;
           if (mpAddress) payer["address"] = mpAddress;
 
+          // Trava final: nenhum pagamento sai daqui com o payer incompleto.
+          const payerError = validatePayerComplete({
+            first_name: firstName ?? null,
+            last_name: lastName,
+            email: payerEmail,
+            doc: payerDoc,
+            phone: mpPhone,
+            address: mpAddress,
+          });
+          if (payerError) return json({ error: payerError }, 400);
+
+
+
 
           // Identificação nova a cada tentativa (nunca reaproveita a anterior),
           // sensível ao valor cobrado — exigência do antifraude do Mercado Pago.
