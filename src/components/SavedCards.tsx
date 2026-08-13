@@ -556,6 +556,7 @@ export function SavedCards({
         card_token: tokenId,
         saved_card_id: card.id,
         payment_method_id: paymentMethodId,
+        ...payerExtras(),
       });
     },
     onSuccess: (data) => {
