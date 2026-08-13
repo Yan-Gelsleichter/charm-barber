@@ -769,7 +769,7 @@ export function SavedCards({
   const billingFields = (
     <div className="space-y-2 rounded-lg border border-border/60 p-3">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Endereço de cobrança
+        Endereço de cobrança (Obrigatório)
       </p>
       <div className="grid grid-cols-2 gap-2">
         <div>
