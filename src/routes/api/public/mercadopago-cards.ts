@@ -1090,24 +1090,25 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               ? { zip_code: zipCode, street_name: streetName, street_number: streetNumber }
               : null;
           if (mpAddress) payer["address"] = mpAddress;
-          // city, federal_unit e neighborhood vão em shipments.receiver_address,
-          // o único nó de endereço completo aceito pela API v1/payments.
+          // shipments.receiver_address é o único nó de endereço completo aceito
+          // pela API v1/payments. Os nomes das chaves seguem o contrato oficial:
+          // zip_code, street_name, street_number, neighborhood, city_name, state_name.
           const neighborhood = cleanText(String(addrIn?.neighborhood ?? ""), 120) || undefined;
-          const city = cleanText(String(addrIn?.city ?? ""), 120) || undefined;
-          const federalUnit =
+          const cityName = cleanText(String(addrIn?.city ?? ""), 120) || undefined;
+          const stateName =
             String(addrIn?.federal_unit ?? "")
               .replace(/[^a-zA-Z]/g, "")
               .toUpperCase()
               .slice(0, 2) || undefined;
           const receiverAddress =
-            mpAddress && (neighborhood || city || federalUnit)
+            mpAddress && (neighborhood || cityName || stateName)
               ? {
                   zip_code: mpAddress.zip_code,
                   street_name: mpAddress.street_name,
                   street_number: mpAddress.street_number,
                   neighborhood,
-                  city,
-                  federal_unit: federalUnit,
+                  city_name: cityName,
+                  state_name: stateName,
                 }
               : null;
 
@@ -1171,7 +1172,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                     }
                   : {}),
               },
-              // city, federal_unit e neighborhood são aceitos apenas em
+              // neighborhood, city_name e state_name são aceitos apenas em
               // shipments.receiver_address, o endereço completo da API v1/payments.
               ...(receiverAddress
                 ? { shipments: { receiver_address: receiverAddress } }
