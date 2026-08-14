@@ -1172,7 +1172,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                     }
                   : {}),
               },
-              // city, federal_unit e neighborhood são aceitos apenas em
+              // neighborhood, city_name e state_name são aceitos apenas em
               // shipments.receiver_address, o endereço completo da API v1/payments.
               ...(receiverAddress
                 ? { shipments: { receiver_address: receiverAddress } }
