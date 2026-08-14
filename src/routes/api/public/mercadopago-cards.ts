@@ -1159,10 +1159,10 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                 ...(firstName ? { first_name: firstName } : {}),
                 ...(lastName ? { last_name: lastName } : {}),
                 ...(mpPhone ? { phone: mpPhone } : {}),
+                // additional_info.payer.address aceita APENAS zip_code,
+                // street_name e street_number — conforme o contrato da API.
                 ...(mpAddress
                   ? {
-                      // additional_info.payer.address aceita apenas estes três
-                      // campos; city/federal_unit/neighborhood só em payer.address.
                       address: {
                         zip_code: mpAddress.zip_code,
                         street_name: mpAddress.street_name,
@@ -1170,8 +1170,12 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                       },
                     }
                   : {}),
-
               },
+              // city, federal_unit e neighborhood são aceitos apenas em
+              // shipments.receiver_address, o endereço completo da API v1/payments.
+              ...(receiverAddress
+                ? { shipments: { receiver_address: receiverAddress } }
+                : {}),
             },
             metadata: {
               appointment_id: appointment.id,
