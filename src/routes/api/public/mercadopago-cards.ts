@@ -1090,13 +1090,22 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               ? { zip_code: zipCode, street_name: streetName, street_number: streetNumber }
               : null;
           if (mpAddress) payer["address"] = mpAddress;
-          // A API v1/payments aceita somente estes três campos neste nó.
+          // Endereço completo vindo do formulário (preenchido pela busca de CEP).
+          const neighborhood = cleanText(String(addrIn?.neighborhood ?? ""), 120);
+          const city = cleanText(String(addrIn?.city ?? ""), 120);
+          const federalUnit = String(addrIn?.federal_unit ?? "")
+            .replace(/[^a-zA-Z]/g, "")
+            .toUpperCase()
+            .slice(0, 2);
           const receiverAddress =
-            mpAddress
+            mpAddress && neighborhood && city && /^[A-Z]{2}$/.test(federalUnit)
               ? {
                   zip_code: mpAddress.zip_code,
                   street_name: mpAddress.street_name,
                   street_number: mpAddress.street_number,
+                  city,
+                  federal_unit: federalUnit,
+                  neighborhood,
                 }
               : null;
 
@@ -1110,6 +1119,15 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             address: mpAddress,
           });
           if (payerError) return json({ error: payerError }, 400);
+          if (!receiverAddress) {
+            return json(
+              {
+                error:
+                  "Confirme bairro, cidade e UF do endereço de cobrança antes de pagar.",
+              },
+              400,
+            );
+          }
 
 
 
@@ -1160,10 +1178,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                     }
                   : {}),
               },
-              // receiver_address também recebe somente CEP, rua e número.
-              ...(receiverAddress
-                ? { shipments: { receiver_address: receiverAddress } }
-                : {}),
+              shipments: { receiver_address: receiverAddress },
             },
             metadata: {
               appointment_id: appointment.id,
@@ -1179,6 +1194,14 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
 
           const doPay = async (payload: Record<string, unknown>, key: string) => {
             try {
+              const additionalInfo = payload["additional_info"] as
+                | { shipments?: { receiver_address?: unknown } }
+                | undefined;
+              // TEMPORÁRIO: confirmar o endereço final enviado ao Mercado Pago.
+              console.log(
+                "Mercado Pago additional_info.shipments.receiver_address",
+                additionalInfo?.shipments?.receiver_address,
+              );
               return await fetch("https://api.mercadopago.com/v1/payments", {
                 method: "POST",
                 headers: {
