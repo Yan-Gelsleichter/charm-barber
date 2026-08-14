@@ -212,18 +212,25 @@ async function hmacSha256Hex(secret: string, message: string) {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+type SignatureResult = "valid" | "unsigned" | "invalid" | "stale" | "no-secret";
+
 /**
- * Verifica a assinatura do Mercado Pago (header `x-signature`), mas nunca
- * bloqueia a entrega: o endpoint é público e responde sempre 200/`ok`.
+ * Valida a assinatura do Mercado Pago (`x-signature` + `x-request-id`).
  *
- * Isso evita o erro 401 no painel do Mercado Pago (que rejeita/reenvia a URL
- * quando recebe qualquer coisa diferente de 2xx). A segurança é mantida
- * porque nada do corpo recebido é confiado: o pagamento é sempre reconsultado
- * na API do Mercado Pago com o nosso access token antes de atualizar o banco.
+ * Endpoint 100% público (não usa JWT do Supabase): a autenticidade vem do
+ * HMAC-SHA256 do manifest oficial `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`
+ * usando MP_WEBHOOK_SECRET.
+ *
+ * Nunca respondemos 401 — o painel do Mercado Pago desativa a URL quando
+ * recebe erro. Em vez disso classificamos o evento e descartamos (com 200)
+ * o que estiver assinado de forma inválida ou fora da janela de tempo.
  */
-async function verifySignature(request: Request, url: URL, dataId: string): Promise<Response | null> {
-  const secret = process.env["MP_WEBHOOK_SECRET"];
-  if (!secret) return null;
+async function verifySignature(request: Request, url: URL, dataId: string): Promise<SignatureResult> {
+  const secret = (process.env["MP_WEBHOOK_SECRET"] ?? "").trim();
+  if (!secret) {
+    console.warn("Webhook MP: MP_WEBHOOK_SECRET não configurado; assinatura não verificada");
+    return "no-secret";
+  }
 
   const signature = request.headers.get("x-signature") ?? "";
   const requestId = request.headers.get("x-request-id") ?? "";
@@ -236,17 +243,26 @@ async function verifySignature(request: Request, url: URL, dataId: string): Prom
   const ts = parts["ts"];
   const v1 = parts["v1"];
   if (!ts || !v1) {
-    console.warn("Webhook MP: assinatura ausente ou malformada (evento aceito mesmo assim)");
-    return null;
+    // Testes manuais e validações de URL chegam sem assinatura.
+    console.warn("Webhook MP: notificação sem assinatura (será reconsultada na API)");
+    return "unsigned";
+  }
+
+  // Janela anti-replay de 10 minutos (aceita ts em segundos ou milissegundos).
+  const tsMs = Number(ts) * (String(ts).length > 12 ? 1 : 1000);
+  if (Number.isFinite(tsMs) && Math.abs(Date.now() - tsMs) > 10 * 60 * 1000) {
+    console.error("Webhook MP: timestamp fora da janela permitida");
+    return "stale";
   }
 
   const id = (url.searchParams.get("data.id") ?? dataId).toLowerCase();
   const manifest = `id:${id};request-id:${requestId};ts:${ts};`;
   const expected = await hmacSha256Hex(secret, manifest);
   if (!timingSafeEqualHex(expected, v1.toLowerCase())) {
-    console.warn("Webhook MP: assinatura não confere (evento aceito, pagamento será reconsultado)");
+    console.error("Webhook MP: assinatura inválida");
+    return "invalid";
   }
-  return null;
+  return "valid";
 }
 
 
@@ -268,9 +284,13 @@ async function handleNotification(request: Request) {
   ).trim();
   if (!notificationId) return new Response("no payment id", { status: 200 });
 
-  // Só eventos legítimos (assinados pelo Mercado Pago) seguem adiante.
-  const rejected = await verifySignature(request, url, notificationId);
-  if (rejected) return rejected;
+  // Assinatura verificada sem bloquear a entrega (sempre 200 para o Mercado Pago).
+  const signature = await verifySignature(request, url, notificationId);
+  if (signature === "invalid" || signature === "stale") {
+    // Possível spoof/replay: confirmamos o recebimento, mas não tocamos no banco.
+    return new Response("ok", { status: 200 });
+  }
+
 
 
   const action = raw.action ?? url.searchParams.get("action") ?? topic ?? "payment";
