@@ -1090,25 +1090,13 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               ? { zip_code: zipCode, street_name: streetName, street_number: streetNumber }
               : null;
           if (mpAddress) payer["address"] = mpAddress;
-          // shipments.receiver_address é o único nó de endereço completo aceito
-          // pela API v1/payments. Os nomes das chaves seguem o contrato oficial:
-          // zip_code, street_name, street_number, neighborhood, city_name, state_name.
-          const neighborhood = cleanText(String(addrIn?.neighborhood ?? ""), 120) || undefined;
-          const cityName = cleanText(String(addrIn?.city ?? ""), 120) || undefined;
-          const stateName =
-            String(addrIn?.federal_unit ?? "")
-              .replace(/[^a-zA-Z]/g, "")
-              .toUpperCase()
-              .slice(0, 2) || undefined;
+          // A API v1/payments aceita somente estes três campos neste nó.
           const receiverAddress =
-            mpAddress && (neighborhood || cityName || stateName)
+            mpAddress
               ? {
                   zip_code: mpAddress.zip_code,
                   street_name: mpAddress.street_name,
                   street_number: mpAddress.street_number,
-                  neighborhood,
-                  city_name: cityName,
-                  state_name: stateName,
                 }
               : null;
 
@@ -1172,8 +1160,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                     }
                   : {}),
               },
-              // neighborhood, city_name e state_name são aceitos apenas em
-              // shipments.receiver_address, o endereço completo da API v1/payments.
+              // receiver_address também recebe somente CEP, rua e número.
               ...(receiverAddress
                 ? { shipments: { receiver_address: receiverAddress } }
                 : {}),
