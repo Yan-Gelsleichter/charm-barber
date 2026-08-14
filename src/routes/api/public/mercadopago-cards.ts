@@ -1083,22 +1083,33 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
           const addrIn = parsed.data.payer_address;
           const zipCode = onlyDigits(String(addrIn?.zip_code ?? ""));
           const streetName = cleanText(String(addrIn?.street_name ?? ""), 120);
+          const streetNumber = cleanStreetNumber(String(addrIn?.street_number ?? ""));
+          // Endereço base (contrato da API): apenas zip_code, street_name e street_number.
           const mpAddress =
             addrIn && /^\d{8}$/.test(zipCode) && streetName
-              ? {
-                  zip_code: zipCode,
-                  street_name: streetName,
-                  street_number: cleanStreetNumber(String(addrIn.street_number ?? "")),
-                  neighborhood: cleanText(String(addrIn.neighborhood ?? ""), 120) || undefined,
-                  city: cleanText(String(addrIn.city ?? ""), 120) || undefined,
-                  federal_unit:
-                    String(addrIn.federal_unit ?? "")
-                      .replace(/[^a-zA-Z]/g, "")
-                      .toUpperCase()
-                      .slice(0, 2) || undefined,
-                }
+              ? { zip_code: zipCode, street_name: streetName, street_number: streetNumber }
               : null;
           if (mpAddress) payer["address"] = mpAddress;
+          // city, federal_unit e neighborhood vão em shipments.receiver_address,
+          // o único nó de endereço completo aceito pela API v1/payments.
+          const neighborhood = cleanText(String(addrIn?.neighborhood ?? ""), 120) || undefined;
+          const city = cleanText(String(addrIn?.city ?? ""), 120) || undefined;
+          const federalUnit =
+            String(addrIn?.federal_unit ?? "")
+              .replace(/[^a-zA-Z]/g, "")
+              .toUpperCase()
+              .slice(0, 2) || undefined;
+          const receiverAddress =
+            mpAddress && (neighborhood || city || federalUnit)
+              ? {
+                  zip_code: mpAddress.zip_code,
+                  street_name: mpAddress.street_name,
+                  street_number: mpAddress.street_number,
+                  neighborhood,
+                  city,
+                  federal_unit: federalUnit,
+                }
+              : null;
 
           // Trava final: nenhum pagamento sai daqui com o payer incompleto.
           const payerError = validatePayerComplete({
@@ -1148,10 +1159,10 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                 ...(firstName ? { first_name: firstName } : {}),
                 ...(lastName ? { last_name: lastName } : {}),
                 ...(mpPhone ? { phone: mpPhone } : {}),
+                // additional_info.payer.address aceita APENAS zip_code,
+                // street_name e street_number — conforme o contrato da API.
                 ...(mpAddress
                   ? {
-                      // additional_info.payer.address aceita apenas estes três
-                      // campos; city/federal_unit/neighborhood só em payer.address.
                       address: {
                         zip_code: mpAddress.zip_code,
                         street_name: mpAddress.street_name,
@@ -1159,8 +1170,12 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
                       },
                     }
                   : {}),
-
               },
+              // city, federal_unit e neighborhood são aceitos apenas em
+              // shipments.receiver_address, o endereço completo da API v1/payments.
+              ...(receiverAddress
+                ? { shipments: { receiver_address: receiverAddress } }
+                : {}),
             },
             metadata: {
               appointment_id: appointment.id,
