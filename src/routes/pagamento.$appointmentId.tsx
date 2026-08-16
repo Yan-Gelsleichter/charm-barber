@@ -1,43 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  QrCode,
-  CreditCard,
-  Store,
-  Loader2,
-  Copy,
-  CheckCircle2,
-  Download,
-  RefreshCw,
-  AlertCircle,
-} from "lucide-react";
+import { ArrowLeft, CreditCard, Store, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { SavedCards } from "@/components/SavedCards";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { brl, fmtTime } from "@/lib/format";
-import { loadMpSecurityScript } from "@/lib/mp-device";
-
-type PixData = {
-  payment_id: number | string;
-  status: string;
-  payment_status?: string;
-  amount: number;
-  expires_at?: string | null;
-  qr_code: string | null;
-  qr_code_base64: string | null;
-  ticket_url: string | null;
-};
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Aguardando pagamento",
@@ -48,27 +17,6 @@ const STATUS_LABEL: Record<string, string> = {
   estornado: "Pagamento estornado",
 };
 
-async function callPixApi(body: Record<string, unknown>) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error("Sua sessão expirou. Faça login novamente.");
-
-  const response = await fetch("/api/public/mercadopago-pix", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const data = (await response.json().catch(() => ({}))) as {
-    error?: string;
-    payment_status?: string;
-  } & Partial<PixData>;
-  if (!response.ok) throw new Error(data.error ?? "Falha ao processar o pagamento.");
-  return data;
-}
-
 export const Route = createFileRoute("/pagamento/$appointmentId")({
   head: () => ({
     meta: [
@@ -76,12 +24,12 @@ export const Route = createFileRoute("/pagamento/$appointmentId")({
       {
         name: "description",
         content:
-          "Pague seu agendamento por PIX instantâneo ou escolha pagar presencialmente na barbearia.",
+          "Pague seu agendamento online por PIX ou cartão, ou escolha pagar presencialmente na barbearia.",
       },
       { property: "og:title", content: "Pagamento do agendamento" },
       {
         property: "og:description",
-        content: "Pague por PIX instantâneo ou presencialmente na barbearia.",
+        content: "Pague online por PIX ou cartão, ou presencialmente na barbearia.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -93,14 +41,8 @@ export const Route = createFileRoute("/pagamento/$appointmentId")({
 function PagamentoPage() {
   const { appointmentId } = Route.useParams();
   const navigate = useNavigate();
-  const [pix, setPix] = useState<PixData | null>(null);
   const [payStatus, setPayStatus] = useState<string>("pendente");
   const paid = payStatus === "pago";
-
-  // Antifraude do Mercado Pago: gera o device_id assim que o checkout abre.
-  useEffect(() => {
-    loadMpSecurityScript();
-  }, []);
 
   const apptQ = useQuery({
     queryKey: ["appointment-pay", appointmentId],
@@ -142,32 +84,9 @@ function PagamentoPage() {
   // Status vindo do banco (atualizado pelo webhook do Mercado Pago).
   const dbStatus = apptQ.data?.appointment.payment_status ?? null;
   useEffect(() => {
-    // Nunca rebaixa um pagamento já aprovado nesta sessão (o banco pode demorar a refletir).
     if (payStatus === "pago") return;
     if (dbStatus && dbStatus !== payStatus) setPayStatus(dbStatus);
   }, [dbStatus]); // eslint-disable-line react-hooks/exhaustive-deps
-
-
-  const createPix = useMutation({
-    mutationFn: async (forceNew: boolean) => {
-      const data = await callPixApi({
-        action: "create",
-        appointment_id: appointmentId,
-        force_new: forceNew,
-      });
-      if (!data.payment_id) throw new Error("O Mercado Pago não retornou os dados do PIX.");
-      return data as PixData;
-    },
-    onSuccess: (d) => {
-      setPix(d);
-      setPayStatus(d.payment_status ?? "pendente");
-    },
-    onError: (e: Error) => toast.error("Não foi possível gerar o PIX", { description: e.message }),
-  });
-
-  // Cartão de crédito: Checkout Transparente, tudo dentro do app (sem redirecionamento).
-  const [cardSignal, setCardSignal] = useState(0);
-  const [cardOpen, setCardOpen] = useState(false);
 
   const finish = useCallback(() => {
     setTimeout(
@@ -176,49 +95,56 @@ function PagamentoPage() {
     );
   }, [navigate, appointmentId]);
 
-  // Consulta o status em tempo real enquanto o PIX estiver aberto.
-  useEffect(() => {
-    if (!pix?.payment_id || paid) return;
-    const timer = setInterval(async () => {
-      try {
-        const data = await callPixApi({
-          action: "status",
-          payment_id: pix.payment_id,
-          appointment_id: appointmentId,
-        });
-        const next = data.payment_status ?? "pendente";
-        setPayStatus(next);
-        if (next === "pago") {
-          clearInterval(timer);
-          toast.success("Pagamento confirmado!");
-          apptQ.refetch();
-          finish();
-        }
-      } catch (error) {
-        console.error("Falha ao consultar o pagamento PIX", error);
-      }
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [pix, paid, appointmentId, finish]); // eslint-disable-line react-hooks/exhaustive-deps
-
   useEffect(() => {
     if (paid) finish();
   }, [paid, finish]);
 
-  const busy = createPix.isPending;
+  // Checkout Pro: cria a preferência e redireciona para a tela do Mercado Pago.
+  const startCheckout = useMutation({
+    mutationFn: async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sua sessão expirou. Faça login novamente.");
+
+      const response = await fetch("/api/public/mercadopago-preference", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+        body: JSON.stringify({ appointment_id: appointmentId }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        init_point?: string;
+      };
+      if (!response.ok || !data.init_point) {
+        throw new Error(data.error ?? "Não foi possível iniciar o pagamento online.");
+      }
+      return data.init_point;
+    },
+    onSuccess: (initPoint) => {
+      window.location.href = initPoint;
+    },
+    onError: (e: Error) =>
+      toast.error("Não foi possível abrir o pagamento", { description: e.message }),
+  });
+
+  const payLocal = useMutation({
+    mutationFn: async () => {
+      await supabase
+        .from("appointments")
+        .update({ payment_method: "presencial" })
+        .eq("id", appointmentId)
+        .then(undefined, () => null);
+    },
+    onSuccess: () => {
+      toast.success("Combinado! Pague presencialmente na barbearia.");
+      navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } });
+    },
+  });
+
+  const busy = startCheckout.isPending || payLocal.isPending;
   const service = apptQ.data?.service ?? null;
   const appointment = apptQ.data?.appointment ?? null;
-  const expired = !!pix?.expires_at && new Date(pix.expires_at).getTime() < Date.now() && !paid;
-  const failed = ["expirado", "cancelado", "falhou"].includes(payStatus) || expired;
-
-  function downloadQr() {
-    if (!pix?.qr_code_base64) return;
-    const link = document.createElement("a");
-    link.href = `data:image/png;base64,${pix.qr_code_base64}`;
-    link.download = `pix-${appointmentId}.png`;
-    link.click();
-    toast.success("QR Code baixado");
-  }
+  const failed = ["expirado", "cancelado", "falhou"].includes(payStatus);
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
@@ -265,7 +191,7 @@ function PagamentoPage() {
                       : "font-medium"
                 }
               >
-                {STATUS_LABEL[expired && !paid ? "expirado" : payStatus] ?? payStatus}
+                {STATUS_LABEL[payStatus] ?? payStatus}
               </span>
             </div>
             <div className="flex items-center justify-between border-t border-border/60 pt-2">
@@ -283,7 +209,19 @@ function PagamentoPage() {
         </div>
       )}
 
-      {busy && (
+      {failed && !paid && (
+        <div className="surface mt-5 flex items-center gap-3 p-4 text-sm">
+          <AlertCircle className="size-5 shrink-0 text-destructive" />
+          <div>
+            <p className="font-semibold">{STATUS_LABEL[payStatus]}</p>
+            <p className="text-xs text-muted-foreground">
+              Você pode tentar pagar novamente ou pagar presencialmente.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {startCheckout.isPending && (
         <div
           role="status"
           aria-live="polite"
@@ -291,161 +229,36 @@ function PagamentoPage() {
         >
           <Loader2 className="size-5 shrink-0 animate-spin text-[var(--brand-from)]" />
           <div>
-            <p className="font-semibold">Gerando seu PIX…</p>
+            <p className="font-semibold">Abrindo o pagamento seguro…</p>
             <p className="text-xs text-muted-foreground">
-              Não feche nem atualize esta tela até o resultado da cobrança.
+              Você será levado ao ambiente do Mercado Pago.
             </p>
           </div>
         </div>
       )}
 
-      {!pix && !paid && (
+      {!paid && (
         <div className="mt-5 grid gap-3">
           <Button
             variant="hero"
             size="xl"
             className="w-full"
-            onClick={() => createPix.mutate(false)}
+            onClick={() => startCheckout.mutate()}
             disabled={busy}
           >
-            {createPix.isPending ? <Loader2 className="animate-spin" /> : <QrCode />}
-            {createPix.isPending ? "Gerando PIX…" : "Pagar agora com PIX"}
-          </Button>
-          <Button
-            variant="outline"
-            size="xl"
-            className="w-full"
-            onClick={() => {
-              setCardSignal((n) => n + 1);
-              setCardOpen(true);
-            }}
-            disabled={busy}
-          >
-            <CreditCard /> Pagar com cartão de crédito
+            {startCheckout.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
+            {startCheckout.isPending ? "Abrindo pagamento…" : "Pagar Online (Pix ou Cartão)"}
           </Button>
           <Button
             variant="outline"
             size="xl"
             className="w-full"
             disabled={busy}
-            onClick={async () => {
-              await supabase
-                .from("appointments")
-                .update({ payment_method: "presencial" })
-                .eq("id", appointmentId)
-                .then(undefined, () => null);
-              toast.success("Combinado! Pague presencialmente na barbearia.");
-              navigate({
-                to: "/pagamento-confirmado/$appointmentId",
-                params: { appointmentId },
-              });
-            }}
+            onClick={() => payLocal.mutate()}
           >
             <Store /> Pagar presencialmente
           </Button>
-
         </div>
-      )}
-
-      <Dialog open={cardOpen} onOpenChange={setCardOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Pagar com cartão de crédito</DialogTitle>
-            <DialogDescription>
-              Seus dados são enviados com segurança e o pagamento acontece dentro do app.
-            </DialogDescription>
-          </DialogHeader>
-          <SavedCards
-            appointmentId={appointmentId}
-            openNewCardSignal={cardSignal}
-            onPaid={(status) => {
-              setPayStatus(status);
-              apptQ.refetch();
-              if (status === "pago") setCardOpen(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {pix && !paid && (
-        <section className="surface mt-5 space-y-4 p-4 text-center">
-          {failed ? (
-            <>
-              <p className="flex items-center justify-center gap-2 text-sm font-medium text-destructive">
-                <AlertCircle className="size-4" />
-                {STATUS_LABEL[expired ? "expirado" : payStatus]}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Gere um novo código PIX para este mesmo agendamento.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-medium">Escaneie o QR Code no app do seu banco</p>
-              {pix.qr_code_base64 && (
-                <img
-                  src={`data:image/png;base64,${pix.qr_code_base64}`}
-                  alt="QR Code PIX do agendamento"
-                  className="mx-auto h-56 w-56 rounded-xl bg-white p-2"
-                />
-              )}
-              {pix.expires_at && (
-                <p className="text-xs text-muted-foreground">
-                  Válido até {fmtTime(pix.expires_at)}
-                </p>
-              )}
-              {pix.qr_code && (
-                <>
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    PIX copia e cola
-                  </p>
-                  <p className="max-h-24 overflow-auto break-all rounded-lg bg-secondary p-3 text-left font-mono text-[11px]">
-                    {pix.qr_code}
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={async () => {
-                        if (!pix.qr_code) return;
-                        await navigator.clipboard.writeText(pix.qr_code);
-                        toast.success("Código PIX copiado");
-                      }}
-                    >
-                      <Copy /> Copiar código
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={downloadQr}
-                      disabled={!pix.qr_code_base64}
-                    >
-                      <Download /> Baixar QR Code
-                    </Button>
-                  </div>
-                </>
-              )}
-              <p className="text-xs text-muted-foreground">Aguardando confirmação do pagamento…</p>
-            </>
-          )}
-
-          <Button
-            variant={failed ? "hero" : "ghost"}
-            className="w-full"
-            onClick={() => createPix.mutate(true)}
-            disabled={busy}
-          >
-            {createPix.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            {createPix.isPending ? "Gerando novo PIX…" : "Gerar novo PIX"}
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full"
-            onClick={() => navigate({ to: "/meus-agendamentos" })}
-          >
-            Pagar depois / ver meus agendamentos
-          </Button>
-        </section>
       )}
     </main>
   );
