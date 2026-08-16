@@ -20,6 +20,7 @@ import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$
 import { Route as ApiPublicMercadopagoCardsRouteImport } from './routes/api/public/mercadopago-cards'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
 import { Route as ApiPublicMercadopagoPixRouteImport } from './routes/api/public/mercadopago-pix'
+import { Route as ApiPublicMercadopagoPreferenceRouteImport } from './routes/api/public/mercadopago-preference'
 import { Route as ApiPublicMercadopagoStatusRouteImport } from './routes/api/public/mercadopago-status'
 import { Route as ApiPublicMercadopagoSyncRouteImport } from './routes/api/public/mercadopago-sync'
 import { Route as ApiPublicMercadopagoWebhookRouteImport } from './routes/api/public/mercadopago-webhook'
@@ -82,6 +83,12 @@ const ApiPublicMercadopagoPixRoute = ApiPublicMercadopagoPixRouteImport.update({
   path: '/api/public/mercadopago-pix',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMercadopagoPreferenceRoute =
+  ApiPublicMercadopagoPreferenceRouteImport.update({
+    id: '/api/public/mercadopago-preference',
+    path: '/api/public/mercadopago-preference',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicMercadopagoStatusRoute =
   ApiPublicMercadopagoStatusRouteImport.update({
     id: '/api/public/mercadopago-status',
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/api/public/mercadopago-cards': typeof ApiPublicMercadopagoCardsRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
+  '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
@@ -129,6 +137,7 @@ export interface FileRoutesByTo {
   '/api/public/mercadopago-cards': typeof ApiPublicMercadopagoCardsRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
+  '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
@@ -146,6 +155,7 @@ export interface FileRoutesById {
   '/api/public/mercadopago-cards': typeof ApiPublicMercadopagoCardsRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
+  '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-cards'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-pix'
+    | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-status'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-cards'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-pix'
+    | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-status'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
@@ -196,6 +208,7 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-cards'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-pix'
+    | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-status'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
@@ -213,6 +226,7 @@ export interface RootRouteChildren {
   ApiPublicMercadopagoCardsRoute: typeof ApiPublicMercadopagoCardsRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
   ApiPublicMercadopagoPixRoute: typeof ApiPublicMercadopagoPixRoute
+  ApiPublicMercadopagoPreferenceRoute: typeof ApiPublicMercadopagoPreferenceRoute
   ApiPublicMercadopagoStatusRoute: typeof ApiPublicMercadopagoStatusRoute
   ApiPublicMercadopagoSyncRoute: typeof ApiPublicMercadopagoSyncRoute
   ApiPublicMercadopagoWebhookRoute: typeof ApiPublicMercadopagoWebhookRoute
@@ -297,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMercadopagoPixRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mercadopago-preference': {
+      id: '/api/public/mercadopago-preference'
+      path: '/api/public/mercadopago-preference'
+      fullPath: '/api/public/mercadopago-preference'
+      preLoaderRoute: typeof ApiPublicMercadopagoPreferenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/mercadopago-status': {
       id: '/api/public/mercadopago-status'
       path: '/api/public/mercadopago-status'
@@ -333,6 +354,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMercadopagoCardsRoute: ApiPublicMercadopagoCardsRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
   ApiPublicMercadopagoPixRoute: ApiPublicMercadopagoPixRoute,
+  ApiPublicMercadopagoPreferenceRoute: ApiPublicMercadopagoPreferenceRoute,
   ApiPublicMercadopagoStatusRoute: ApiPublicMercadopagoStatusRoute,
   ApiPublicMercadopagoSyncRoute: ApiPublicMercadopagoSyncRoute,
   ApiPublicMercadopagoWebhookRoute: ApiPublicMercadopagoWebhookRoute,
