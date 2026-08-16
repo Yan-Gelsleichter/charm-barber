@@ -1090,22 +1090,20 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
               ? { zip_code: zipCode, street_name: streetName, street_number: streetNumber }
               : null;
           if (mpAddress) payer["address"] = mpAddress;
-          // Endereço completo vindo do formulário (preenchido pela busca de CEP).
-          const neighborhood = cleanText(String(addrIn?.neighborhood ?? ""), 120);
+          // Cidade e UF vêm do formulário preenchido pela busca de CEP.
           const city = cleanText(String(addrIn?.city ?? ""), 120);
           const federalUnit = String(addrIn?.federal_unit ?? "")
             .replace(/[^a-zA-Z]/g, "")
             .toUpperCase()
             .slice(0, 2);
           const receiverAddress =
-            mpAddress && neighborhood && city && /^[A-Z]{2}$/.test(federalUnit)
+            mpAddress && city && /^[A-Z]{2}$/.test(federalUnit)
               ? {
                   zip_code: mpAddress.zip_code,
                   street_name: mpAddress.street_name,
                   street_number: mpAddress.street_number,
-                  city,
-                  federal_unit: federalUnit,
-                  neighborhood,
+                  city_name: city,
+                  state_name: federalUnit,
                 }
               : null;
 
@@ -1123,7 +1121,7 @@ export const Route = createFileRoute("/api/public/mercadopago-cards")({
             return json(
               {
                 error:
-                  "Confirme bairro, cidade e UF do endereço de cobrança antes de pagar.",
+                  "Confirme cidade e UF do endereço de cobrança antes de pagar.",
               },
               400,
             );
