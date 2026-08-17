@@ -160,7 +160,6 @@ function ConfirmacaoPage() {
   // URL e sem localStorage), tentamos reconciliar assim que o agendamento carrega.
   // O servidor procura o pagamento pelo external_reference (id do agendamento),
   // então a tela nunca trava esperando um id que pode nunca ter sido salvo.
-  const noReference = appointment != null && !returnedFromMp;
   const shouldReconcile =
     appointment != null &&
     !paid &&
