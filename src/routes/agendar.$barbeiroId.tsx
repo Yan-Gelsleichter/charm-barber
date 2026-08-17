@@ -87,13 +87,23 @@ function AgendarPage() {
     },
   });
 
-  const dayKey = date ? date.toISOString().slice(0, 10) : null;
+  // Chave do dia em horário LOCAL (toISOString usaria UTC e podia trocar de dia,
+  // fazendo a primeira busca cair na data errada).
+  const dayKey = date
+    ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+    : null;
   const agendaQ = useQuery({
     queryKey: ["agenda", barbeiroId, dayKey],
     enabled: !!dayKey,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
-      const start = new Date(date!);
+      const [y, m, d] = dayKey!.split("-").map(Number);
+      const start = new Date(y, m - 1, d);
       start.setHours(0, 0, 0, 0);
+
       const end = new Date(start);
       end.setDate(end.getDate() + 1);
 
@@ -152,8 +162,10 @@ function AgendarPage() {
   );
 
   const slots = useMemo(() => {
-    if (!date || !service || !hoursQ.data) return [];
-    const appointments = filterActiveAppointments(agendaQ.data?.appointments ?? []).filter((a) => a.id !== remarcar);
+    // Só monta os horários quando a agenda do dia já chegou, senão tudo apareceria livre.
+    if (!date || !service || !hoursQ.data || !agendaQ.data) return [];
+    const appointments = filterActiveAppointments(agendaQ.data.appointments ?? []).filter((a) => a.id !== remarcar);
+
     return buildSlots({
       date,
       service,
@@ -415,8 +427,9 @@ function AgendarPage() {
       {/* Step 3 — horário */}
       {service && date && (
         <Step title="3. Escolha o horário">
-          {(hoursQ.isLoading || agendaQ.isLoading) && <Skeleton />}
-          {!hoursQ.isLoading && slots.length === 0 && (
+          {(hoursQ.isPending || agendaQ.isPending || agendaQ.isFetching) && <Skeleton />}
+          {!hoursQ.isPending && !agendaQ.isPending && !agendaQ.isFetching && slots.length === 0 && (
+
             <p className="text-sm text-muted-foreground">
               Sem expediente neste dia.
             </p>
