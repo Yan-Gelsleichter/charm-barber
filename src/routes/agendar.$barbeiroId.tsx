@@ -5,7 +5,7 @@ import { ArrowLeft, Check, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barber, WorkingHour, Service, Appointment } from "@/integrations/supabase/db-types";
+import type { Barber, WorkingHour, Service, Appointment, AppointmentInsert } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { useSession } from "@/hooks/use-auth";
@@ -182,18 +182,25 @@ function AgendarPage() {
       if (!session) throw new Error("Entre na sua conta para agendar");
       if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
       if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
-      const { getBarbershopIdByBarberId, getMyBarbershopId } = await import("@/lib/barbershop");
-      let inviteShopId: string | null = null;
-      try {
-        inviteShopId = sessionStorage.getItem("invite_barbershop_id");
-      } catch {
-        /* ignore */
+      // Resolver barbershop_id NUNCA pode impedir a criação do agendamento.
+      let barbershopId: string | null = barberQ.data?.barbershop_id ?? null;
+      if (!barbershopId) {
+        try {
+          const { getBarbershopIdByBarberId, getMyBarbershopId } = await import("@/lib/barbershop");
+          barbershopId =
+            (await getBarbershopIdByBarberId(barbeiroId).catch(() => null)) ??
+            (await getMyBarbershopId().catch(() => null));
+        } catch (err) {
+          console.warn("[agendar] barbershop_id não resolvido:", err);
+        }
       }
-      const barbershopId =
-        barberQ.data?.barbershop_id ??
-        (await getBarbershopIdByBarberId(barbeiroId)) ??
-        (await getMyBarbershopId()) ??
-        inviteShopId;
+      if (!barbershopId) {
+        try {
+          barbershopId = sessionStorage.getItem("invite_barbershop_id");
+        } catch {
+          /* ignore */
+        }
+      }
       const newAppointment = {
         barber_id: barbeiroId,
         service_id: service.id,
@@ -204,6 +211,7 @@ function AgendarPage() {
         status: "confirmado",
         barbershop_id: barbershopId,
       };
+
       if (remarcar) {
         const { data: updated, error: updateError } = await supabase
           .from("appointments")
@@ -253,13 +261,40 @@ function AgendarPage() {
           )?.id ?? null
         );
       }
-      const { data: created, error } = await supabase
+      // PRIORIDADE ABSOLUTA: gravar o agendamento primeiro.
+      let created: { id: string } | null = null;
+      const firstTry = await supabase
         .from("appointments")
         .insert(newAppointment)
         .select("id")
         .single();
-      if (error) throw error;
-      const createdId = (created as { id: string } | null)?.id ?? null;
+      if (firstTry.error) {
+        console.warn("[agendar] insert falhou:", firstTry.error.message);
+        // Tentativa 2: sem colunas opcionais que podem não existir/violar constraint.
+        const { email: _email, barbershop_id: _shop, ...rest } = newAppointment;
+        const minimal: AppointmentInsert = rest;
+        const retry = await supabase
+          .from("appointments")
+          .insert(barbershopId ? ({ ...rest, barbershop_id: barbershopId } as AppointmentInsert) : minimal)
+          .select("id")
+          .single();
+
+        if (retry.error) {
+          const finalTry = await supabase
+            .from("appointments")
+            .insert(minimal)
+            .select("id")
+            .single();
+          if (finalTry.error) throw firstTry.error;
+          created = finalTry.data as { id: string };
+        } else {
+          created = retry.data as { id: string };
+        }
+      } else {
+        created = firstTry.data as { id: string };
+      }
+      const createdId = created?.id ?? null;
+
 
 
       // Registrar cliente automaticamente na base DESTE barbeiro específico.
