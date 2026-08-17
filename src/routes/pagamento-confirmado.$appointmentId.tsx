@@ -55,12 +55,12 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
       {
         name: "description",
         content:
-          "Confirmação do pagamento com número do pedido, resumo do valor pago e atalhos para voltar ao checkout ou ver seus agendamentos.",
+          "Confirmação do pagamento com resumo do valor pago e atalhos para voltar ao checkout ou ver seus agendamentos.",
       },
       { property: "og:title", content: "Pagamento confirmado" },
       {
         property: "og:description",
-        content: "Veja o número do pedido e o resumo do valor pago do seu agendamento.",
+        content: "Veja o resumo do valor pago do seu agendamento.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -195,7 +195,7 @@ function ConfirmacaoPage() {
         return;
       }
       void check();
-    }, 3000);
+    }, 2000);
     return () => {
       stop = true;
       window.clearInterval(id);
@@ -243,7 +243,7 @@ function ConfirmacaoPage() {
             </h1>
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               {paid ? (
-                "Pagamento realizado online com sucesso. Guarde o número do pedido abaixo."
+                "Pagamento realizado online com sucesso."
               ) : failedOnline ? (
                 "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
               ) : isOnline && timedOut ? (
