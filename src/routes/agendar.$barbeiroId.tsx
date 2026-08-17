@@ -307,9 +307,11 @@ function AgendarPage() {
         } else {
           created = retry.data as { id: string };
         }
+        }
       } else {
         created = firstTry.data as { id: string };
       }
+
       const createdId = created?.id ?? null;
 
 
