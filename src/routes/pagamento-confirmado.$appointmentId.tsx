@@ -148,20 +148,20 @@ function ConfirmacaoPage() {
   const failedOnline =
     isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
 
-  // Ao voltar do Mercado Pago, consulta o pagamento na API oficial a cada 3s
-  // (por até 30s) até o status virar "pago" — sem esperar o webhook.
+  // Ao voltar do Mercado Pago ("Voltar para a loja"), consulta o pagamento na API
+  // oficial a cada 2s (por até 30s) até virar "pago" — sem esperar o webhook.
   const running = useRef(false);
   useEffect(() => {
     if (paid || !isOnline) return;
     let stop = false;
     const started = Date.now();
     const check = async () => {
-      if (running.current || stop) return;
+      if (running.current || stop) return false;
       running.current = true;
       try {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        if (!token) return;
+        if (!token) return false;
         const res = await fetch("/api/public/mercadopago-reconcile", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
@@ -180,25 +180,42 @@ function ConfirmacaoPage() {
         if (!stop && body.payment_status) {
           setLiveStatus(body.payment_status);
           void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
+          return body.payment_status === "pago";
         }
       } catch {
         /* silencioso */
       } finally {
         running.current = false;
       }
+      return false;
     };
     void check();
     const id = window.setInterval(() => {
       if (Date.now() - started > 30_000) {
         window.clearInterval(id);
-        setTimedOut(true);
+        // Fallback: uma última consulta antes de avisar que ainda está processando.
+        void check().then((ok) => {
+          if (!stop && !ok) setTimedOut(true);
+        });
         return;
       }
       void check();
     }, 2000);
+
+    // Volta do Mercado Pago / troca de aba: força checagem imediata.
+    const onWake = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    window.addEventListener("focus", onWake);
+    window.addEventListener("pageshow", onWake);
+    document.addEventListener("visibilitychange", onWake);
+
     return () => {
       stop = true;
       window.clearInterval(id);
+      window.removeEventListener("focus", onWake);
+      window.removeEventListener("pageshow", onWake);
+      document.removeEventListener("visibilitychange", onWake);
     };
   }, [
     paid,
@@ -211,6 +228,7 @@ function ConfirmacaoPage() {
     storedPreferenceId,
     qc,
   ]);
+
 
   // Pagamento confirmado: a referência da preferência não é mais necessária.
   useEffect(() => {
