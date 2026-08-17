@@ -154,7 +154,9 @@ function ConfirmacaoPage() {
   const status = liveStatus ?? appointment?.payment_status ?? null;
   const paid = status === "pago";
   const method = appointment?.payment_method ?? null;
-  const isOnline = returnedFromMp || (method != null && method !== "presencial");
+  // Pagamento presencial: nunca consulta o gateway nem mostra "confirmando pagamento".
+  const isPresencial = search.metodo === "presencial" || method === "presencial";
+  const isOnline = !isPresencial && (returnedFromMp || (method != null && method !== "presencial"));
   const failedOnline =
     isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
 
