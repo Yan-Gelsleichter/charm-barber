@@ -168,6 +168,7 @@ function ConfirmacaoPage() {
     appointment != null &&
     !paid &&
     !failedOnline &&
+    !isPresencial &&
     (isOnline || method == null || status == null || status === "pendente");
 
   // Ao voltar do Mercado Pago ("Voltar para a loja"), consulta o pagamento na API
