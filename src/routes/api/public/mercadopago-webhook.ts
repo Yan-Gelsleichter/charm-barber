@@ -139,15 +139,33 @@ async function applyPayment(
     claimed = true;
   }
 
+  // Estado atual: evita que uma notificação atrasada rebaixe um pagamento já pago
+  // e preserva o paid_at original.
+  const { data: currentRow } = await admin
+    .from("appointments")
+    .select("payment_status, paid_at")
+    .eq("id", appointmentId)
+    .maybeSingle();
+  const current = currentRow as { payment_status?: string | null; paid_at?: string | null } | null;
+  if (current?.payment_status === "pago" && paymentStatus !== "pago" && paymentStatus !== "estornado") {
+    return new Response("ok", { status: 200 });
+  }
+
   const values: Record<string, unknown> = {
     payment_status: paymentStatus,
     payment_method: methodLabel(payment),
     mp_payment_id: paymentId,
-    paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
+    paid_at:
+      paymentStatus === "pago"
+        ? (current?.paid_at ?? new Date().toISOString())
+        : paymentStatus === "estornado"
+          ? (current?.paid_at ?? null)
+          : null,
   };
 
 
   const { error } = await admin.from("appointments").update(values).eq("id", appointmentId);
+
   if (error) {
     if (isMissingColumn(error)) {
       console.warn("Webhook MP: colunas de pagamento ausentes; rode docs/add-payment-columns.sql");
