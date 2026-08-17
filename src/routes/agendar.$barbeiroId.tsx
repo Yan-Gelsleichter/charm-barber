@@ -182,18 +182,25 @@ function AgendarPage() {
       if (!session) throw new Error("Entre na sua conta para agendar");
       if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
       if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
-      const { getBarbershopIdByBarberId, getMyBarbershopId } = await import("@/lib/barbershop");
-      let inviteShopId: string | null = null;
-      try {
-        inviteShopId = sessionStorage.getItem("invite_barbershop_id");
-      } catch {
-        /* ignore */
+      // Resolver barbershop_id NUNCA pode impedir a criação do agendamento.
+      let barbershopId: string | null = barberQ.data?.barbershop_id ?? null;
+      if (!barbershopId) {
+        try {
+          const { getBarbershopIdByBarberId, getMyBarbershopId } = await import("@/lib/barbershop");
+          barbershopId =
+            (await getBarbershopIdByBarberId(barbeiroId).catch(() => null)) ??
+            (await getMyBarbershopId().catch(() => null));
+        } catch (err) {
+          console.warn("[agendar] barbershop_id não resolvido:", err);
+        }
       }
-      const barbershopId =
-        barberQ.data?.barbershop_id ??
-        (await getBarbershopIdByBarberId(barbeiroId)) ??
-        (await getMyBarbershopId()) ??
-        inviteShopId;
+      if (!barbershopId) {
+        try {
+          barbershopId = sessionStorage.getItem("invite_barbershop_id");
+        } catch {
+          /* ignore */
+        }
+      }
       const newAppointment = {
         barber_id: barbeiroId,
         service_id: service.id,
@@ -204,6 +211,7 @@ function AgendarPage() {
         status: "confirmado",
         barbershop_id: barbershopId,
       };
+
       if (remarcar) {
         const { data: updated, error: updateError } = await supabase
           .from("appointments")
