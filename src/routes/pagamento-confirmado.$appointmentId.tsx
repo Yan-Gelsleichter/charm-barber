@@ -385,6 +385,8 @@ function ConfirmacaoPage() {
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               {paid ? (
                 "Pagamento realizado online com sucesso."
+              ) : isPresencial ? (
+                "Tudo certo! Você vai pagar presencialmente na barbearia."
               ) : failedOnline ? (
                 "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
               ) : isOnline && timedOut ? (
