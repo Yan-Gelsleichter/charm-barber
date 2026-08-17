@@ -57,15 +57,41 @@ async function callMp(
   }
 }
 
+/** Dono real do access_token (conta do Mercado Pago conectada). */
+export async function fetchMpAccountId(accessToken: string): Promise<string | null> {
+  const { ok, json } = await callMp("https://api.mercadopago.com/users/me", "GET", accessToken);
+  if (!ok || !json) return null;
+  const id = json["id"];
+  return id === undefined || id === null ? null : String(id);
+}
+
+function ownerOf(json: AnyJson | null): string | null {
+  if (!json) return null;
+  const candidates = [json["user_id"], json["application_id"], (json["webhook"] as AnyJson | undefined)?.["user_id"]];
+  for (const c of candidates) {
+    if (typeof c === "string" || typeof c === "number") return String(c);
+  }
+  return null;
+}
+
 /**
  * Cria/atualiza o webhook na conta conectada e devolve a secret, quando a API
  * a fornecer. Retorna `null` se não foi possível obter a assinatura secreta.
+ * `ownerId` é o dono declarado pela própria API do MP para aquele webhook e
+ * `urlMatches` indica que o webhook aponta para a nossa URL — ambos são usados
+ * pelo callback do OAuth para validar a secret antes de gravá-la.
  */
 export async function registerMpWebhook(opts: {
   accessToken: string;
   appUrl: string;
   applicationId?: string | null;
-}): Promise<{ secret: string | null; url: string; registered: boolean }> {
+}): Promise<{
+  secret: string | null;
+  url: string;
+  registered: boolean;
+  ownerId: string | null;
+  urlMatches: boolean;
+}> {
   const url = webhookUrlFor(opts.appUrl);
   const payload = { url, events: [...WEBHOOK_EVENTS] };
 
@@ -86,7 +112,10 @@ export async function registerMpWebhook(opts: {
     if (!ok) continue;
     registered = true;
     const secret = pickSecret(json);
-    if (secret) return { secret, url, registered: true };
+    if (secret) {
+      const returnedUrl = String((json?.["url"] as string | undefined) ?? url);
+      return { secret, url, registered: true, ownerId: ownerOf(json), urlMatches: returnedUrl === url };
+    }
   }
 
   // Alguns endpoints só devolvem a secret ao consultar depois da criação.
@@ -101,10 +130,11 @@ export async function registerMpWebhook(opts: {
       : Array.isArray(json?.["results"])
         ? (json!["results"] as AnyJson[])
         : [];
-    const match = list.find((w) => String(w["url"] ?? "") === url) ?? list[0];
+    const match = list.find((w) => String(w["url"] ?? "") === url);
     const secret = pickSecret(match ?? null);
-    if (secret) return { secret, url, registered: true };
+    if (secret) return { secret, url, registered: true, ownerId: ownerOf(match ?? null), urlMatches: true };
   }
 
-  return { secret: null, url, registered };
+  return { secret: null, url, registered, ownerId: null, urlMatches: false };
 }
+
