@@ -162,8 +162,10 @@ function AgendarPage() {
   );
 
   const slots = useMemo(() => {
-    if (!date || !service || !hoursQ.data) return [];
-    const appointments = filterActiveAppointments(agendaQ.data?.appointments ?? []).filter((a) => a.id !== remarcar);
+    // Só monta os horários quando a agenda do dia já chegou, senão tudo apareceria livre.
+    if (!date || !service || !hoursQ.data || !agendaQ.data) return [];
+    const appointments = filterActiveAppointments(agendaQ.data.appointments ?? []).filter((a) => a.id !== remarcar);
+
     return buildSlots({
       date,
       service,
