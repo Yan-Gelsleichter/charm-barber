@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Copy, CalendarDays, ArrowLeft } from "lucide-react";
@@ -25,10 +25,27 @@ const METHOD_LABEL: Record<string, string> = {
 export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { status?: string; payment_id?: string } => {
-    const out: { status?: string; payment_id?: string } = {};
-    if (typeof search["status"] === "string") out.status = search["status"];
-    if (typeof search["payment_id"] === "string") out.payment_id = search["payment_id"];
+  ): {
+    status?: string;
+    payment_id?: string;
+    collection_id?: string;
+    collection_status?: string;
+    merchant_order_id?: string;
+    preference_id?: string;
+  } => {
+    const keys = [
+      "status",
+      "payment_id",
+      "collection_id",
+      "collection_status",
+      "merchant_order_id",
+      "preference_id",
+    ] as const;
+    const out: Record<string, string> = {};
+    for (const k of keys) {
+      const v = search[k];
+      if (typeof v === "string" && v) out[k] = v;
+    }
     return out;
   },
 
@@ -109,20 +126,34 @@ function ConfirmacaoPage() {
   const appointment = q.data?.appointment ?? null;
   const service = q.data?.service ?? null;
   const orderNumber = `#${appointmentId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
-  const paid = appointment?.payment_status === "pago";
-  const method = appointment?.payment_method ?? null;
-  const isOnline = method != null && method !== "presencial";
-  const failedOnline =
-    isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(
-      appointment?.payment_status ?? "",
-    );
 
-  // Ao voltar do Mercado Pago, consulta o pagamento na API oficial a cada 2s
-  // até o status virar "pago" (não espera o webhook).
+  // Status vindo da consulta em tempo real no Mercado Pago (mais rápido que o banco).
+  const [liveStatus, setLiveStatus] = useState<string | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
+
+  const returnedFromMp = Boolean(
+    search.payment_id ||
+      search.collection_id ||
+      search.merchant_order_id ||
+      search.preference_id ||
+      search.status ||
+      search.collection_status,
+  );
+
+  const status = liveStatus ?? appointment?.payment_status ?? null;
+  const paid = status === "pago";
+  const method = appointment?.payment_method ?? null;
+  const isOnline = returnedFromMp || (method != null && method !== "presencial");
+  const failedOnline =
+    isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
+
+  // Ao voltar do Mercado Pago, consulta o pagamento na API oficial a cada 3s
+  // (por até 30s) até o status virar "pago" — sem esperar o webhook.
   const running = useRef(false);
   useEffect(() => {
     if (paid || !isOnline) return;
     let stop = false;
+    const started = Date.now();
     const check = async () => {
       if (running.current || stop) return;
       running.current = true;
@@ -135,11 +166,16 @@ function ConfirmacaoPage() {
           headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
           body: JSON.stringify({
             appointment_id: appointmentId,
-            ...(search.payment_id ? { payment_id: search.payment_id } : {}),
+            ...(search.payment_id || search.collection_id
+              ? { payment_id: search.payment_id ?? search.collection_id }
+              : {}),
+            ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
+            ...(search.preference_id ? { preference_id: search.preference_id } : {}),
           }),
         });
         const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
         if (!stop && body.payment_status) {
+          setLiveStatus(body.payment_status);
           void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
         }
       } catch {
@@ -149,12 +185,29 @@ function ConfirmacaoPage() {
       }
     };
     void check();
-    const id = window.setInterval(check, 2000);
+    const id = window.setInterval(() => {
+      if (Date.now() - started > 30_000) {
+        window.clearInterval(id);
+        setTimedOut(true);
+        return;
+      }
+      void check();
+    }, 3000);
     return () => {
       stop = true;
       window.clearInterval(id);
     };
-  }, [paid, isOnline, appointmentId, search.payment_id, qc]);
+  }, [
+    paid,
+    isOnline,
+    appointmentId,
+    search.payment_id,
+    search.collection_id,
+    search.merchant_order_id,
+    search.preference_id,
+    qc,
+  ]);
+
 
   async function copyOrder() {
     await navigator.clipboard.writeText(orderNumber);
@@ -186,9 +239,11 @@ function ConfirmacaoPage() {
             </h1>
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               {paid ? (
-                "Pagamento realizado online. Guarde o número do pedido abaixo."
+                "Pagamento realizado online com sucesso. Guarde o número do pedido abaixo."
               ) : failedOnline ? (
                 "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
+              ) : isOnline && timedOut ? (
+                "Ainda não recebemos a confirmação do Mercado Pago. Atualize a página em instantes."
               ) : isOnline ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />

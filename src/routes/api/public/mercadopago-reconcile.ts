@@ -15,6 +15,8 @@ import { mapPaymentStatus } from "./mercadopago-pix";
 const requestSchema = z.object({
   appointment_id: z.string().uuid(),
   payment_id: z.string().trim().max(64).optional(),
+  merchant_order_id: z.string().trim().max(64).optional(),
+  preference_id: z.string().trim().max(128).optional(),
 });
 
 function json(body: unknown, status = 200) {
@@ -123,24 +125,47 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             if (res.ok) payment = await res.json().catch(() => null);
           }
 
-          // Sem payment_id: procura pelo external_reference do agendamento.
-          if (!payment) {
+          // merchant_order (Checkout Pro devolve esse id no retorno)
+          if (!payment?.status && parsed.data.merchant_order_id) {
             const res = await fetch(
-              `https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&external_reference=${encodeURIComponent(appointment.id)}`,
+              `https://api.mercadopago.com/merchant_orders/${encodeURIComponent(parsed.data.merchant_order_id)}`,
+              { headers: auth },
+            );
+            if (res.ok) {
+              const body = (await res.json().catch(() => ({}))) as {
+                payments?: Array<{ id?: number; status?: string }>;
+              };
+              const list = body.payments ?? [];
+              payment = list.find((p) => p.status === "approved") ?? list[0] ?? null;
+            }
+          }
+
+          // Sem payment_id: procura pelo external_reference do agendamento.
+          if (!payment?.status) {
+            const qs = parsed.data.preference_id
+              ? `preference_id=${encodeURIComponent(parsed.data.preference_id)}`
+              : `external_reference=${encodeURIComponent(appointment.id)}`;
+            const res = await fetch(
+              `https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&${qs}`,
               { headers: auth },
             );
             if (res.ok) {
               const body = (await res.json().catch(() => ({}))) as {
                 results?: Array<{ id?: number; status?: string; external_reference?: string }>;
               };
+              const results = body.results ?? [];
               payment =
-                (body.results ?? []).find((p) =>
+                results.find((p) => p.status === "approved") ??
+                results.find((p) =>
                   String(p.external_reference ?? "").startsWith(appointment.id),
-                ) ?? null;
+                ) ??
+                results[0] ??
+                null;
             }
           }
 
           if (!payment?.status) {
+
             return json({ payment_status: appointment.payment_status, updated: false });
           }
 
