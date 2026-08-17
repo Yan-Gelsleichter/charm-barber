@@ -87,13 +87,18 @@ async function listWebhooks(accessToken: string): Promise<AnyJson[]> {
  * Remove os webhooks antigos que apontam para a nossa URL, invalidando as
  * assinaturas secretas anteriores antes de gerar uma nova (rotação).
  */
-export async function revokeMpWebhooks(accessToken: string, url: string): Promise<number> {
+export async function revokeMpWebhooks(
+  accessToken: string,
+  url: string,
+  opts?: { keepId?: string | null },
+): Promise<number> {
   const list = await listWebhooks(accessToken);
   let removed = 0;
   for (const w of list) {
     if (String(w["url"] ?? "") !== url) continue;
     const id = w["id"];
     if (id === undefined || id === null) continue;
+    if (opts?.keepId && String(id) === String(opts.keepId)) continue;
     const { ok } = await callMp(
       `https://api.mercadopago.com/v1/webhooks/${String(id)}`,
       "DELETE",
@@ -104,14 +109,19 @@ export async function revokeMpWebhooks(accessToken: string, url: string): Promis
   return removed;
 }
 
+
 /**
  * Cria/atualiza o webhook na conta conectada e devolve a secret, quando a API
  * a fornecer. Retorna `null` se não foi possível obter a assinatura secreta.
  * `ownerId` é o dono declarado pela própria API do MP para aquele webhook e
  * `urlMatches` indica que o webhook aponta para a nossa URL — ambos são usados
  * pelo callback do OAuth para validar a secret antes de gravá-la.
- * Com `rotate: true`, os webhooks anteriores para a nossa URL são apagados
- * primeiro, invalidando a secret antiga.
+ *
+ * Idempotência: antes de criar, a função consulta os webhooks já existentes na
+ * conta. Se já houver um apontando para a nossa URL, ele é reaproveitado
+ * (atualizado no lugar) e as duplicatas extras são removidas — reconectar nunca
+ * gera webhooks repetidos. Com `rotate: true`, os antigos são apagados primeiro
+ * para invalidar a secret anterior.
  */
 export async function registerMpWebhook(opts: {
   accessToken: string;
@@ -125,15 +135,42 @@ export async function registerMpWebhook(opts: {
   ownerId: string | null;
   urlMatches: boolean;
   revoked: number;
+  reused: boolean;
 }> {
   const url = webhookUrlFor(opts.appUrl);
   const payload = { url, events: [...WEBHOOK_EVENTS] };
 
-  const revoked = opts.rotate ? await revokeMpWebhooks(opts.accessToken, url) : 0;
+  // Estado atual da conta para este access_token.
+  const existing = (await listWebhooks(opts.accessToken)).filter(
+    (w) => String(w["url"] ?? "") === url,
+  );
+  const current = existing[0] ?? null;
+  const currentId = current && current["id"] != null ? String(current["id"]) : null;
 
-  const attempts: Array<{ endpoint: string; method: "POST" | "PUT"; body: unknown }> = [
-    { endpoint: "https://api.mercadopago.com/v1/webhooks", method: "POST", body: payload },
-  ];
+  let revoked = 0;
+  let reuseId: string | null = null;
+
+  if (opts.rotate) {
+    // Rotação: remove tudo (inclusive duplicatas) e cria um novo.
+    revoked = await revokeMpWebhooks(opts.accessToken, url);
+  } else {
+    // Idempotente: mantém o primeiro e limpa duplicatas.
+    if (existing.length > 1) {
+      revoked = await revokeMpWebhooks(opts.accessToken, url, { keepId: currentId });
+    }
+    reuseId = currentId;
+  }
+
+  const attempts: Array<{ endpoint: string; method: "POST" | "PUT"; body: unknown }> = [];
+  if (reuseId) {
+    // Atualiza o webhook existente em vez de criar outro.
+    attempts.push({
+      endpoint: `https://api.mercadopago.com/v1/webhooks/${reuseId}`,
+      method: "PUT",
+      body: payload,
+    });
+  }
+  attempts.push({ endpoint: "https://api.mercadopago.com/v1/webhooks", method: "POST", body: payload });
   if (opts.applicationId) {
     attempts.push({
       endpoint: `https://api.mercadopago.com/applications/${opts.applicationId}/webhooks`,
@@ -142,8 +179,7 @@ export async function registerMpWebhook(opts: {
     });
   }
 
-
-  let registered = false;
+  let registered = reuseId != null;
   for (const attempt of attempts) {
     const { ok, json } = await callMp(attempt.endpoint, attempt.method, opts.accessToken, attempt.body);
     if (!ok) continue;
@@ -151,27 +187,35 @@ export async function registerMpWebhook(opts: {
     const secret = pickSecret(json);
     if (secret) {
       const returnedUrl = String((json?.["url"] as string | undefined) ?? url);
-      return { secret, url, registered: true, ownerId: ownerOf(json), urlMatches: returnedUrl === url, revoked };
+      return {
+        secret,
+        url,
+        registered: true,
+        ownerId: ownerOf(json),
+        urlMatches: returnedUrl === url,
+        revoked,
+        reused: reuseId != null,
+      };
     }
   }
 
   // Alguns endpoints só devolvem a secret ao consultar depois da criação.
-  const { ok, json } = await callMp(
-    "https://api.mercadopago.com/v1/webhooks",
-    "GET",
-    opts.accessToken,
-  );
-  if (ok) {
-    const list = Array.isArray(json)
-      ? (json as unknown as AnyJson[])
-      : Array.isArray(json?.["results"])
-        ? (json!["results"] as AnyJson[])
-        : [];
-    const match = list.find((w) => String(w["url"] ?? "") === url);
-    const secret = pickSecret(match ?? null);
-    if (secret) return { secret, url, registered: true, ownerId: ownerOf(match ?? null), urlMatches: true, revoked };
+  const after = (await listWebhooks(opts.accessToken)).filter((w) => String(w["url"] ?? "") === url);
+  const match = after[0] ?? null;
+  const secret = pickSecret(match ?? null);
+  if (secret) {
+    return {
+      secret,
+      url,
+      registered: true,
+      ownerId: ownerOf(match),
+      urlMatches: true,
+      revoked,
+      reused: reuseId != null,
+    };
   }
 
-  return { secret: null, url, registered, ownerId: null, urlMatches: false, revoked };
+  return { secret: null, url, registered, ownerId: null, urlMatches: false, revoked, reused: reuseId != null };
+
 }
 
