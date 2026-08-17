@@ -16,6 +16,7 @@ import { Route as PainelRouteImport } from './routes/painel'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
 import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/pagamento-confirmado.$appointmentId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
+import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
 import { Route as ApiPublicMercadopagoPreferenceRouteImport } from './routes/api/public/mercadopago-preference'
 import { Route as ApiPublicMercadopagoReconcileRouteImport } from './routes/api/public/mercadopago-reconcile'
@@ -61,6 +62,12 @@ const PagamentoAppointmentIdRoute = PagamentoAppointmentIdRouteImport.update({
   path: '/pagamento/$appointmentId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAppointmentLocalPaymentRoute =
+  ApiPublicAppointmentLocalPaymentRouteImport.update({
+    id: '/api/public/appointment-local-payment',
+    path: '/api/public/appointment-local-payment',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicMercadopagoOauthRoute =
   ApiPublicMercadopagoOauthRouteImport.update({
     id: '/api/public/mercadopago-oauth',
@@ -117,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
@@ -134,6 +142,7 @@ export interface FileRoutesByTo {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
@@ -152,6 +161,7 @@ export interface FileRoutesById {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/api/public/appointment-local-payment'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/api/public/appointment-local-payment'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
@@ -205,6 +217,7 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/api/public/appointment-local-payment'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
@@ -223,6 +236,7 @@ export interface RootRouteChildren {
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
   PagamentoConfirmadoAppointmentIdRoute: typeof PagamentoConfirmadoAppointmentIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
+  ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
   ApiPublicMercadopagoPreferenceRoute: typeof ApiPublicMercadopagoPreferenceRoute
   ApiPublicMercadopagoReconcileRoute: typeof ApiPublicMercadopagoReconcileRoute
@@ -282,6 +296,13 @@ declare module '@tanstack/react-router' {
       path: '/pagamento/$appointmentId'
       fullPath: '/pagamento/$appointmentId'
       preLoaderRoute: typeof PagamentoAppointmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/appointment-local-payment': {
+      id: '/api/public/appointment-local-payment'
+      path: '/api/public/appointment-local-payment'
+      fullPath: '/api/public/appointment-local-payment'
+      preLoaderRoute: typeof ApiPublicAppointmentLocalPaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mercadopago-oauth': {
@@ -351,6 +372,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgendarBarbeiroIdRoute: AgendarBarbeiroIdRoute,
   PagamentoConfirmadoAppointmentIdRoute: PagamentoConfirmadoAppointmentIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
+  ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
   ApiPublicMercadopagoPreferenceRoute: ApiPublicMercadopagoPreferenceRoute,
   ApiPublicMercadopagoReconcileRoute: ApiPublicMercadopagoReconcileRoute,
