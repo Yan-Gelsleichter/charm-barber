@@ -129,11 +129,6 @@ function MeusAgendamentosPage() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/meus-cartoes">
-              <CreditCard /> Cartões
-            </Link>
-          </Button>
           <Button
             variant="ghost"
             size="sm"

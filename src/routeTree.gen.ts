@@ -12,12 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as MeusAgendamentosRouteImport } from './routes/meus-agendamentos'
-import { Route as MeusCartoesRouteImport } from './routes/meus-cartoes'
 import { Route as PainelRouteImport } from './routes/painel'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
 import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/pagamento-confirmado.$appointmentId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
-import { Route as ApiPublicMercadopagoCardsRouteImport } from './routes/api/public/mercadopago-cards'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
 import { Route as ApiPublicMercadopagoPixRouteImport } from './routes/api/public/mercadopago-pix'
 import { Route as ApiPublicMercadopagoPreferenceRouteImport } from './routes/api/public/mercadopago-preference'
@@ -41,11 +39,6 @@ const MeusAgendamentosRoute = MeusAgendamentosRouteImport.update({
   path: '/meus-agendamentos',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MeusCartoesRoute = MeusCartoesRouteImport.update({
-  id: '/meus-cartoes',
-  path: '/meus-cartoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PainelRoute = PainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -67,12 +60,6 @@ const PagamentoAppointmentIdRoute = PagamentoAppointmentIdRouteImport.update({
   path: '/pagamento/$appointmentId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicMercadopagoCardsRoute =
-  ApiPublicMercadopagoCardsRouteImport.update({
-    id: '/api/public/mercadopago-cards',
-    path: '/api/public/mercadopago-cards',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicMercadopagoOauthRoute =
   ApiPublicMercadopagoOauthRouteImport.update({
     id: '/api/public/mercadopago-oauth',
@@ -119,12 +106,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
-  '/meus-cartoes': typeof MeusCartoesRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
-  '/api/public/mercadopago-cards': typeof ApiPublicMercadopagoCardsRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
@@ -137,12 +122,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
-  '/meus-cartoes': typeof MeusCartoesRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
-  '/api/public/mercadopago-cards': typeof ApiPublicMercadopagoCardsRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
@@ -156,12 +139,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
-  '/meus-cartoes': typeof MeusCartoesRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
-  '/api/public/mercadopago-cards': typeof ApiPublicMercadopagoCardsRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-pix': typeof ApiPublicMercadopagoPixRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
@@ -176,12 +157,10 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/meus-agendamentos'
-    | '/meus-cartoes'
     | '/painel'
     | '/agendar/$barbeiroId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
-    | '/api/public/mercadopago-cards'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-pix'
     | '/api/public/mercadopago-preference'
@@ -194,12 +173,10 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/meus-agendamentos'
-    | '/meus-cartoes'
     | '/painel'
     | '/agendar/$barbeiroId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
-    | '/api/public/mercadopago-cards'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-pix'
     | '/api/public/mercadopago-preference'
@@ -212,12 +189,10 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/meus-agendamentos'
-    | '/meus-cartoes'
     | '/painel'
     | '/agendar/$barbeiroId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
-    | '/api/public/mercadopago-cards'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-pix'
     | '/api/public/mercadopago-preference'
@@ -231,12 +206,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   MeusAgendamentosRoute: typeof MeusAgendamentosRoute
-  MeusCartoesRoute: typeof MeusCartoesRoute
   PainelRoute: typeof PainelRoute
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
   PagamentoConfirmadoAppointmentIdRoute: typeof PagamentoConfirmadoAppointmentIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
-  ApiPublicMercadopagoCardsRoute: typeof ApiPublicMercadopagoCardsRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
   ApiPublicMercadopagoPixRoute: typeof ApiPublicMercadopagoPixRoute
   ApiPublicMercadopagoPreferenceRoute: typeof ApiPublicMercadopagoPreferenceRoute
@@ -269,13 +242,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MeusAgendamentosRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/meus-cartoes': {
-      id: '/meus-cartoes'
-      path: '/meus-cartoes'
-      fullPath: '/meus-cartoes'
-      preLoaderRoute: typeof MeusCartoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/painel': {
       id: '/painel'
       path: '/painel'
@@ -302,13 +268,6 @@ declare module '@tanstack/react-router' {
       path: '/pagamento/$appointmentId'
       fullPath: '/pagamento/$appointmentId'
       preLoaderRoute: typeof PagamentoAppointmentIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/mercadopago-cards': {
-      id: '/api/public/mercadopago-cards'
-      path: '/api/public/mercadopago-cards'
-      fullPath: '/api/public/mercadopago-cards'
-      preLoaderRoute: typeof ApiPublicMercadopagoCardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mercadopago-oauth': {
@@ -367,12 +326,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   MeusAgendamentosRoute: MeusAgendamentosRoute,
-  MeusCartoesRoute: MeusCartoesRoute,
   PainelRoute: PainelRoute,
   AgendarBarbeiroIdRoute: AgendarBarbeiroIdRoute,
   PagamentoConfirmadoAppointmentIdRoute: PagamentoConfirmadoAppointmentIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
-  ApiPublicMercadopagoCardsRoute: ApiPublicMercadopagoCardsRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
   ApiPublicMercadopagoPixRoute: ApiPublicMercadopagoPixRoute,
   ApiPublicMercadopagoPreferenceRoute: ApiPublicMercadopagoPreferenceRoute,
