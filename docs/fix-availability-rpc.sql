@@ -40,7 +40,7 @@ AS $$
     r.appointment_time AS start_time,
     CASE
       WHEN upper(r.customer_name) LIKE 'BLOQUEIO:%'
-        THEN nullif(split_part(r.customer_name, ':', 2), '')::timestamptz
+        THEN nullif(substring(r.customer_name from 'BLOQUEIO:([^Z]*Z)'), '')::timestamptz
       ELSE r.appointment_time + make_interval(mins => r.duration_minutes)
     END AS end_time
   FROM raw r
