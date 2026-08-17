@@ -165,7 +165,7 @@ function ConfirmacaoPage() {
     appointment != null &&
     !paid &&
     !failedOnline &&
-    (isOnline || method == null || method === "online" || status == null || status === "pendente");
+    (isOnline || method == null || status == null || status === "pendente");
 
   // Ao voltar do Mercado Pago ("Voltar para a loja"), consulta o pagamento na API
   // oficial a cada 2s (por até 30s) até virar "pago" — sem esperar o webhook.
@@ -239,7 +239,7 @@ function ConfirmacaoPage() {
     };
   }, [
     paid,
-    isOnline,
+    shouldReconcile,
     appointmentId,
     search.payment_id,
     search.collection_id,
