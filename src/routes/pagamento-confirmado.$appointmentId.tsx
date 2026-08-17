@@ -257,6 +257,17 @@ function ConfirmacaoPage() {
 
 
 
+  // Estado de reconciliação persistente: aparece ao voltar do Mercado Pago e
+  // permanece visível enquanto o polling consulta o status, sem travar a
+  // navegação (os botões continuam clicáveis o tempo todo).
+  const reconciling =
+    !!appointment &&
+    !paid &&
+    !failedOnline &&
+    (isOnline || method == null || status == null || status === "pendente");
+
+  const waitingTooLong = reconciling && timedOut;
+
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
       {q.isLoading ? (
@@ -270,6 +281,88 @@ function ConfirmacaoPage() {
             <Link to="/meus-agendamentos">Ver meus agendamentos</Link>
           </Button>
         </section>
+      ) : reconciling ? (
+        <>
+          {/* Carregamento elegante e persistente */}
+          <div className="flex flex-col items-center text-center">
+            <span className="relative flex size-20 items-center justify-center">
+              <span
+                className="absolute inset-0 rounded-full bg-[color:var(--primary)]/25"
+                style={{ animation: "pay-pulse-ring 1.8s cubic-bezier(0.4,0,0.6,1) infinite" }}
+              />
+              <span
+                className="relative flex size-16 items-center justify-center rounded-full bg-[color:var(--primary)]/12"
+                style={{ animation: "pay-float 2.2s ease-in-out infinite" }}
+              >
+                <Loader2 className="size-8 animate-spin text-[color:var(--primary)]" />
+              </span>
+            </span>
+            <h1 className="mt-5 text-xl font-semibold">
+              {waitingTooLong
+                ? "Quase lá…"
+                : "Confirmando seu pagamento"}
+            </h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {waitingTooLong
+                ? "A confirmação do Mercado Pago demorou um pouco mais. Já estamos verificando — você pode continuar navegando."
+                : "Estamos validando seu pagamento com o Mercado Pago. Não saia da tela, isso leva apenas alguns segundos."}
+            </p>
+
+            {/* Barra de progresso com shimmer */}
+            <div className="pay-shimmer-bar mt-5 h-2 w-full max-w-xs rounded-full bg-[color:var(--primary)]/12" />
+
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-[color:var(--success)]" />
+              {waitingTooLong ? "Verificando em segundo plano…" : "Consultando o gateway de pagamento…"}
+            </p>
+          </div>
+
+          {/* Resumo já visível durante o carregamento */}
+          <section className="surface mt-6 space-y-2 p-4 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Serviço</span>
+              <span className="font-medium">{service?.name ?? "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Cliente</span>
+              <span className="font-medium">{appointment.customer_name ?? "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Horário</span>
+              <span className="font-medium">
+                {fmtDate(appointment.appointment_time)} · {fmtTime(appointment.appointment_time)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Status</span>
+              <span className="flex items-center gap-1.5 font-medium text-[color:var(--primary)]">
+                <Loader2 className="size-3.5 animate-spin" />
+                {waitingTooLong ? "Verificando…" : "Confirmando pagamento…"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-t border-border/60 pt-2">
+              <span className="text-muted-foreground">Valor total</span>
+              <span className="brand-text text-base font-bold">{brl(service?.price ?? 0)}</span>
+            </div>
+          </section>
+
+          {/* Botões sempre disponíveis — a navegação nunca trava */}
+          <div className="mt-6 grid gap-3">
+            <Button asChild variant="hero" size="xl" className="w-full">
+              <Link to="/meus-agendamentos">
+                <CalendarDays /> Ver meus agendamentos
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="xl" className="w-full">
+              <Link to="/pagamento/$appointmentId" params={{ appointmentId }}>
+                <ArrowLeft /> Voltar ao checkout
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" className="w-full">
+              <Link to="/">Agendar outro horário</Link>
+            </Button>
+          </div>
+        </>
       ) : (
         <>
           <div className="flex flex-col items-center text-center">
@@ -286,11 +379,6 @@ function ConfirmacaoPage() {
                 "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
               ) : isOnline && timedOut ? (
                 "Ainda não recebemos a confirmação do Mercado Pago. Atualize a página em instantes."
-              ) : isOnline ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Confirmando o seu pagamento online…
-                </>
               ) : (
                 "O pagamento será feito presencialmente na barbearia."
               )}
@@ -330,9 +418,7 @@ function ConfirmacaoPage() {
                   ? "Pago"
                   : failedOnline
                     ? "Pagamento não confirmado"
-                    : isOnline
-                      ? "Confirmando pagamento…"
-                      : "Aguardando pagamento"}
+                    : "Aguardando pagamento"}
 
               </span>
             </div>
