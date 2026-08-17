@@ -111,6 +111,7 @@ function ConfirmacaoPage() {
             payment_status?: string | null;
             payment_method?: string | null;
             paid_at?: string | null;
+            mp_payment_id?: string | null;
           }
         | null;
       if (!data) return null;
