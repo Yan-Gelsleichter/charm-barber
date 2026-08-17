@@ -179,8 +179,8 @@ function ConfirmacaoPage() {
               ? { payment_id: search.payment_id ?? search.collection_id }
               : {}),
             ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
-            ...(search.preference_id || storedPreferenceId
-              ? { preference_id: search.preference_id ?? storedPreferenceId }
+            ...(search.preference_id || storedPreferenceId || dbPreferenceId
+              ? { preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId }
               : {}),
           }),
         });
