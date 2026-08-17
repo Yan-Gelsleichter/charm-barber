@@ -286,20 +286,27 @@ type SignatureResult = "valid" | "unsigned" | "invalid" | "stale" | "no-secret";
 /**
  * Valida a assinatura do Mercado Pago (`x-signature` + `x-request-id`).
  *
- * Endpoint 100% público (não usa JWT do Supabase): a autenticidade vem do
- * HMAC-SHA256 do manifest oficial `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`
- * usando MP_WEBHOOK_SECRET.
+ * Multi-tenant: usa a "Assinatura secreta" da barbearia/barbeiro dono do
+ * pagamento (`mp_webhook_secret`) e só cai na secret global MP_WEBHOOK_SECRET
+ * quando a conta não tem uma própria configurada.
  *
  * Nunca respondemos 401 — o painel do Mercado Pago desativa a URL quando
  * recebe erro. Em vez disso classificamos o evento e descartamos (com 200)
  * o que estiver assinado de forma inválida ou fora da janela de tempo.
  */
-async function verifySignature(request: Request, url: URL, dataId: string): Promise<SignatureResult> {
-  const secret = (process.env["MP_WEBHOOK_SECRET"] ?? "").trim();
+async function verifySignature(
+  request: Request,
+  url: URL,
+  dataId: string,
+  tenantSecret?: string | null,
+): Promise<SignatureResult> {
+  const secret =
+    (tenantSecret ?? "").trim() || (process.env["MP_WEBHOOK_SECRET"] ?? "").trim();
   if (!secret) {
-    console.warn("Webhook MP: MP_WEBHOOK_SECRET não configurado; assinatura não verificada");
+    console.warn("Webhook MP: nenhuma assinatura secreta configurada para esta conta");
     return "no-secret";
   }
+
 
   const signature = request.headers.get("x-signature") ?? "";
   const requestId = request.headers.get("x-request-id") ?? "";
