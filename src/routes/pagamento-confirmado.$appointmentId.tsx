@@ -90,7 +90,7 @@ function ConfirmacaoPage() {
       let res = await supabase
         .from("appointments")
         .select(
-          "id, appointment_time, service_id, customer_name, payment_status, payment_method, paid_at",
+          "id, appointment_time, service_id, customer_name, payment_status, payment_method, paid_at, mp_payment_id",
         )
         .eq("id", appointmentId)
         .maybeSingle();
@@ -111,6 +111,7 @@ function ConfirmacaoPage() {
             payment_status?: string | null;
             payment_method?: string | null;
             paid_at?: string | null;
+            mp_payment_id?: string | null;
           }
         | null;
       if (!data) return null;
@@ -131,6 +132,12 @@ function ConfirmacaoPage() {
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
+  // Referência salva no próprio agendamento ("pref:<id>" ou id do pagamento).
+  // Garante reconciliação mesmo se o usuário recarregar sem parâmetros na URL
+  // ou abrir a tela em outro dispositivo (sem localStorage).
+  const dbRef = appointment?.mp_payment_id ?? null;
+  const dbPreferenceId = dbRef?.startsWith("pref:") ? dbRef.slice(5) : null;
+
   const returnedFromMp = Boolean(
     search.payment_id ||
       search.collection_id ||
@@ -138,7 +145,8 @@ function ConfirmacaoPage() {
       search.preference_id ||
       search.status ||
       search.collection_status ||
-      storedPreferenceId,
+      storedPreferenceId ||
+      dbRef,
   );
 
   const status = liveStatus ?? appointment?.payment_status ?? null;
@@ -171,8 +179,8 @@ function ConfirmacaoPage() {
               ? { payment_id: search.payment_id ?? search.collection_id }
               : {}),
             ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
-            ...(search.preference_id || storedPreferenceId
-              ? { preference_id: search.preference_id ?? storedPreferenceId }
+            ...(search.preference_id || storedPreferenceId || dbPreferenceId
+              ? { preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId }
               : {}),
           }),
         });
@@ -226,6 +234,7 @@ function ConfirmacaoPage() {
     search.merchant_order_id,
     search.preference_id,
     storedPreferenceId,
+    dbPreferenceId,
     qc,
   ]);
 
