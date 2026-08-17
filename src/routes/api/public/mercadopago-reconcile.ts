@@ -36,6 +36,11 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) return json({ error: "Dados inválidos." }, 400);
 
+          // Idempotência: chamadas concorrentes (polling em várias abas) para o
+          // mesmo agendamento compartilham uma única execução.
+          const core = async (): Promise<Response> => {
+
+
           const supabaseUrl =
             process.env["SUPABASE_URL"] ||
             process.env["SB_URL"] ||
