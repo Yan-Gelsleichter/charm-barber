@@ -324,7 +324,57 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           let preference: PreferenceResponse = {};
           let lastError = "Não foi possível iniciar o pagamento online.";
 
+          // Validação prévia: confirma que cada token responde em /users/me antes de
+          // tentar criar a preferência. Tokens inválidos são descartados (e limpos do
+          // banco quando vieram do OAuth), evitando o erro genérico "invalid access token".
+          const validCandidates: typeof candidates = [];
+          let tokenError = "";
           for (const candidate of candidates) {
+            let ok = false;
+            try {
+              const meRes = await fetch("https://api.mercadopago.com/users/me", {
+                headers: {
+                  Authorization: `Bearer ${candidate.token}`,
+                  accept: "application/json",
+                  "cache-control": "no-cache",
+                },
+              });
+              ok = meRes.ok;
+              if (!ok) {
+                const meBody = (await meRes.json().catch(() => ({}))) as {
+                  message?: string;
+                  error?: string;
+                };
+                tokenError = String(meBody.message ?? meBody.error ?? `HTTP ${meRes.status}`);
+                console.error("Checkout Pro: token inválido na validação prévia", {
+                  source: candidate.source,
+                  status: meRes.status,
+                  message: tokenError,
+                });
+                if (candidate.source !== "platform" && (meRes.status === 401 || meRes.status === 403)) {
+                  await invalidateStoredToken(candidate.source);
+                }
+              }
+            } catch (e) {
+              // Falha de rede: não invalida o token, apenas segue e tenta criar a preferência.
+              console.warn("Checkout Pro: validação prévia indisponível", (e as Error).message);
+              ok = true;
+            }
+            if (ok) validCandidates.push(candidate);
+          }
+
+          if (validCandidates.length === 0) {
+            return json(
+              {
+                error:
+                  "Credencial do Mercado Pago inválida ou expirada. Atualize o MP_ACCESS_TOKEN de produção (ou reconecte a conta do Mercado Pago).",
+                detail: tokenError || undefined,
+              },
+              503,
+            );
+          }
+
+          for (const candidate of validCandidates) {
             const body = { ...preferenceBody };
             let res = await createPreference(body, candidate.token);
 
