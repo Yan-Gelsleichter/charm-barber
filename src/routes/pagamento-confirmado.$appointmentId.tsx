@@ -23,6 +23,11 @@ const METHOD_LABEL: Record<string, string> = {
 
 
 export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    status: typeof search["status"] === "string" ? (search["status"] as string) : undefined,
+    payment_id:
+      typeof search["payment_id"] === "string" ? (search["payment_id"] as string) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Pagamento confirmado · Comprovante do agendamento" },
@@ -45,6 +50,8 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
 
 function ConfirmacaoPage() {
   const { appointmentId } = Route.useParams();
+  const search = Route.useSearch();
+  const qc = useQueryClient();
 
   const q = useQuery({
     queryKey: ["appointment-confirmation", appointmentId],
@@ -54,8 +61,9 @@ function ConfirmacaoPage() {
       const row = query.state.data as
         | { appointment?: { payment_status?: string | null } }
         | undefined;
-      return row?.appointment?.payment_status === "pago" ? false : 1500;
+      return row?.appointment?.payment_status === "pago" ? false : 2000;
     },
+
     refetchOnMount: "always",
     queryFn: async () => {
       let res = await supabase
