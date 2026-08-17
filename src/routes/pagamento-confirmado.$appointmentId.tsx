@@ -239,9 +239,11 @@ function ConfirmacaoPage() {
             </h1>
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               {paid ? (
-                "Pagamento realizado online. Guarde o número do pedido abaixo."
+                "Pagamento realizado online com sucesso. Guarde o número do pedido abaixo."
               ) : failedOnline ? (
                 "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
+              ) : isOnline && timedOut ? (
+                "Ainda não recebemos a confirmação do Mercado Pago. Atualize a página em instantes."
               ) : isOnline ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
