@@ -416,22 +416,31 @@ function ConfirmacaoPage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Forma de pagamento</span>
               <span className="font-medium">
-                {method ? (METHOD_LABEL[method] ?? method) : paid ? "Online" : "Presencial"}
+                {isPresencial
+                  ? "Presencial na barbearia"
+                  : method
+                    ? (METHOD_LABEL[method] ?? method)
+                    : paid
+                      ? "Online"
+                      : "Presencial"}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
               <span
                 className={
-                  paid ? "font-semibold text-[color:var(--success)]" : "font-medium"
+                  paid || isPresencial
+                    ? "font-semibold text-[color:var(--success)]"
+                    : "font-medium"
                 }
               >
                 {paid
                   ? "Pago"
-                  : failedOnline
-                    ? "Pagamento não confirmado"
-                    : "Aguardando pagamento"}
-
+                  : isPresencial
+                    ? "Pagar na barbearia"
+                    : failedOnline
+                      ? "Pagamento não confirmado"
+                      : "Aguardando pagamento"}
               </span>
             </div>
             <div className="flex items-center justify-between border-t border-border/60 pt-2">
