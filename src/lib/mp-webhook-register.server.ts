@@ -74,26 +74,62 @@ function ownerOf(json: AnyJson | null): string | null {
   return null;
 }
 
+/** Lista os webhooks da conta conectada. */
+async function listWebhooks(accessToken: string): Promise<AnyJson[]> {
+  const { ok, json } = await callMp("https://api.mercadopago.com/v1/webhooks", "GET", accessToken);
+  if (!ok) return [];
+  if (Array.isArray(json)) return json as unknown as AnyJson[];
+  if (Array.isArray(json?.["results"])) return json!["results"] as AnyJson[];
+  return [];
+}
+
+/**
+ * Remove os webhooks antigos que apontam para a nossa URL, invalidando as
+ * assinaturas secretas anteriores antes de gerar uma nova (rotação).
+ */
+export async function revokeMpWebhooks(accessToken: string, url: string): Promise<number> {
+  const list = await listWebhooks(accessToken);
+  let removed = 0;
+  for (const w of list) {
+    if (String(w["url"] ?? "") !== url) continue;
+    const id = w["id"];
+    if (id === undefined || id === null) continue;
+    const { ok } = await callMp(
+      `https://api.mercadopago.com/v1/webhooks/${String(id)}`,
+      "DELETE",
+      accessToken,
+    );
+    if (ok) removed += 1;
+  }
+  return removed;
+}
+
 /**
  * Cria/atualiza o webhook na conta conectada e devolve a secret, quando a API
  * a fornecer. Retorna `null` se não foi possível obter a assinatura secreta.
  * `ownerId` é o dono declarado pela própria API do MP para aquele webhook e
  * `urlMatches` indica que o webhook aponta para a nossa URL — ambos são usados
  * pelo callback do OAuth para validar a secret antes de gravá-la.
+ * Com `rotate: true`, os webhooks anteriores para a nossa URL são apagados
+ * primeiro, invalidando a secret antiga.
  */
 export async function registerMpWebhook(opts: {
   accessToken: string;
   appUrl: string;
   applicationId?: string | null;
+  rotate?: boolean;
 }): Promise<{
   secret: string | null;
   url: string;
   registered: boolean;
   ownerId: string | null;
   urlMatches: boolean;
+  revoked: number;
 }> {
   const url = webhookUrlFor(opts.appUrl);
   const payload = { url, events: [...WEBHOOK_EVENTS] };
+
+  const revoked = opts.rotate ? await revokeMpWebhooks(opts.accessToken, url) : 0;
 
   const attempts: Array<{ endpoint: string; method: "POST" | "PUT"; body: unknown }> = [
     { endpoint: "https://api.mercadopago.com/v1/webhooks", method: "POST", body: payload },
@@ -105,6 +141,7 @@ export async function registerMpWebhook(opts: {
       body: payload,
     });
   }
+
 
   let registered = false;
   for (const attempt of attempts) {
