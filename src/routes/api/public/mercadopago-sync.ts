@@ -11,7 +11,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
-import { mapPaymentStatus } from "./mercadopago-pix";
+import { mapPaymentStatus } from "@/lib/mp-status.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = { from: (table: string) => any };
