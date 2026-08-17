@@ -36,7 +36,7 @@ function pickSecret(json: AnyJson | null): string | null {
 
 async function callMp(
   url: string,
-  method: "POST" | "PUT" | "GET",
+  method: "POST" | "PUT" | "GET" | "DELETE",
   accessToken: string,
   body?: unknown,
 ): Promise<{ ok: boolean; json: AnyJson | null }> {
