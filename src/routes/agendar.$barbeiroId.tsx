@@ -427,8 +427,9 @@ function AgendarPage() {
       {/* Step 3 — horário */}
       {service && date && (
         <Step title="3. Escolha o horário">
-          {(hoursQ.isLoading || agendaQ.isLoading) && <Skeleton />}
-          {!hoursQ.isLoading && slots.length === 0 && (
+          {(hoursQ.isPending || agendaQ.isPending || agendaQ.isFetching) && <Skeleton />}
+          {!hoursQ.isPending && !agendaQ.isPending && !agendaQ.isFetching && slots.length === 0 && (
+
             <p className="text-sm text-muted-foreground">
               Sem expediente neste dia.
             </p>
