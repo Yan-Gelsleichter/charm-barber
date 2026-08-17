@@ -116,7 +116,11 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           const auth = { Authorization: `Bearer ${token}` };
           let payment: { id?: number | string; status?: string } | null = null;
 
-          const paymentId = parsed.data.payment_id ?? appointment.mp_payment_id;
+          // mp_payment_id pode guardar "pref:<preference_id>" (salvo ao criar o Checkout Pro).
+          const stored = String(appointment.mp_payment_id ?? "");
+          const storedPreferenceId = stored.startsWith("pref:") ? stored.slice(5) : null;
+          const preferenceId = parsed.data.preference_id ?? storedPreferenceId;
+          const paymentId = parsed.data.payment_id ?? (storedPreferenceId ? null : stored || null);
           if (paymentId) {
             const res = await fetch(
               `https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`,
@@ -142,8 +146,8 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
 
           // Sem payment_id: procura pelo external_reference do agendamento.
           if (!payment?.status) {
-            const qs = parsed.data.preference_id
-              ? `preference_id=${encodeURIComponent(parsed.data.preference_id)}`
+            const qs = preferenceId
+              ? `preference_id=${encodeURIComponent(preferenceId)}`
               : `external_reference=${encodeURIComponent(appointment.id)}`;
             const res = await fetch(
               `https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&${qs}`,

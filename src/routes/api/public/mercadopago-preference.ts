@@ -107,7 +107,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           const BASE_COLUMNS = "id, service_id, barber_id, barbershop_id, customer_name, email";
           let appointmentQuery = await admin
             .from("appointments")
-            .select(`${BASE_COLUMNS}, payment_status`)
+            .select(`${BASE_COLUMNS}, payment_status, mp_payment_id`)
             .eq("id", parsed.data.appointment_id)
             .maybeSingle();
           let paymentColumnsAvailable = true;
@@ -132,6 +132,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             customer_name: string | null;
             email: string | null;
             payment_status?: string | null;
+            mp_payment_id?: string | null;
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
@@ -287,9 +288,19 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           }
 
           if (paymentColumnsAvailable) {
+            // Guarda a referência da preferência já na criação do Checkout Pro:
+            // sem isso o agendamento fica sem identificador do MP até o webhook chegar.
+            const current = String(appointment.mp_payment_id ?? "");
+            const patch: Record<string, unknown> = {
+              payment_status: "pendente",
+              payment_method: "online",
+            };
+            if (preference.id && (!current || current.startsWith("pref:"))) {
+              patch["mp_payment_id"] = `pref:${preference.id}`;
+            }
             const { error } = await admin
               .from("appointments")
-              .update({ payment_status: "pendente", payment_method: "online" })
+              .update(patch)
               .eq("id", appointment.id);
             if (error) console.error("Checkout Pro: falha ao marcar pagamento pendente", error);
           }
