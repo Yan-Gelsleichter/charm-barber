@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { handleNotification } from "@/lib/mp-webhook-handler.server";
 
-export const Route = createFileRoute("/api/public/mercadopago-webhook")({
+/** Alias público do webhook do Mercado Pago: /api/public/webhooks/mercadopago */
+export const Route = createFileRoute("/api/public/webhooks/mercadopago")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -13,7 +14,6 @@ export const Route = createFileRoute("/api/public/mercadopago-webhook")({
           return new Response("error", { status: 200 });
         }
       },
-      // O Mercado Pago valida a URL com GET em algumas configurações.
       GET: async ({ request }) => {
         try {
           return await handleNotification(request);
