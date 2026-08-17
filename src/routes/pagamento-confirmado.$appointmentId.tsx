@@ -132,6 +132,12 @@ function ConfirmacaoPage() {
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
+  // Referência salva no próprio agendamento ("pref:<id>" ou id do pagamento).
+  // Garante reconciliação mesmo se o usuário recarregar sem parâmetros na URL
+  // ou abrir a tela em outro dispositivo (sem localStorage).
+  const dbRef = appointment?.mp_payment_id ?? null;
+  const dbPreferenceId = dbRef?.startsWith("pref:") ? dbRef.slice(5) : null;
+
   const returnedFromMp = Boolean(
     search.payment_id ||
       search.collection_id ||
@@ -139,7 +145,8 @@ function ConfirmacaoPage() {
       search.preference_id ||
       search.status ||
       search.collection_status ||
-      storedPreferenceId,
+      storedPreferenceId ||
+      dbRef,
   );
 
   const status = liveStatus ?? appointment?.payment_status ?? null;
