@@ -484,7 +484,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
 
           return json({
             preference_id: preference.id,
-            init_point: preference.init_point,
+            init_point: checkoutUrl,
             amount: Number(amount.toFixed(2)),
             reference_saved: referenceSaved,
           });
