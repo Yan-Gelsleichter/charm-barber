@@ -144,13 +144,28 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             }
           }
 
-          // Sem payment_id: procura pelo external_reference do agendamento.
-          if (!payment?.status) {
-            const qs = preferenceId
-              ? `preference_id=${encodeURIComponent(preferenceId)}`
-              : `external_reference=${encodeURIComponent(appointment.id)}`;
+          // Checkout Pro: a preferência não é pesquisável em /v1/payments/search.
+          // Buscamos as merchant_orders da preferência e pegamos os pagamentos delas.
+          if (!payment?.status && preferenceId) {
             const res = await fetch(
-              `https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&${qs}`,
+              `https://api.mercadopago.com/merchant_orders/search?preference_id=${encodeURIComponent(preferenceId)}`,
+              { headers: auth },
+            );
+            if (res.ok) {
+              const body = (await res.json().catch(() => ({}))) as {
+                elements?: Array<{ payments?: Array<{ id?: number; status?: string }> }>;
+                results?: Array<{ payments?: Array<{ id?: number; status?: string }> }>;
+              };
+              const orders = body.elements ?? body.results ?? [];
+              const all = orders.flatMap((o) => o.payments ?? []);
+              payment = all.find((p) => p.status === "approved") ?? all[0] ?? null;
+            }
+          }
+
+          // Último recurso: procura pelo external_reference do agendamento.
+          if (!payment?.status) {
+            const res = await fetch(
+              `https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&external_reference=${encodeURIComponent(appointment.id)}`,
               { headers: auth },
             );
             if (res.ok) {
@@ -168,10 +183,19 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             }
           }
 
-          if (!payment?.status) {
+          // O pagamento vindo da merchant_order traz só um resumo: busca o detalhe.
+          if (payment?.id && payment.status !== "approved") {
+            const res = await fetch(
+              `https://api.mercadopago.com/v1/payments/${encodeURIComponent(String(payment.id))}`,
+              { headers: auth },
+            );
+            if (res.ok) payment = (await res.json().catch(() => payment)) ?? payment;
+          }
 
+          if (!payment?.status) {
             return json({ payment_status: appointment.payment_status, updated: false });
           }
+
 
           const paymentStatus = mapPaymentStatus(payment.status);
           const patch: Record<string, unknown> = {
