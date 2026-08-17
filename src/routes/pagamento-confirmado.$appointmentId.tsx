@@ -125,7 +125,7 @@ function ConfirmacaoPage() {
 
   const appointment = q.data?.appointment ?? null;
   const service = q.data?.service ?? null;
-  const orderNumber = `#${appointmentId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+  const storedPreferenceId = readCheckoutRef(appointmentId);
 
   // Status vindo da consulta em tempo real no Mercado Pago (mais rápido que o banco).
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
@@ -137,7 +137,8 @@ function ConfirmacaoPage() {
       search.merchant_order_id ||
       search.preference_id ||
       search.status ||
-      search.collection_status,
+      search.collection_status ||
+      storedPreferenceId,
   );
 
   const status = liveStatus ?? appointment?.payment_status ?? null;
