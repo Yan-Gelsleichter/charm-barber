@@ -183,9 +183,31 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           }
 
           const platform = mpPlatformCredentials();
-          const accessToken =
-            barberSplit?.accessToken ?? shop?.mp_access_token ?? platform?.accessToken;
-          if (!accessToken) {
+
+          /** Candidatos de token, do mais específico ao token da plataforma. */
+          type TokenCandidate = {
+            token: string;
+            source: "barber" | "shop" | "platform";
+          };
+          const seen = new Set<string>();
+          const candidates: TokenCandidate[] = [];
+          const pushCandidate = (
+            value: string | null | undefined,
+            source: TokenCandidate["source"],
+          ) => {
+            const token = String(value ?? "").trim();
+            // Chaves de teste nunca são aceitas em produção.
+            if (!token || token.toUpperCase().startsWith("TEST-") || seen.has(token)) return;
+            seen.add(token);
+            candidates.push({ token, source });
+          };
+          if (barberSplit) pushCandidate(barberSplit.accessToken, "barber");
+          pushCandidate(shop?.mp_access_token, "shop");
+          // Sempre disponível como fallback: MP_ACCESS_TOKEN de produção (lido a cada request,
+          // sem cache de módulo, para que uma troca de credencial valha imediatamente).
+          pushCandidate(platform?.accessToken, "platform");
+
+          if (candidates.length === 0) {
             return json(
               {
                 error:
@@ -196,6 +218,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
               400,
             );
           }
+
 
           const { data: service } = await admin
             .from("services")
@@ -249,43 +272,109 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           };
           if (shopFee > 0) preferenceBody["marketplace_fee"] = shopFee;
 
-          const createPreference = (body: Record<string, unknown>) =>
+          const createPreference = (body: Record<string, unknown>, token: string) =>
             fetch("https://api.mercadopago.com/checkout/preferences", {
               method: "POST",
               headers: {
-                Authorization: `Bearer ${accessToken}`,
+                Authorization: `Bearer ${token}`,
+                accept: "application/json",
                 "content-type": "application/json",
+                "cache-control": "no-cache",
                 "X-Idempotency-Key": `pref-${externalReference}`,
               },
               body: JSON.stringify(body),
             });
 
-          let response = await createPreference(preferenceBody);
-          if (!response.ok && shopFee > 0) {
-            const clone = await response
-              .clone()
-              .text()
-              .catch(() => "");
-            if (clone.includes("marketplace")) {
-              console.warn("Checkout Pro: marketplace_fee recusado, recriando sem split");
-              delete preferenceBody["marketplace_fee"];
-              response = await createPreference(preferenceBody);
+          /** Marca como inválido um token OAuth guardado no banco (barbeiro/barbearia). */
+          const invalidateStoredToken = async (source: "barber" | "shop") => {
+            try {
+              if (source === "barber" && appointment.barber_id) {
+                await admin
+                  .from("barbers")
+                  .update({ mp_access_token: null })
+                  .eq("id", appointment.barber_id);
+              } else if (source === "shop" && appointment.barbershop_id) {
+                await admin
+                  .from("barbershops")
+                  .update({ mp_access_token: null })
+                  .eq("id", appointment.barbershop_id);
+              }
+            } catch (e) {
+              console.error("Checkout Pro: falha ao limpar token inválido", e);
             }
-          }
+          };
 
-          const preference = (await response.json().catch(() => ({}))) as {
+          type PreferenceResponse = {
             id?: string;
             init_point?: string;
             sandbox_init_point?: string;
             message?: string;
+            error?: string;
           };
-          if (!response.ok || !preference.init_point) {
-            console.error("Checkout Pro: preferência recusada", response.status, preference);
-            return json(
-              { error: preference.message ?? "Não foi possível iniciar o pagamento online." },
-              400,
-            );
+
+          let response: Response | null = null;
+          let preference: PreferenceResponse = {};
+          let lastError = "Não foi possível iniciar o pagamento online.";
+
+          for (const candidate of candidates) {
+            const body = { ...preferenceBody };
+            let res = await createPreference(body, candidate.token);
+
+            // marketplace_fee só funciona em contas habilitadas: tenta de novo sem split.
+            if (!res.ok && shopFee > 0) {
+              const text = await res
+                .clone()
+                .text()
+                .catch(() => "");
+              if (text.includes("marketplace")) {
+                console.warn("Checkout Pro: marketplace_fee recusado, recriando sem split");
+                delete body["marketplace_fee"];
+                res = await createPreference(body, candidate.token);
+              }
+            }
+
+            const parsedBody = (await res.json().catch(() => ({}))) as PreferenceResponse;
+
+            if (res.ok && parsedBody.init_point) {
+              response = res;
+              preference = parsedBody;
+              break;
+            }
+
+            const message = String(parsedBody.message ?? parsedBody.error ?? "");
+            const invalidToken =
+              res.status === 401 ||
+              res.status === 403 ||
+              /invalid[_ ]access[_ ]token|unauthorized|invalid_token/i.test(message);
+
+            console.error("Checkout Pro: preferência recusada", {
+              source: candidate.source,
+              status: res.status,
+              message,
+            });
+            lastError = message || lastError;
+
+            if (invalidToken && candidate.source !== "platform") {
+              // Token OAuth vencido/revogado: limpa para não ser reutilizado e cai no próximo.
+              await invalidateStoredToken(candidate.source);
+              continue;
+            }
+            if (invalidToken) {
+              return json(
+                {
+                  error:
+                    "Credencial do Mercado Pago inválida. Verifique o MP_ACCESS_TOKEN de produção.",
+                },
+                503,
+              );
+            }
+            return json({ error: message || lastError }, 400);
           }
+
+          if (!response || !preference.init_point) {
+            return json({ error: lastError }, 400);
+          }
+
 
           // Guarda a referência da preferência já na criação do Checkout Pro:
           // sem isso o agendamento fica sem identificador do MP até o webhook chegar.
