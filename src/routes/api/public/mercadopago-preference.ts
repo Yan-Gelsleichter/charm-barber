@@ -183,9 +183,31 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           }
 
           const platform = mpPlatformCredentials();
-          const accessToken =
-            barberSplit?.accessToken ?? shop?.mp_access_token ?? platform?.accessToken;
-          if (!accessToken) {
+
+          /** Candidatos de token, do mais específico ao token da plataforma. */
+          type TokenCandidate = {
+            token: string;
+            source: "barber" | "shop" | "platform";
+          };
+          const seen = new Set<string>();
+          const candidates: TokenCandidate[] = [];
+          const pushCandidate = (
+            value: string | null | undefined,
+            source: TokenCandidate["source"],
+          ) => {
+            const token = String(value ?? "").trim();
+            // Chaves de teste nunca são aceitas em produção.
+            if (!token || token.toUpperCase().startsWith("TEST-") || seen.has(token)) return;
+            seen.add(token);
+            candidates.push({ token, source });
+          };
+          if (barberSplit) pushCandidate(barberSplit.accessToken, "barber");
+          pushCandidate(shop?.mp_access_token, "shop");
+          // Sempre disponível como fallback: MP_ACCESS_TOKEN de produção (lido a cada request,
+          // sem cache de módulo, para que uma troca de credencial valha imediatamente).
+          pushCandidate(platform?.accessToken, "platform");
+
+          if (candidates.length === 0) {
             return json(
               {
                 error:
@@ -196,6 +218,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
               400,
             );
           }
+
 
           const { data: service } = await admin
             .from("services")
