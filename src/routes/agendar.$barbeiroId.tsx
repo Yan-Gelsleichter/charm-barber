@@ -201,7 +201,8 @@ function AgendarPage() {
           /* ignore */
         }
       }
-      const newAppointment = {
+      // Base do agendamento (sem colunas de pagamento, que podem não existir).
+      const baseAppointment = {
         barber_id: barbeiroId,
         service_id: service.id,
         customer_name: clientName,
@@ -211,6 +212,10 @@ function AgendarPage() {
         status: "confirmado",
         barbershop_id: barbershopId,
       };
+      // O agendamento nasce como pagamento pendente, antes de qualquer chamada
+      // ao Mercado Pago.
+      const newAppointment = { ...baseAppointment, payment_status: "pendente" };
+
 
       if (remarcar) {
         const { data: updated, error: updateError } = await supabase
@@ -270,9 +275,21 @@ function AgendarPage() {
         .single();
       if (firstTry.error) {
         console.warn("[agendar] insert falhou:", firstTry.error.message);
-        // Tentativa 2: sem colunas opcionais que podem não existir/violar constraint.
-        const { email: _email, barbershop_id: _shop, ...rest } = newAppointment;
+        // Tentativa 1.5: mesmo registro, sem a coluna de pagamento.
+        const withoutPayment = await supabase
+          .from("appointments")
+          .insert(baseAppointment as AppointmentInsert)
+          .select("id")
+          .single();
+        if (!withoutPayment.error) {
+          created = withoutPayment.data as { id: string };
+        } else {
+
+        // Tentativa 2: sem colunas opcionais que podem não existir/violar constraint
+        // (payment_status inclusive, caso a coluna ainda não exista no banco).
+        const { email: _email, barbershop_id: _shop, ...rest } = baseAppointment;
         const minimal: AppointmentInsert = rest;
+
         const retry = await supabase
           .from("appointments")
           .insert(barbershopId ? ({ ...rest, barbershop_id: barbershopId } as AppointmentInsert) : minimal)
@@ -290,9 +307,11 @@ function AgendarPage() {
         } else {
           created = retry.data as { id: string };
         }
+        }
       } else {
         created = firstTry.data as { id: string };
       }
+
       const createdId = created?.id ?? null;
 
 
