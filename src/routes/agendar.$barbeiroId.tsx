@@ -313,6 +313,29 @@ function AgendarPage() {
       }
 
       const createdId = created?.id ?? null;
+      if (!createdId) {
+        throw new Error(
+          "Não foi possível salvar o agendamento. Tente novamente em alguns instantes.",
+        );
+      }
+      // Confirma que a linha existe mesmo no banco antes de seguir para pagamento.
+      const check = await supabase
+        .from("appointments")
+        .select("id, payment_status")
+        .eq("id", createdId)
+        .maybeSingle();
+      if (check.error || !check.data) {
+        throw new Error("O agendamento não foi confirmado no banco de dados. Tente novamente.");
+      }
+      // Garante o status de pagamento inicial quando a coluna existe.
+      if (!(check.data as { payment_status?: string | null }).payment_status) {
+        await supabase
+          .from("appointments")
+          .update({ payment_status: "pendente" })
+          .eq("id", createdId)
+          .then(undefined, () => null);
+      }
+
 
 
 

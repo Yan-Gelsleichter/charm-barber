@@ -133,12 +133,33 @@ function PagamentoPage() {
 
   const payLocal = useMutation({
     mutationFn: async () => {
-      await supabase
+      // Grava a escolha "pagar presencialmente" no agendamento e confirma que
+      // a linha realmente existe/foi atualizada no banco.
+      const full = await supabase
         .from("appointments")
         .update({ payment_method: "presencial", payment_status: "pendente" })
         .eq("id", appointmentId)
-        .then(undefined, () => null);
+        .select("id")
+        .maybeSingle();
+
+      if (full.error) {
+        // Schema antigo (sem colunas de pagamento): tenta só o método.
+        const partial = await supabase
+          .from("appointments")
+          .update({ payment_method: "presencial" })
+          .eq("id", appointmentId)
+          .select("id")
+          .maybeSingle();
+        if (partial.error) throw partial.error;
+        if (!partial.data) throw new Error("Agendamento não encontrado no banco de dados.");
+        return;
+      }
+      if (!full.data) throw new Error("Agendamento não encontrado no banco de dados.");
     },
+    onError: (e: Error) =>
+      toast.error("Não foi possível registrar o pagamento presencial", {
+        description: e.message,
+      }),
     onSuccess: () => {
       toast.success("Combinado! Pague presencialmente na barbearia.");
       navigate({
@@ -148,6 +169,7 @@ function PagamentoPage() {
       });
     },
   });
+
 
   const busy = startCheckout.isPending || payLocal.isPending;
   const service = apptQ.data?.service ?? null;
