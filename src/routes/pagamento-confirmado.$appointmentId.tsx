@@ -171,7 +171,9 @@ function ConfirmacaoPage() {
               ? { payment_id: search.payment_id ?? search.collection_id }
               : {}),
             ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
-            ...(search.preference_id ? { preference_id: search.preference_id } : {}),
+            ...(search.preference_id || storedPreferenceId
+              ? { preference_id: search.preference_id ?? storedPreferenceId }
+              : {}),
           }),
         });
         const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
@@ -206,14 +208,15 @@ function ConfirmacaoPage() {
     search.collection_id,
     search.merchant_order_id,
     search.preference_id,
+    storedPreferenceId,
     qc,
   ]);
 
+  // Pagamento confirmado: a referência da preferência não é mais necessária.
+  useEffect(() => {
+    if (paid) clearCheckoutRef(appointmentId);
+  }, [paid, appointmentId]);
 
-  async function copyOrder() {
-    await navigator.clipboard.writeText(orderNumber);
-    toast.success("Número do pedido copiado");
-  }
 
 
   return (
@@ -257,19 +260,7 @@ function ConfirmacaoPage() {
 
           </div>
 
-          <section className="surface mt-6 p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Número do pedido
-            </p>
-            <div className="mt-1 flex items-center justify-between gap-3">
-              <p className="font-mono text-lg font-bold">{orderNumber}</p>
-              <Button variant="outline" size="sm" onClick={copyOrder}>
-                <Copy /> Copiar
-              </Button>
-            </div>
-          </section>
-
-          <section className="surface mt-4 space-y-2 p-4 text-sm">
+          <section className="surface mt-6 space-y-2 p-4 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Serviço</span>
               <span className="font-medium">{service?.name ?? "—"}</span>
