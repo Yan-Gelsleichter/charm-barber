@@ -66,7 +66,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
 
           const { data, error } = await admin
             .from("appointments")
-            .select("id, email, barber_id, barbershop_id, mp_payment_id, payment_status")
+            .select("id, email, barber_id, barbershop_id, mp_payment_id, payment_status, paid_at")
             .eq("id", parsed.data.appointment_id)
             .maybeSingle();
           if (error) return json({ error: "Não foi possível verificar o pagamento." }, 500);
@@ -77,6 +77,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             barbershop_id: string | null;
             mp_payment_id: string | null;
             payment_status: string | null;
+            paid_at: string | null;
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
@@ -89,6 +90,14 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           }
 
           if (appointment.payment_status === "pago") {
+            // Já está pago: garante que paid_at nunca fique vazio.
+            if (!appointment.paid_at) {
+              await admin
+                .from("appointments")
+                .update({ paid_at: new Date().toISOString() })
+                .eq("id", appointment.id);
+              return json({ payment_status: "pago", updated: true });
+            }
             return json({ payment_status: "pago", updated: false });
           }
 
@@ -201,7 +210,12 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           const patch: Record<string, unknown> = {
             payment_status: paymentStatus,
             payment_method: "online",
-            paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
+            paid_at:
+              paymentStatus === "pago"
+                ? (appointment.paid_at ?? new Date().toISOString())
+                : paymentStatus === "estornado"
+                  ? appointment.paid_at
+                  : null,
           };
           if (payment.id) patch["mp_payment_id"] = String(payment.id);
           await admin.from("appointments").update(patch).eq("id", appointment.id);
