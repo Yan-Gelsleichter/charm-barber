@@ -25,10 +25,27 @@ const METHOD_LABEL: Record<string, string> = {
 export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { status?: string; payment_id?: string } => {
-    const out: { status?: string; payment_id?: string } = {};
-    if (typeof search["status"] === "string") out.status = search["status"];
-    if (typeof search["payment_id"] === "string") out.payment_id = search["payment_id"];
+  ): {
+    status?: string;
+    payment_id?: string;
+    collection_id?: string;
+    collection_status?: string;
+    merchant_order_id?: string;
+    preference_id?: string;
+  } => {
+    const keys = [
+      "status",
+      "payment_id",
+      "collection_id",
+      "collection_status",
+      "merchant_order_id",
+      "preference_id",
+    ] as const;
+    const out: Record<string, string> = {};
+    for (const k of keys) {
+      const v = search[k];
+      if (typeof v === "string" && v) out[k] = v;
+    }
     return out;
   },
 
