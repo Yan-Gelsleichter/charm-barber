@@ -261,13 +261,38 @@ function AgendarPage() {
           )?.id ?? null
         );
       }
-      const { data: created, error } = await supabase
+      // PRIORIDADE ABSOLUTA: gravar o agendamento primeiro.
+      let created: { id: string } | null = null;
+      const firstTry = await supabase
         .from("appointments")
         .insert(newAppointment)
         .select("id")
         .single();
-      if (error) throw error;
-      const createdId = (created as { id: string } | null)?.id ?? null;
+      if (firstTry.error) {
+        console.warn("[agendar] insert falhou:", firstTry.error.message);
+        // Tentativa 2: sem colunas opcionais que podem não existir/violar constraint.
+        const { email: _email, barbershop_id: _shop, ...minimal } = newAppointment;
+        const retry = await supabase
+          .from("appointments")
+          .insert(barbershopId ? { ...minimal, barbershop_id: barbershopId } : minimal)
+          .select("id")
+          .single();
+        if (retry.error) {
+          const finalTry = await supabase
+            .from("appointments")
+            .insert(minimal)
+            .select("id")
+            .single();
+          if (finalTry.error) throw firstTry.error;
+          created = finalTry.data as { id: string };
+        } else {
+          created = retry.data as { id: string };
+        }
+      } else {
+        created = firstTry.data as { id: string };
+      }
+      const createdId = created?.id ?? null;
+
 
 
       // Registrar cliente automaticamente na base DESTE barbeiro específico.
