@@ -184,11 +184,21 @@ function ConfirmacaoPage() {
             <h1 className="mt-4 text-xl font-semibold">
               {paid ? "Pagamento confirmado!" : "Agendamento confirmado!"}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {paid
-                ? "Recebemos o seu pagamento. Guarde o número do pedido abaixo."
-                : "O pagamento será feito presencialmente na barbearia."}
+            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              {paid ? (
+                "Pagamento realizado online. Guarde o número do pedido abaixo."
+              ) : failedOnline ? (
+                "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
+              ) : isOnline ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Confirmando o seu pagamento online…
+                </>
+              ) : (
+                "O pagamento será feito presencialmente na barbearia."
+              )}
             </p>
+
           </div>
 
           <section className="surface mt-6 p-4">
