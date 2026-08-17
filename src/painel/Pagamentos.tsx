@@ -111,19 +111,29 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
 
   const disconnect = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase
+      const base = {
+        mp_user_id: null,
+        mp_access_token: null,
+        mp_refresh_token: null,
+      };
+      // Ao desconectar, a assinatura secreta do webhook também é invalidada.
+      let res = await supabase
         .from("barbers")
-        .update({
-          mp_user_id: null,
-          mp_access_token: null,
-          mp_refresh_token: null,
-        } as never)
+        .update({ ...base, mp_webhook_secret: null } as never)
         .eq("id", barber.id)
         .select("id, mp_user_id")
         .maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error("Sem permissão para desconectar esta conta");
-      return data as { mp_user_id?: string | null };
+      if (res.error) {
+        res = await supabase
+          .from("barbers")
+          .update(base as never)
+          .eq("id", barber.id)
+          .select("id, mp_user_id")
+          .maybeSingle();
+      }
+      if (res.error) throw res.error;
+      if (!res.data) throw new Error("Sem permissão para desconectar esta conta");
+      return res.data as { mp_user_id?: string | null };
     },
     onSuccess: () => {
       setConfirmOpen(false);

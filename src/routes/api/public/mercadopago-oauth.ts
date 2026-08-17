@@ -138,23 +138,29 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           // Registra o webhook automaticamente na conta conectada e captura a
           // "Assinatura secreta". Só grava se a secret comprovadamente pertence
           // a esta conta (URL do nosso app e dono igual à conta autenticada).
+          // Em reconexões, os webhooks antigos são apagados antes (rotação),
+          // invalidando a assinatura anterior no Mercado Pago.
+          const isReconnect = !!existingMpUser;
           let webhookSecret: string | null = null;
           try {
             const result = await registerMpWebhook({
               accessToken: token.access_token,
               appUrl: process.env["APP_URL"] || "https://charm-barber.lovable.app",
               applicationId: process.env["MP_CLIENT_ID"] ?? null,
+              rotate: isReconnect,
             });
             const ownerOk = !result.ownerId || result.ownerId === accountId;
             if (result.secret && result.urlMatches && ownerOk) webhookSecret = result.secret;
           } catch {
             /* conexão continua mesmo se o registro do webhook falhar */
           }
-          if (webhookSecret) payload["mp_webhook_secret"] = webhookSecret;
+          // Sempre sobrescreve: se a nova secret não veio, a antiga é apagada
+          // para não continuar validando notificações com uma chave revogada.
+          payload["mp_webhook_secret"] = webhookSecret;
 
           let { error } = await admin.from(table).update(payload).eq("id", rowId);
           // As colunas mp_public_key / mp_webhook_secret podem não existir no banco.
-          if (error && (token.public_key || webhookSecret)) {
+          if (error) {
             delete payload["mp_public_key"];
             delete payload["mp_webhook_secret"];
             ({ error } = await admin.from(table).update(payload).eq("id", rowId));
