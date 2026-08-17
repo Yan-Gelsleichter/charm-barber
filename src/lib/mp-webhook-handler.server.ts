@@ -11,61 +11,112 @@ function isMissingColumn(error: { message?: string; code?: string } | null) {
   return !!error && (error.code === "42703" || /column .* does not exist/i.test(error.message ?? ""));
 }
 
-/** Busca o access token da conta que recebeu o pagamento (barbearia ou barbeiro no split). */
-async function resolveAccessToken(
+export type MpTenant = {
+  /** "barber" (split por subconta) | "barbershop" (conta única) | "platform" */
+  kind: "barber" | "barbershop" | "platform";
+  id: string | null;
+  accessToken: string | null;
+  webhookSecret: string | null;
+};
+
+/** Busca uma linha da conta conectada, tolerando bancos sem a coluna mp_webhook_secret. */
+async function fetchTenantRow(
+  admin: Admin,
+  table: "barbers" | "barbershops",
+  column: string,
+  value: string,
+) {
+  const full = await admin
+    .from(table)
+    .select(`id, mp_access_token, mp_webhook_secret`)
+    .eq(column, value)
+    .maybeSingle();
+  if (!full.error) {
+    return full.data as
+      | { id?: string; mp_access_token?: string | null; mp_webhook_secret?: string | null }
+      | null;
+  }
+  if (!isMissingColumn(full.error)) return null;
+  const basic = await admin
+    .from(table)
+    .select("id, mp_access_token")
+    .eq(column, value)
+    .maybeSingle();
+  return (basic.data ?? null) as
+    | { id?: string; mp_access_token?: string | null; mp_webhook_secret?: string | null }
+    | null;
+}
+
+function tenantFromRow(kind: "barber" | "barbershop", row: {
+  id?: string;
+  mp_access_token?: string | null;
+  mp_webhook_secret?: string | null;
+} | null): MpTenant | null {
+  if (!row) return null;
+  if (!row.mp_access_token && !row.mp_webhook_secret) return null;
+  return {
+    kind,
+    id: row.id ?? null,
+    accessToken: row.mp_access_token ?? null,
+    webhookSecret: row.mp_webhook_secret ?? null,
+  };
+}
+
+/**
+ * Identifica a barbearia (ou barbeiro, no modo split) dona da notificação.
+ *
+ * Ordem de resolução:
+ *  1. collector id (`user_id` da notificação) — conta que recebeu o dinheiro;
+ *  2. agendamento já vinculado ao pagamento/preferência (`mp_payment_id`);
+ *  3. credenciais da plataforma, quando configuradas.
+ */
+async function resolveTenant(
   admin: Admin,
   collectorId: string | null,
   paymentId: string,
-): Promise<string | null> {
-  // Modo plataforma: todas as cobranças usam a conta fixa configurada.
-  const platform = mpPlatformCredentials();
-  if (platform?.accessToken) return platform.accessToken;
-
+  preferenceId?: string | null,
+): Promise<MpTenant | null> {
   if (collectorId) {
-    const { data: barber } = await admin
-      .from("barbers")
-      .select("mp_access_token")
-      .eq("mp_user_id", collectorId)
-      .maybeSingle();
-    const barberToken = (barber as { mp_access_token?: string | null } | null)?.mp_access_token;
-    if (barberToken) return barberToken;
-
-    const { data: shop } = await admin
-      .from("barbershops")
-      .select("mp_access_token")
-      .eq("mp_user_id", collectorId)
-      .maybeSingle();
-    const shopToken = (shop as { mp_access_token?: string | null } | null)?.mp_access_token;
-    if (shopToken) return shopToken;
+    const barber = tenantFromRow("barber", await fetchTenantRow(admin, "barbers", "mp_user_id", collectorId));
+    if (barber) return barber;
+    const shop = tenantFromRow(
+      "barbershop",
+      await fetchTenantRow(admin, "barbershops", "mp_user_id", collectorId),
+    );
+    if (shop) return shop;
   }
 
-  // Fallback: agendamento já vinculado a esse pagamento.
-  const { data: appt } = await admin
-    .from("appointments")
-    .select("barbershop_id, barber_id")
-    .eq("mp_payment_id", paymentId)
-    .maybeSingle();
-  const row = appt as { barbershop_id?: string | null; barber_id?: string | null } | null;
-  if (row?.barber_id) {
-    const { data: barber } = await admin
-      .from("barbers")
-      .select("mp_access_token")
-      .eq("id", row.barber_id)
+  // Fallback: agendamento vinculado a esse pagamento ou à preferência criada.
+  const refs = [paymentId, preferenceId ? `pref:${preferenceId}` : null, preferenceId].filter(
+    Boolean,
+  ) as string[];
+  for (const ref of refs) {
+    const { data: appt } = await admin
+      .from("appointments")
+      .select("barbershop_id, barber_id")
+      .eq("mp_payment_id", ref)
       .maybeSingle();
-    const token = (barber as { mp_access_token?: string | null } | null)?.mp_access_token;
-    if (token) return token;
+    const row = appt as { barbershop_id?: string | null; barber_id?: string | null } | null;
+    if (row?.barber_id) {
+      const barber = tenantFromRow("barber", await fetchTenantRow(admin, "barbers", "id", row.barber_id));
+      if (barber) return barber;
+    }
+    if (row?.barbershop_id) {
+      const shop = tenantFromRow(
+        "barbershop",
+        await fetchTenantRow(admin, "barbershops", "id", row.barbershop_id),
+      );
+      if (shop) return shop;
+    }
   }
-  if (row?.barbershop_id) {
-    const { data: shop } = await admin
-      .from("barbershops")
-      .select("mp_access_token")
-      .eq("id", row.barbershop_id)
-      .maybeSingle();
-    const token = (shop as { mp_access_token?: string | null } | null)?.mp_access_token;
-    if (token) return token;
+
+  const platform = mpPlatformCredentials();
+  if (platform?.accessToken) {
+    return { kind: "platform", id: null, accessToken: platform.accessToken, webhookSecret: null };
   }
   return null;
 }
+
 
 function isMissingTable(error: { message?: string; code?: string } | null) {
   return !!error && (error.code === "42P01" || /relation .* does not exist/i.test(error.message ?? ""));
@@ -235,20 +286,27 @@ type SignatureResult = "valid" | "unsigned" | "invalid" | "stale" | "no-secret";
 /**
  * Valida a assinatura do Mercado Pago (`x-signature` + `x-request-id`).
  *
- * Endpoint 100% público (não usa JWT do Supabase): a autenticidade vem do
- * HMAC-SHA256 do manifest oficial `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`
- * usando MP_WEBHOOK_SECRET.
+ * Multi-tenant: usa a "Assinatura secreta" da barbearia/barbeiro dono do
+ * pagamento (`mp_webhook_secret`) e só cai na secret global MP_WEBHOOK_SECRET
+ * quando a conta não tem uma própria configurada.
  *
  * Nunca respondemos 401 — o painel do Mercado Pago desativa a URL quando
  * recebe erro. Em vez disso classificamos o evento e descartamos (com 200)
  * o que estiver assinado de forma inválida ou fora da janela de tempo.
  */
-async function verifySignature(request: Request, url: URL, dataId: string): Promise<SignatureResult> {
-  const secret = (process.env["MP_WEBHOOK_SECRET"] ?? "").trim();
+async function verifySignature(
+  request: Request,
+  url: URL,
+  dataId: string,
+  tenantSecret?: string | null,
+): Promise<SignatureResult> {
+  const secret =
+    (tenantSecret ?? "").trim() || (process.env["MP_WEBHOOK_SECRET"] ?? "").trim();
   if (!secret) {
-    console.warn("Webhook MP: MP_WEBHOOK_SECRET não configurado; assinatura não verificada");
+    console.warn("Webhook MP: nenhuma assinatura secreta configurada para esta conta");
     return "no-secret";
   }
+
 
   const signature = request.headers.get("x-signature") ?? "";
   const requestId = request.headers.get("x-request-id") ?? "";
@@ -302,15 +360,6 @@ async function handleNotification(request: Request) {
   ).trim();
   if (!notificationId) return new Response("no payment id", { status: 200 });
 
-  // Assinatura verificada sem bloquear a entrega (sempre 200 para o Mercado Pago).
-  const signature = await verifySignature(request, url, notificationId);
-  if (signature === "invalid" || signature === "stale") {
-    // Possível spoof/replay: confirmamos o recebimento, mas não tocamos no banco.
-    return new Response("ok", { status: 200 });
-  }
-
-
-
   const action = raw.action ?? url.searchParams.get("action") ?? topic ?? "payment";
 
   const supabaseUrl =
@@ -328,12 +377,30 @@ async function handleNotification(request: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // 1) Identifica a barbearia/barbeiro dono do pagamento (multi-tenant).
   const collectorId = raw.user_id != null ? String(raw.user_id) : url.searchParams.get("user_id");
-  const accessToken = await resolveAccessToken(admin, collectorId, isOrder ? "" : notificationId);
-  if (!accessToken) {
+  const preferenceId = url.searchParams.get("preference_id");
+  const tenant = await resolveTenant(
+    admin,
+    collectorId,
+    isOrder ? "" : notificationId,
+    preferenceId,
+  );
+  if (!tenant?.accessToken) {
     console.error("Webhook MP: conta não identificada para o pagamento", notificationId);
     return new Response("unknown account", { status: 200 });
   }
+  const accessToken = tenant.accessToken;
+
+  // 2) Valida a assinatura com a secret específica da conta (fallback: global).
+  //    Sempre respondemos 200 para o Mercado Pago não desativar a URL.
+  const signature = await verifySignature(request, url, notificationId, tenant.webhookSecret);
+  if (signature === "invalid" || signature === "stale") {
+    // Possível spoof/replay: confirmamos o recebimento, mas não tocamos no banco.
+    console.error("Webhook MP: notificação descartada", { tenant: tenant.kind, id: tenant.id });
+    return new Response("ok", { status: 200 });
+  }
+
 
   if (isOrder) {
     const orderRes = await fetch(
