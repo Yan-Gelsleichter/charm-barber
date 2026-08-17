@@ -10,7 +10,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
-import { mapPaymentStatus } from "./mercadopago-pix";
+import { mapPaymentStatus } from "@/lib/mp-status.server";
 
 const requestSchema = z.object({
   appointment_id: z.string().uuid(),

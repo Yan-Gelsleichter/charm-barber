@@ -429,7 +429,9 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             return json({ error: message || lastError }, 400);
           }
 
-          if (!response || !preference.init_point) {
+          // Checkout Pro: usamos sempre a URL hospedada pelo Mercado Pago.
+          const checkoutUrl = preference.init_point || preference.sandbox_init_point || null;
+          if (!response || !checkoutUrl) {
             return json({ error: lastError }, 400);
           }
 
@@ -482,7 +484,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
 
           return json({
             preference_id: preference.id,
-            init_point: preference.init_point,
+            init_point: checkoutUrl,
             amount: Number(amount.toFixed(2)),
             reference_saved: referenceSaved,
           });
