@@ -87,13 +87,18 @@ async function listWebhooks(accessToken: string): Promise<AnyJson[]> {
  * Remove os webhooks antigos que apontam para a nossa URL, invalidando as
  * assinaturas secretas anteriores antes de gerar uma nova (rotação).
  */
-export async function revokeMpWebhooks(accessToken: string, url: string): Promise<number> {
+export async function revokeMpWebhooks(
+  accessToken: string,
+  url: string,
+  opts?: { keepId?: string | null },
+): Promise<number> {
   const list = await listWebhooks(accessToken);
   let removed = 0;
   for (const w of list) {
     if (String(w["url"] ?? "") !== url) continue;
     const id = w["id"];
     if (id === undefined || id === null) continue;
+    if (opts?.keepId && String(id) === String(opts.keepId)) continue;
     const { ok } = await callMp(
       `https://api.mercadopago.com/v1/webhooks/${String(id)}`,
       "DELETE",
@@ -103,6 +108,7 @@ export async function revokeMpWebhooks(accessToken: string, url: string): Promis
   }
   return removed;
 }
+
 
 /**
  * Cria/atualiza o webhook na conta conectada e devolve a secret, quando a API
