@@ -32,6 +32,7 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
     collection_status?: string;
     merchant_order_id?: string;
     preference_id?: string;
+    metodo?: string;
   } => {
     const keys = [
       "status",
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
       "collection_status",
       "merchant_order_id",
       "preference_id",
+      "metodo",
     ] as const;
     const out: Record<string, string> = {};
     for (const k of keys) {
