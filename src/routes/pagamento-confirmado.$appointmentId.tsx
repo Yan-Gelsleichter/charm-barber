@@ -1,5 +1,6 @@
+import { useEffect, useRef } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Copy, CalendarDays, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,8 +16,10 @@ const METHOD_LABEL: Record<string, string> = {
   cartao_credito: "Cartão de crédito",
   debit_card: "Cartão de débito",
   cartao_debito: "Cartão de débito",
+  online: "Online (PIX ou cartão)",
   presencial: "Presencial na barbearia",
 };
+
 
 
 export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
