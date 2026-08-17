@@ -234,6 +234,7 @@ function ConfirmacaoPage() {
     search.merchant_order_id,
     search.preference_id,
     storedPreferenceId,
+    dbPreferenceId,
     qc,
   ]);
 
