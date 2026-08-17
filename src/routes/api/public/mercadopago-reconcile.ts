@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mapPaymentStatus } from "@/lib/mp-status.server";
+import { withReconcileLock } from "@/lib/mp-reconcile-lock.server";
 
 const requestSchema = z.object({
   appointment_id: z.string().uuid(),
@@ -71,7 +72,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
 
           const { data, error } = await admin
             .from("appointments")
-            .select("id, email, barber_id, barbershop_id, mp_payment_id, payment_status, paid_at")
+            .select("id, email, barber_id, barbershop_id, mp_payment_id, payment_status, payment_method, paid_at")
             .eq("id", parsed.data.appointment_id)
             .maybeSingle();
           if (error) return json({ error: "Não foi possível verificar o pagamento." }, 500);
@@ -82,6 +83,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             barbershop_id: string | null;
             mp_payment_id: string | null;
             payment_status: string | null;
+            payment_method: string | null;
             paid_at: string | null;
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
