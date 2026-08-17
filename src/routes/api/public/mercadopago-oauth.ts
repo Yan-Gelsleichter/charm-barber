@@ -20,7 +20,8 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
 
         try {
           if (errorParam) return backTo(appUrl, { mp: "erro", mp_msg: errorParam });
-          if (!code || !state) return backTo(appUrl, { mp: "erro", mp_msg: "code/state ausente" });
+          // Sem code/state não houve retorno do OAuth (acesso direto/preload): não processa nada.
+          if (!code || !state) return Response.redirect(appUrl, 302);
 
           const redirectUri = `${appUrl}/api/public/mercadopago-oauth`;
 
