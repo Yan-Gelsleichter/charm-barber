@@ -376,7 +376,11 @@ function ConfirmacaoPage() {
               <CheckCircle2 className="size-9 text-[color:var(--success)]" />
             </span>
             <h1 className="mt-4 text-xl font-semibold">
-              {paid ? "Pagamento confirmado!" : "Agendamento confirmado!"}
+              {paid
+                ? "Pagamento confirmado!"
+                : isPresencial
+                  ? "Agendamento confirmado!"
+                  : "Agendamento confirmado!"}
             </h1>
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               {paid ? (
