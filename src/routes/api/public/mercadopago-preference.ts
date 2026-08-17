@@ -262,6 +262,14 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
               failure: `${backUrl}?status=failure`,
             },
             auto_return: "approved",
+            // Libera explicitamente Pix, cartão de crédito e débito (sem exclusões).
+            payment_methods: {
+              excluded_payment_methods: [],
+              excluded_payment_types: [],
+              installments: 12,
+              default_installments: 1,
+            },
+            binary_mode: false,
             statement_descriptor: "BARBEARIA",
             metadata: {
               appointment_id: appointment.id,
