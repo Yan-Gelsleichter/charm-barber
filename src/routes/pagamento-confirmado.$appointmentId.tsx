@@ -32,6 +32,7 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
     collection_status?: string;
     merchant_order_id?: string;
     preference_id?: string;
+    metodo?: string;
   } => {
     const keys = [
       "status",
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
       "collection_status",
       "merchant_order_id",
       "preference_id",
+      "metodo",
     ] as const;
     const out: Record<string, string> = {};
     for (const k of keys) {
@@ -152,7 +154,9 @@ function ConfirmacaoPage() {
   const status = liveStatus ?? appointment?.payment_status ?? null;
   const paid = status === "pago";
   const method = appointment?.payment_method ?? null;
-  const isOnline = returnedFromMp || (method != null && method !== "presencial");
+  // Pagamento presencial: nunca consulta o gateway nem mostra "confirmando pagamento".
+  const isPresencial = search.metodo === "presencial" || method === "presencial";
+  const isOnline = !isPresencial && (returnedFromMp || (method != null && method !== "presencial"));
   const failedOnline =
     isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
 
@@ -164,6 +168,7 @@ function ConfirmacaoPage() {
     appointment != null &&
     !paid &&
     !failedOnline &&
+    !isPresencial &&
     (isOnline || method == null || status == null || status === "pendente");
 
   // Ao voltar do Mercado Pago ("Voltar para a loja"), consulta o pagamento na API
@@ -264,6 +269,7 @@ function ConfirmacaoPage() {
     !!appointment &&
     !paid &&
     !failedOnline &&
+    !isPresencial &&
     (isOnline || method == null || status == null || status === "pendente");
 
   const waitingTooLong = reconciling && timedOut;
@@ -370,11 +376,17 @@ function ConfirmacaoPage() {
               <CheckCircle2 className="size-9 text-[color:var(--success)]" />
             </span>
             <h1 className="mt-4 text-xl font-semibold">
-              {paid ? "Pagamento confirmado!" : "Agendamento confirmado!"}
+              {paid
+                ? "Pagamento confirmado!"
+                : isPresencial
+                  ? "Agendamento confirmado!"
+                  : "Agendamento confirmado!"}
             </h1>
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               {paid ? (
                 "Pagamento realizado online com sucesso."
+              ) : isPresencial ? (
+                "Tudo certo! Você vai pagar presencialmente na barbearia."
               ) : failedOnline ? (
                 "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
               ) : isOnline && timedOut ? (
@@ -404,22 +416,31 @@ function ConfirmacaoPage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Forma de pagamento</span>
               <span className="font-medium">
-                {method ? (METHOD_LABEL[method] ?? method) : paid ? "Online" : "Presencial"}
+                {isPresencial
+                  ? "Presencial na barbearia"
+                  : method
+                    ? (METHOD_LABEL[method] ?? method)
+                    : paid
+                      ? "Online"
+                      : "Presencial"}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
               <span
                 className={
-                  paid ? "font-semibold text-[color:var(--success)]" : "font-medium"
+                  paid || isPresencial
+                    ? "font-semibold text-[color:var(--success)]"
+                    : "font-medium"
                 }
               >
                 {paid
                   ? "Pago"
-                  : failedOnline
-                    ? "Pagamento não confirmado"
-                    : "Aguardando pagamento"}
-
+                  : isPresencial
+                    ? "Pagar na barbearia"
+                    : failedOnline
+                      ? "Pagamento não confirmado"
+                      : "Aguardando pagamento"}
               </span>
             </div>
             <div className="flex items-center justify-between border-t border-border/60 pt-2">
