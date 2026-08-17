@@ -1,5 +1,6 @@
+import { useEffect, useRef } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Copy, CalendarDays, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,11 +16,22 @@ const METHOD_LABEL: Record<string, string> = {
   cartao_credito: "Cartão de crédito",
   debit_card: "Cartão de débito",
   cartao_debito: "Cartão de débito",
+  online: "Online (PIX ou cartão)",
   presencial: "Presencial na barbearia",
 };
 
 
+
 export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { status?: string; payment_id?: string } => {
+    const out: { status?: string; payment_id?: string } = {};
+    if (typeof search["status"] === "string") out.status = search["status"];
+    if (typeof search["payment_id"] === "string") out.payment_id = search["payment_id"];
+    return out;
+  },
+
   head: () => ({
     meta: [
       { title: "Pagamento confirmado · Comprovante do agendamento" },
@@ -42,6 +54,8 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
 
 function ConfirmacaoPage() {
   const { appointmentId } = Route.useParams();
+  const search = Route.useSearch();
+  const qc = useQueryClient();
 
   const q = useQuery({
     queryKey: ["appointment-confirmation", appointmentId],
@@ -51,8 +65,9 @@ function ConfirmacaoPage() {
       const row = query.state.data as
         | { appointment?: { payment_status?: string | null } }
         | undefined;
-      return row?.appointment?.payment_status === "pago" ? false : 1500;
+      return row?.appointment?.payment_status === "pago" ? false : 2000;
     },
+
     refetchOnMount: "always",
     queryFn: async () => {
       let res = await supabase
@@ -96,11 +111,56 @@ function ConfirmacaoPage() {
   const orderNumber = `#${appointmentId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
   const paid = appointment?.payment_status === "pago";
   const method = appointment?.payment_method ?? null;
+  const isOnline = method != null && method !== "presencial";
+  const failedOnline =
+    isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(
+      appointment?.payment_status ?? "",
+    );
+
+  // Ao voltar do Mercado Pago, consulta o pagamento na API oficial a cada 2s
+  // até o status virar "pago" (não espera o webhook).
+  const running = useRef(false);
+  useEffect(() => {
+    if (paid || !isOnline) return;
+    let stop = false;
+    const check = async () => {
+      if (running.current || stop) return;
+      running.current = true;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return;
+        const res = await fetch("/api/public/mercadopago-reconcile", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            appointment_id: appointmentId,
+            ...(search.payment_id ? { payment_id: search.payment_id } : {}),
+          }),
+        });
+        const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
+        if (!stop && body.payment_status) {
+          void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
+        }
+      } catch {
+        /* silencioso */
+      } finally {
+        running.current = false;
+      }
+    };
+    void check();
+    const id = window.setInterval(check, 2000);
+    return () => {
+      stop = true;
+      window.clearInterval(id);
+    };
+  }, [paid, isOnline, appointmentId, search.payment_id, qc]);
 
   async function copyOrder() {
     await navigator.clipboard.writeText(orderNumber);
     toast.success("Número do pedido copiado");
   }
+
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
@@ -124,11 +184,21 @@ function ConfirmacaoPage() {
             <h1 className="mt-4 text-xl font-semibold">
               {paid ? "Pagamento confirmado!" : "Agendamento confirmado!"}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {paid
-                ? "Recebemos o seu pagamento. Guarde o número do pedido abaixo."
-                : "O pagamento será feito presencialmente na barbearia."}
+            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              {paid ? (
+                "Pagamento realizado online. Guarde o número do pedido abaixo."
+              ) : failedOnline ? (
+                "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
+              ) : isOnline ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Confirmando o seu pagamento online…
+                </>
+              ) : (
+                "O pagamento será feito presencialmente na barbearia."
+              )}
             </p>
+
           </div>
 
           <section className="surface mt-6 p-4">
@@ -171,7 +241,14 @@ function ConfirmacaoPage() {
                   paid ? "font-semibold text-[color:var(--success)]" : "font-medium"
                 }
               >
-                {paid ? "Pago" : "Aguardando pagamento"}
+                {paid
+                  ? "Pago"
+                  : failedOnline
+                    ? "Pagamento não confirmado"
+                    : isOnline
+                      ? "Confirmando pagamento…"
+                      : "Aguardando pagamento"}
+
               </span>
             </div>
             <div className="flex items-center justify-between border-t border-border/60 pt-2">
