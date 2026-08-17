@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mapPaymentStatus } from "@/lib/mp-status.server";
+import { withReconcileLock } from "@/lib/mp-reconcile-lock.server";
 
 const requestSchema = z.object({
   appointment_id: z.string().uuid(),
@@ -35,6 +36,11 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
 
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) return json({ error: "Dados inválidos." }, 400);
+
+          // Idempotência: chamadas concorrentes (polling em várias abas) para o
+          // mesmo agendamento compartilham uma única execução.
+          const core = async (): Promise<Response> => {
+
 
           const supabaseUrl =
             process.env["SUPABASE_URL"] ||
@@ -66,7 +72,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
 
           const { data, error } = await admin
             .from("appointments")
-            .select("id, email, barber_id, barbershop_id, mp_payment_id, payment_status, paid_at")
+            .select("id, email, barber_id, barbershop_id, mp_payment_id, payment_status, payment_method, paid_at")
             .eq("id", parsed.data.appointment_id)
             .maybeSingle();
           if (error) return json({ error: "Não foi possível verificar o pagamento." }, 500);
@@ -77,6 +83,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             barbershop_id: string | null;
             mp_payment_id: string | null;
             payment_status: string | null;
+            payment_method: string | null;
             paid_at: string | null;
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
@@ -205,25 +212,57 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             return json({ payment_status: appointment.payment_status, updated: false });
           }
 
-
           const paymentStatus = mapPaymentStatus(payment.status);
+          const mpPaymentId = payment.id ? String(payment.id) : null;
+          const paidAt =
+            paymentStatus === "pago"
+              ? (appointment.paid_at ?? new Date().toISOString())
+              : paymentStatus === "estornado"
+                ? appointment.paid_at
+                : null;
+
+          // Idempotência: se nada mudou, não escreve nada.
+          const unchanged =
+            appointment.payment_status === paymentStatus &&
+            appointment.payment_method === "online" &&
+            (appointment.paid_at ?? null) === (paidAt ?? null) &&
+            (!mpPaymentId || appointment.mp_payment_id === mpPaymentId);
+          if (unchanged) {
+            return json({ payment_status: paymentStatus, updated: false });
+          }
+
           const patch: Record<string, unknown> = {
             payment_status: paymentStatus,
             payment_method: "online",
-            paid_at:
-              paymentStatus === "pago"
-                ? (appointment.paid_at ?? new Date().toISOString())
-                : paymentStatus === "estornado"
-                  ? appointment.paid_at
-                  : null,
+            paid_at: paidAt,
           };
-          if (payment.id) patch["mp_payment_id"] = String(payment.id);
-          await admin.from("appointments").update(patch).eq("id", appointment.id);
-          if (paymentStatus === "pago") {
-            await admin.from("appointments").update({ status: "confirmado" }).eq("id", appointment.id);
+          if (mpPaymentId) patch["mp_payment_id"] = mpPaymentId;
+
+          // Escrita condicional: só grava se o status ainda for o mesmo que lemos.
+          // Se outra requisição já reconciliou, esta não sobrescreve nem duplica.
+          let query = admin.from("appointments").update(patch).eq("id", appointment.id);
+          query =
+            appointment.payment_status === null
+              ? query.is("payment_status", null)
+              : query.eq("payment_status", appointment.payment_status);
+          const { data: updatedRows } = await query.select("id");
+          const didUpdate = Array.isArray(updatedRows) && updatedRows.length > 0;
+
+          if (didUpdate && paymentStatus === "pago") {
+            await admin
+              .from("appointments")
+              .update({ status: "confirmado" })
+              .eq("id", appointment.id)
+              .neq("status", "confirmado");
           }
 
-          return json({ payment_status: paymentStatus, updated: true });
+          return json({ payment_status: paymentStatus, updated: didUpdate });
+          };
+
+          const result = await withReconcileLock(parsed.data.appointment_id, core);
+          // Cada chamador recebe uma cópia: o corpo só pode ser lido uma vez.
+          return result.clone();
+
         } catch (e) {
           console.error("Reconcile MP: erro inesperado", e);
           return json({ error: "Não foi possível verificar o pagamento." }, 500);
