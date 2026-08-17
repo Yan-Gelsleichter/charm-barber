@@ -151,7 +151,7 @@ export async function registerMpWebhook(opts: {
     const secret = pickSecret(json);
     if (secret) {
       const returnedUrl = String((json?.["url"] as string | undefined) ?? url);
-      return { secret, url, registered: true, ownerId: ownerOf(json), urlMatches: returnedUrl === url };
+      return { secret, url, registered: true, ownerId: ownerOf(json), urlMatches: returnedUrl === url, revoked };
     }
   }
 
@@ -169,9 +169,9 @@ export async function registerMpWebhook(opts: {
         : [];
     const match = list.find((w) => String(w["url"] ?? "") === url);
     const secret = pickSecret(match ?? null);
-    if (secret) return { secret, url, registered: true, ownerId: ownerOf(match ?? null), urlMatches: true };
+    if (secret) return { secret, url, registered: true, ownerId: ownerOf(match ?? null), urlMatches: true, revoked };
   }
 
-  return { secret: null, url, registered, ownerId: null, urlMatches: false };
+  return { secret: null, url, registered, ownerId: null, urlMatches: false, revoked };
 }
 
