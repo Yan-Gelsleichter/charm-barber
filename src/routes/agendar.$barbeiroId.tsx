@@ -96,6 +96,15 @@ function AgendarPage() {
       start.setHours(0, 0, 0, 0);
       const end = new Date(start);
       end.setDate(end.getDate() + 1);
+
+      // Os agendamentos de outros clientes não são visíveis por RLS, por isso a
+      // disponibilidade vem de uma função que devolve só os intervalos ocupados.
+      const busy = await supabase.rpc("barber_busy_intervals", {
+        p_barber_id: barbeiroId,
+        p_from: start.toISOString(),
+        p_to: end.toISOString(),
+      });
+
       const { data, error } = await supabase
         .from("appointments")
         .select("id, appointment_time, service_id, status, customer_phone, customer_name")
@@ -103,18 +112,29 @@ function AgendarPage() {
         .gte("appointment_time", start.toISOString())
         .lt("appointment_time", end.toISOString());
       if (error) throw error;
-      const blocks = await supabase
-        .from("schedule_blocks")
-        .select("start_time, end_time")
-        .eq("barber_id", barbeiroId)
-        .gte("start_time", start.toISOString())
-        .lt("start_time", end.toISOString());
-      if (blocks.error) throw blocks.error;
+
+      let blocks: Array<{ start_time: string; end_time: string }> = [];
+      if (!busy.error && busy.data) {
+        blocks = (busy.data as Array<{ start_time: string; end_time: string }>).filter(
+          (b) => b.start_time && b.end_time,
+        );
+      } else {
+        const fallback = await supabase
+          .from("schedule_blocks")
+          .select("start_time, end_time")
+          .eq("barber_id", barbeiroId)
+          .gte("start_time", start.toISOString())
+          .lt("start_time", end.toISOString());
+        if (fallback.error) throw fallback.error;
+        blocks = (fallback.data ?? []) as Array<{ start_time: string; end_time: string }>;
+      }
+
       return {
         appointments: data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status" | "customer_phone" | "customer_name">[],
-        blocks: (blocks.data ?? []) as Array<{ start_time: string; end_time: string }>,
+        blocks,
       };
     },
+
   });
 
   const service = servicesQ.data?.find((s) => s.id === serviceId) ?? null;
