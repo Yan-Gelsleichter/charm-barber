@@ -360,15 +360,6 @@ async function handleNotification(request: Request) {
   ).trim();
   if (!notificationId) return new Response("no payment id", { status: 200 });
 
-  // Assinatura verificada sem bloquear a entrega (sempre 200 para o Mercado Pago).
-  const signature = await verifySignature(request, url, notificationId);
-  if (signature === "invalid" || signature === "stale") {
-    // Possível spoof/replay: confirmamos o recebimento, mas não tocamos no banco.
-    return new Response("ok", { status: 200 });
-  }
-
-
-
   const action = raw.action ?? url.searchParams.get("action") ?? topic ?? "payment";
 
   const supabaseUrl =
@@ -386,12 +377,30 @@ async function handleNotification(request: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // 1) Identifica a barbearia/barbeiro dono do pagamento (multi-tenant).
   const collectorId = raw.user_id != null ? String(raw.user_id) : url.searchParams.get("user_id");
-  const accessToken = await resolveAccessToken(admin, collectorId, isOrder ? "" : notificationId);
-  if (!accessToken) {
+  const preferenceId = url.searchParams.get("preference_id");
+  const tenant = await resolveTenant(
+    admin,
+    collectorId,
+    isOrder ? "" : notificationId,
+    preferenceId,
+  );
+  if (!tenant?.accessToken) {
     console.error("Webhook MP: conta não identificada para o pagamento", notificationId);
     return new Response("unknown account", { status: 200 });
   }
+  const accessToken = tenant.accessToken;
+
+  // 2) Valida a assinatura com a secret específica da conta (fallback: global).
+  //    Sempre respondemos 200 para o Mercado Pago não desativar a URL.
+  const signature = await verifySignature(request, url, notificationId, tenant.webhookSecret);
+  if (signature === "invalid" || signature === "stale") {
+    // Possível spoof/replay: confirmamos o recebimento, mas não tocamos no banco.
+    console.error("Webhook MP: notificação descartada", { tenant: tenant.kind, id: tenant.id });
+    return new Response("ok", { status: 200 });
+  }
+
 
   if (isOrder) {
     const orderRes = await fetch(
