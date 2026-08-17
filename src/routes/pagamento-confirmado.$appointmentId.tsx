@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, Copy, CalendarDays, ArrowLeft } from "lucide-react";
-import { toast } from "sonner";
+import { CheckCircle2, Loader2, CalendarDays, ArrowLeft } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { readCheckoutRef, clearCheckoutRef } from "@/lib/checkout-ref";
 import { Button } from "@/components/ui/button";
 import { brl, fmtDate, fmtTime } from "@/lib/format";
 
