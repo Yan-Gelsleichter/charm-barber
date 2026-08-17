@@ -15,6 +15,8 @@ import { mapPaymentStatus } from "./mercadopago-pix";
 const requestSchema = z.object({
   appointment_id: z.string().uuid(),
   payment_id: z.string().trim().max(64).optional(),
+  merchant_order_id: z.string().trim().max(64).optional(),
+  preference_id: z.string().trim().max(128).optional(),
 });
 
 function json(body: unknown, status = 200) {
