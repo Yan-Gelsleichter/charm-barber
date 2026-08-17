@@ -11,61 +11,112 @@ function isMissingColumn(error: { message?: string; code?: string } | null) {
   return !!error && (error.code === "42703" || /column .* does not exist/i.test(error.message ?? ""));
 }
 
-/** Busca o access token da conta que recebeu o pagamento (barbearia ou barbeiro no split). */
-async function resolveAccessToken(
+export type MpTenant = {
+  /** "barber" (split por subconta) | "barbershop" (conta única) | "platform" */
+  kind: "barber" | "barbershop" | "platform";
+  id: string | null;
+  accessToken: string | null;
+  webhookSecret: string | null;
+};
+
+/** Busca uma linha da conta conectada, tolerando bancos sem a coluna mp_webhook_secret. */
+async function fetchTenantRow(
+  admin: Admin,
+  table: "barbers" | "barbershops",
+  column: string,
+  value: string,
+) {
+  const full = await admin
+    .from(table)
+    .select(`id, mp_access_token, mp_webhook_secret`)
+    .eq(column, value)
+    .maybeSingle();
+  if (!full.error) {
+    return full.data as
+      | { id?: string; mp_access_token?: string | null; mp_webhook_secret?: string | null }
+      | null;
+  }
+  if (!isMissingColumn(full.error)) return null;
+  const basic = await admin
+    .from(table)
+    .select("id, mp_access_token")
+    .eq(column, value)
+    .maybeSingle();
+  return (basic.data ?? null) as
+    | { id?: string; mp_access_token?: string | null; mp_webhook_secret?: string | null }
+    | null;
+}
+
+function tenantFromRow(kind: "barber" | "barbershop", row: {
+  id?: string;
+  mp_access_token?: string | null;
+  mp_webhook_secret?: string | null;
+} | null): MpTenant | null {
+  if (!row) return null;
+  if (!row.mp_access_token && !row.mp_webhook_secret) return null;
+  return {
+    kind,
+    id: row.id ?? null,
+    accessToken: row.mp_access_token ?? null,
+    webhookSecret: row.mp_webhook_secret ?? null,
+  };
+}
+
+/**
+ * Identifica a barbearia (ou barbeiro, no modo split) dona da notificação.
+ *
+ * Ordem de resolução:
+ *  1. collector id (`user_id` da notificação) — conta que recebeu o dinheiro;
+ *  2. agendamento já vinculado ao pagamento/preferência (`mp_payment_id`);
+ *  3. credenciais da plataforma, quando configuradas.
+ */
+async function resolveTenant(
   admin: Admin,
   collectorId: string | null,
   paymentId: string,
-): Promise<string | null> {
-  // Modo plataforma: todas as cobranças usam a conta fixa configurada.
-  const platform = mpPlatformCredentials();
-  if (platform?.accessToken) return platform.accessToken;
-
+  preferenceId?: string | null,
+): Promise<MpTenant | null> {
   if (collectorId) {
-    const { data: barber } = await admin
-      .from("barbers")
-      .select("mp_access_token")
-      .eq("mp_user_id", collectorId)
-      .maybeSingle();
-    const barberToken = (barber as { mp_access_token?: string | null } | null)?.mp_access_token;
-    if (barberToken) return barberToken;
-
-    const { data: shop } = await admin
-      .from("barbershops")
-      .select("mp_access_token")
-      .eq("mp_user_id", collectorId)
-      .maybeSingle();
-    const shopToken = (shop as { mp_access_token?: string | null } | null)?.mp_access_token;
-    if (shopToken) return shopToken;
+    const barber = tenantFromRow("barber", await fetchTenantRow(admin, "barbers", "mp_user_id", collectorId));
+    if (barber) return barber;
+    const shop = tenantFromRow(
+      "barbershop",
+      await fetchTenantRow(admin, "barbershops", "mp_user_id", collectorId),
+    );
+    if (shop) return shop;
   }
 
-  // Fallback: agendamento já vinculado a esse pagamento.
-  const { data: appt } = await admin
-    .from("appointments")
-    .select("barbershop_id, barber_id")
-    .eq("mp_payment_id", paymentId)
-    .maybeSingle();
-  const row = appt as { barbershop_id?: string | null; barber_id?: string | null } | null;
-  if (row?.barber_id) {
-    const { data: barber } = await admin
-      .from("barbers")
-      .select("mp_access_token")
-      .eq("id", row.barber_id)
+  // Fallback: agendamento vinculado a esse pagamento ou à preferência criada.
+  const refs = [paymentId, preferenceId ? `pref:${preferenceId}` : null, preferenceId].filter(
+    Boolean,
+  ) as string[];
+  for (const ref of refs) {
+    const { data: appt } = await admin
+      .from("appointments")
+      .select("barbershop_id, barber_id")
+      .eq("mp_payment_id", ref)
       .maybeSingle();
-    const token = (barber as { mp_access_token?: string | null } | null)?.mp_access_token;
-    if (token) return token;
+    const row = appt as { barbershop_id?: string | null; barber_id?: string | null } | null;
+    if (row?.barber_id) {
+      const barber = tenantFromRow("barber", await fetchTenantRow(admin, "barbers", "id", row.barber_id));
+      if (barber) return barber;
+    }
+    if (row?.barbershop_id) {
+      const shop = tenantFromRow(
+        "barbershop",
+        await fetchTenantRow(admin, "barbershops", "id", row.barbershop_id),
+      );
+      if (shop) return shop;
+    }
   }
-  if (row?.barbershop_id) {
-    const { data: shop } = await admin
-      .from("barbershops")
-      .select("mp_access_token")
-      .eq("id", row.barbershop_id)
-      .maybeSingle();
-    const token = (shop as { mp_access_token?: string | null } | null)?.mp_access_token;
-    if (token) return token;
+
+  const platform = mpPlatformCredentials();
+  if (platform?.accessToken) {
+    return { kind: "platform", id: null, accessToken: platform.accessToken, webhookSecret: null };
   }
   return null;
 }
+
 
 function isMissingTable(error: { message?: string; code?: string } | null) {
   return !!error && (error.code === "42P01" || /relation .* does not exist/i.test(error.message ?? ""));
