@@ -85,10 +85,27 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           };
           if (token.public_key) payload["mp_public_key"] = token.public_key;
 
+          // Registra o webhook automaticamente na conta conectada e captura a
+          // "Assinatura secreta" para gravar junto com os tokens.
+          let webhookSecret: string | null = null;
+          try {
+            const { registerMpWebhook } = await import("@/lib/mp-webhook-register.server");
+            const result = await registerMpWebhook({
+              accessToken: token.access_token,
+              appUrl: process.env["APP_URL"] || "https://charm-barber.lovable.app",
+              applicationId: process.env["MP_CLIENT_ID"] ?? null,
+            });
+            webhookSecret = result.secret;
+          } catch {
+            /* conexão continua mesmo se o registro do webhook falhar */
+          }
+          if (webhookSecret) payload["mp_webhook_secret"] = webhookSecret;
+
           let { error } = await admin.from(table).update(payload).eq("id", rowId);
-          // A coluna mp_public_key pode ainda não existir no banco.
-          if (error && token.public_key) {
+          // As colunas mp_public_key / mp_webhook_secret podem não existir no banco.
+          if (error && (token.public_key || webhookSecret)) {
             delete payload["mp_public_key"];
+            delete payload["mp_webhook_secret"];
             ({ error } = await admin.from(table).update(payload).eq("id", rowId));
           }
           if (error) return backTo(appUrl, { mp: "erro", mp_msg: error.message }, tab);
