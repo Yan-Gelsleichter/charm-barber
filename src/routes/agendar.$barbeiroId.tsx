@@ -5,7 +5,7 @@ import { ArrowLeft, Check, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barber, WorkingHour, Service, Appointment } from "@/integrations/supabase/db-types";
+import type { Barber, WorkingHour, Service, Appointment, AppointmentInsert } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { useSession } from "@/hooks/use-auth";
