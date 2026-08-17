@@ -23,11 +23,15 @@ const METHOD_LABEL: Record<string, string> = {
 
 
 export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    status: typeof search["status"] === "string" ? (search["status"] as string) : undefined,
-    payment_id:
-      typeof search["payment_id"] === "string" ? (search["payment_id"] as string) : undefined,
-  }),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { status?: string; payment_id?: string } => {
+    const out: { status?: string; payment_id?: string } = {};
+    if (typeof search["status"] === "string") out.status = search["status"];
+    if (typeof search["payment_id"] === "string") out.payment_id = search["payment_id"];
+    return out;
+  },
+
   head: () => ({
     meta: [
       { title: "Pagamento confirmado · Comprovante do agendamento" },
