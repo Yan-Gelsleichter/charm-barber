@@ -78,24 +78,75 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           const rowId = isBarber ? state.slice("barber:".length) : state;
           const tab = "pagamentos";
 
+          // Valida que a linha alvo existe e, se já estiver conectada, que é a
+          // mesma conta do Mercado Pago (evita gravar credenciais de terceiros).
+          const { data: targetRow, error: targetErr } = await admin
+            .from(table)
+            .select("id, mp_user_id")
+            .eq("id", rowId)
+            .maybeSingle();
+          if (targetErr || !targetRow) {
+            return backTo(appUrl, { mp: "erro", mp_msg: "Conta da barbearia não encontrada" }, tab);
+          }
+
+          // Dono real do access_token, confirmado direto na API do Mercado Pago.
+          const { fetchMpAccountId, registerMpWebhook } = await import(
+            "@/lib/mp-webhook-register.server"
+          );
+          const accountId = await fetchMpAccountId(token.access_token);
+          const tokenUserId = token.user_id ? String(token.user_id) : null;
+          if (!accountId || (tokenUserId && accountId !== tokenUserId)) {
+            return backTo(
+              appUrl,
+              { mp: "erro", mp_msg: "Não foi possível confirmar a conta do Mercado Pago" },
+              tab,
+            );
+          }
+
+          const existingMpUser = (targetRow as { mp_user_id?: string | null }).mp_user_id ?? null;
+          if (existingMpUser && existingMpUser !== accountId) {
+            return backTo(
+              appUrl,
+              { mp: "erro", mp_msg: "Esta barbearia já está conectada a outra conta do Mercado Pago" },
+              tab,
+            );
+          }
+
+          // A mesma conta MP não pode ficar vinculada a duas barbearias/barbeiros.
+          const { data: conflict } = await admin
+            .from(table)
+            .select("id")
+            .eq("mp_user_id", accountId)
+            .neq("id", rowId)
+            .limit(1)
+            .maybeSingle();
+          if (conflict) {
+            return backTo(
+              appUrl,
+              { mp: "erro", mp_msg: "Esta conta do Mercado Pago já está vinculada a outro cadastro" },
+              tab,
+            );
+          }
+
           const payload: Record<string, unknown> = {
             mp_access_token: token.access_token,
             mp_refresh_token: token.refresh_token ?? null,
-            mp_user_id: token.user_id ? String(token.user_id) : null,
+            mp_user_id: accountId,
           };
           if (token.public_key) payload["mp_public_key"] = token.public_key;
 
           // Registra o webhook automaticamente na conta conectada e captura a
-          // "Assinatura secreta" para gravar junto com os tokens.
+          // "Assinatura secreta". Só grava se a secret comprovadamente pertence
+          // a esta conta (URL do nosso app e dono igual à conta autenticada).
           let webhookSecret: string | null = null;
           try {
-            const { registerMpWebhook } = await import("@/lib/mp-webhook-register.server");
             const result = await registerMpWebhook({
               accessToken: token.access_token,
               appUrl: process.env["APP_URL"] || "https://charm-barber.lovable.app",
               applicationId: process.env["MP_CLIENT_ID"] ?? null,
             });
-            webhookSecret = result.secret;
+            const ownerOk = !result.ownerId || result.ownerId === accountId;
+            if (result.secret && result.urlMatches && ownerOk) webhookSecret = result.secret;
           } catch {
             /* conexão continua mesmo se o registro do webhook falhar */
           }
