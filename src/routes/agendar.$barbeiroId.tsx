@@ -271,12 +271,14 @@ function AgendarPage() {
       if (firstTry.error) {
         console.warn("[agendar] insert falhou:", firstTry.error.message);
         // Tentativa 2: sem colunas opcionais que podem não existir/violar constraint.
-        const { email: _email, barbershop_id: _shop, ...minimal } = newAppointment;
+        const { email: _email, barbershop_id: _shop, ...rest } = newAppointment;
+        const minimal: AppointmentInsert = rest;
         const retry = await supabase
           .from("appointments")
-          .insert(barbershopId ? { ...minimal, barbershop_id: barbershopId } : minimal)
+          .insert(barbershopId ? ({ ...rest, barbershop_id: barbershopId } as AppointmentInsert) : minimal)
           .select("id")
           .single();
+
         if (retry.error) {
           const finalTry = await supabase
             .from("appointments")
