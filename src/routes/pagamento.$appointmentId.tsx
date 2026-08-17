@@ -135,13 +135,17 @@ function PagamentoPage() {
     mutationFn: async () => {
       await supabase
         .from("appointments")
-        .update({ payment_method: "presencial" })
+        .update({ payment_method: "presencial", payment_status: "pendente" })
         .eq("id", appointmentId)
         .then(undefined, () => null);
     },
     onSuccess: () => {
       toast.success("Combinado! Pague presencialmente na barbearia.");
-      navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } });
+      navigate({
+        to: "/pagamento-confirmado/$appointmentId",
+        params: { appointmentId },
+        search: { metodo: "presencial" },
+      });
     },
   });
 
