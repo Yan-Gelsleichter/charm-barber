@@ -201,7 +201,8 @@ function AgendarPage() {
           /* ignore */
         }
       }
-      const newAppointment = {
+      // Base do agendamento (sem colunas de pagamento, que podem não existir).
+      const baseAppointment = {
         barber_id: barbeiroId,
         service_id: service.id,
         customer_name: clientName,
@@ -211,6 +212,10 @@ function AgendarPage() {
         status: "confirmado",
         barbershop_id: barbershopId,
       };
+      // O agendamento nasce como pagamento pendente, antes de qualquer chamada
+      // ao Mercado Pago.
+      const newAppointment = { ...baseAppointment, payment_status: "pendente" };
+
 
       if (remarcar) {
         const { data: updated, error: updateError } = await supabase
