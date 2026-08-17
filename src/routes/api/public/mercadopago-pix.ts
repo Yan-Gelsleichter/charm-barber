@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { mpPlatformCredentials, mpEnvGuardError } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
-import { paymentErrorMessage } from "./mercadopago-cards";
+import { paymentErrorMessage } from "@/lib/mp-errors.server";
 import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
 import { logPaymentAttempt, logPaymentResult } from "@/lib/mp-audit.server";
 import { createClient } from "@supabase/supabase-js";
