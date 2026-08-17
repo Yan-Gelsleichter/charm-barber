@@ -3,9 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 /**
- * Fallback de criação de agendamento com service role.
- * Usado quando o insert direto do cliente é bloqueado por RLS.
- * O usuário precisa estar logado (bearer token válido).
+ * Criação autoritativa de agendamento com service role.
+ * O usuário precisa estar logado, mas o INSERT não depende das políticas RLS
+ * do cliente.
  */
 
 const requestSchema = z.object({
@@ -20,6 +20,18 @@ const requestSchema = z.object({
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "cache-control": "no-store" } });
+}
+
+function databaseError(error: {
+  message: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string | null;
+}) {
+  const extra = [error.details, error.hint, error.code ? `código ${error.code}` : null]
+    .filter(Boolean)
+    .join(" · ");
+  return `Erro ao salvar agendamento: ${error.message}${extra ? ` (${extra})` : ""}`;
 }
 
 export const Route = createFileRoute("/api/public/appointment-create")({
@@ -63,8 +75,29 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             return json({ error: "Sua sessão expirou. Faça login novamente." }, 401);
           }
 
+          // Chaves sb_secret_* são opacas, não JWT. Elas devem ir em `apikey`,
+          // sem `Authorization: Bearer <chave>`, para o PostgREST reconhecer a
+          // identidade de serviço e ignorar RLS corretamente.
           const admin = createClient(supabaseUrl, serviceKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
+            auth: {
+              storage: undefined,
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false,
+            },
+            global: {
+              fetch: (input, init) => {
+                const headers = new Headers(init?.headers);
+                if (
+                  serviceKey.startsWith("sb_") &&
+                  headers.get("Authorization") === `Bearer ${serviceKey}`
+                ) {
+                  headers.delete("Authorization");
+                }
+                headers.set("apikey", serviceKey);
+                return fetch(input, { ...init, headers });
+              },
+            },
           });
 
           const d = parsed.data;
@@ -80,25 +113,24 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             ...(d.barbershop_id ? { barbershop_id: d.barbershop_id } : {}),
           };
 
-          let inserted = await admin.from("appointments").insert(full).select("id").single();
-          if (inserted.error) {
-            // Colunas opcionais podem não existir neste banco.
-            const { email: _e, payment_status: _p, ...minimal } = full as Record<string, unknown>;
-            inserted = await admin
-              .from("appointments")
-              .insert(minimal as never)
-              .select("id")
-              .single();
-          }
+          const inserted = await admin.from("appointments").insert(full).select("id").single();
           if (inserted.error || !inserted.data) {
             console.error("[appointment-create] insert falhou", inserted.error);
-            return json({ error: "Não foi possível salvar o agendamento." }, 500);
+            return json(
+              {
+                error: inserted.error
+                  ? databaseError(inserted.error)
+                  : "Erro ao salvar agendamento: o banco não retornou o registro criado.",
+              },
+              500,
+            );
           }
 
           return json({ id: (inserted.data as { id: string }).id });
         } catch (error) {
           console.error("[appointment-create] erro inesperado", error);
-          return json({ error: "Erro inesperado ao salvar o agendamento." }, 500);
+          const message = error instanceof Error ? error.message : String(error);
+          return json({ error: `Erro ao salvar agendamento: ${message}` }, 500);
         }
       },
     },

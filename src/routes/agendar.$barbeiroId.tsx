@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Clock, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barber, WorkingHour, Service, Appointment, AppointmentInsert } from "@/integrations/supabase/db-types";
+import type { Barber, WorkingHour, Service, Appointment } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { useSession } from "@/hooks/use-auth";
@@ -35,6 +35,7 @@ function AgendarPage() {
   const [serviceId, setServiceId] = useState<string | null>(servico ?? null);
   const [date, setDate] = useState<Date | undefined>(() => (data ? new Date(`${data}T12:00:00`) : new Date()));
   const [slotIso, setSlotIso] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
   const clientName = (meta.name || meta.full_name || session?.user.email || "").toString().trim();
@@ -266,104 +267,38 @@ function AgendarPage() {
           )?.id ?? null
         );
       }
-      // PRIORIDADE ABSOLUTA: gravar o agendamento primeiro.
-      let created: { id: string } | null = null;
-      const firstTry = await supabase
-        .from("appointments")
-        .insert(newAppointment)
-        .select("id")
-        .single();
-      if (firstTry.error) {
-        console.warn("[agendar] insert falhou:", firstTry.error.message);
-        // Tentativa 1.5: mesmo registro, sem a coluna de pagamento.
-        const withoutPayment = await supabase
-          .from("appointments")
-          .insert(baseAppointment as AppointmentInsert)
-          .select("id")
-          .single();
-        if (!withoutPayment.error) {
-          created = withoutPayment.data as { id: string };
-        } else {
+      // Novos agendamentos são gravados exclusivamente no servidor com a
+      // identidade de serviço. Assim, o INSERT nunca depende da RLS do cliente.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Erro ao salvar agendamento: sua sessão expirou.");
 
-        // Tentativa 2: sem colunas opcionais que podem não existir/violar constraint
-        // (payment_status inclusive, caso a coluna ainda não exista no banco).
-        const { email: _email, barbershop_id: _shop, ...rest } = baseAppointment;
-        const minimal: AppointmentInsert = rest;
-
-        const retry = await supabase
-          .from("appointments")
-          .insert(barbershopId ? ({ ...rest, barbershop_id: barbershopId } as AppointmentInsert) : minimal)
-          .select("id")
-          .single();
-
-        if (retry.error) {
-          const finalTry = await supabase
-            .from("appointments")
-            .insert(minimal)
-            .select("id")
-            .single();
-          if (finalTry.error) {
-            // Último recurso: grava pelo servidor (service role), imune a RLS.
-            const { data: sessionData } = await supabase.auth.getSession();
-            const accessToken = sessionData.session?.access_token;
-            if (!accessToken) throw firstTry.error;
-            const response = await fetch("/api/public/appointment-create", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "content-type": "application/json",
-              },
-              body: JSON.stringify({
-                barber_id: barbeiroId,
-                service_id: service.id,
-                customer_name: clientName,
-                customer_phone: phoneDigits(clientPhone),
-                email: clientEmail || null,
-                appointment_time: slotIso,
-                barbershop_id: barbershopId,
-              }),
-            });
-            const payload = (await response.json().catch(() => ({}))) as {
-              id?: string;
-              error?: string;
-            };
-            if (!response.ok || !payload.id) {
-              throw new Error(payload.error ?? firstTry.error.message);
-            }
-            created = { id: payload.id };
-          } else {
-            created = finalTry.data as { id: string };
-          }
-        } else {
-          created = retry.data as { id: string };
-        }
-        }
-      } else {
-        created = firstTry.data as { id: string };
-      }
-
-      const createdId = created?.id ?? null;
-      if (!createdId) {
+      const response = await fetch("/api/public/appointment-create", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          barber_id: barbeiroId,
+          service_id: service.id,
+          customer_name: clientName,
+          customer_phone: phoneDigits(clientPhone),
+          email: clientEmail,
+          appointment_time: slotIso,
+          barbershop_id: barbershopId,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        id?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.id) {
         throw new Error(
-          "Não foi possível salvar o agendamento. Tente novamente em alguns instantes.",
+          payload?.error ?? `Erro ao salvar agendamento: servidor retornou HTTP ${response.status}.`,
         );
       }
-      // Confirma a linha no banco. A leitura pode ser bloqueada por RLS mesmo
-      // com o registro gravado, então só avisamos no console nesse caso.
-      const check = await supabase
-        .from("appointments")
-        .select("id, payment_status")
-        .eq("id", createdId)
-        .maybeSingle();
-      if (check.error || !check.data) {
-        console.warn("[agendar] leitura pós-insert bloqueada/vazia", check.error?.message);
-      } else if (!(check.data as { payment_status?: string | null }).payment_status) {
-        await supabase
-          .from("appointments")
-          .update({ payment_status: "pendente" })
-          .eq("id", createdId)
-          .then(undefined, () => null);
-      }
+      const createdId = payload.id;
 
 
 
@@ -436,7 +371,13 @@ function AgendarPage() {
       }
     },
 
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      const message = e.message.startsWith("Erro ao salvar agendamento:")
+        ? e.message
+        : `Erro ao salvar agendamento: ${e.message}`;
+      setCreateError(message);
+      toast.error(message);
+    },
   });
 
 
@@ -483,6 +424,7 @@ function AgendarPage() {
               onClick={() => {
                 setServiceId(s.id);
                 setSlotIso(null);
+                setCreateError(null);
               }}
               className={cn(
                 "flex items-center justify-between rounded-xl border p-4 text-left transition-all",
@@ -519,6 +461,7 @@ function AgendarPage() {
               onSelect={(d) => {
                 setDate(d ?? undefined);
                 setSlotIso(null);
+                setCreateError(null);
               }}
               disabled={(d) => {
                 const t = new Date();
@@ -549,7 +492,10 @@ function AgendarPage() {
                 <button
                   key={iso}
                   disabled={!s.available}
-                  onClick={() => setSlotIso(iso)}
+                  onClick={() => {
+                    setSlotIso(iso);
+                    setCreateError(null);
+                  }}
                   className={cn(
                     "rounded-xl border px-2 py-3 text-sm font-medium transition-all",
                     !s.available && "slot-strike cursor-not-allowed border-border bg-card/40",
@@ -602,11 +548,24 @@ function AgendarPage() {
               variant="hero"
               size="xl"
               className="w-full"
-              onClick={() => create.mutate()}
+              onClick={() => {
+                setCreateError(null);
+                create.mutate();
+              }}
               disabled={create.isPending || !session}
             >
               {create.isPending ? <Loader2 className="animate-spin" /> : "Confirmar agendamento"}
             </Button>
+            {createError && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+              >
+                <AlertCircle className="mt-0.5 size-5 shrink-0" />
+                <p className="break-words font-medium">{createError}</p>
+              </div>
+            )}
           </div>
         </Step>
       )}
