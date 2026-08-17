@@ -111,11 +111,56 @@ function ConfirmacaoPage() {
   const orderNumber = `#${appointmentId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
   const paid = appointment?.payment_status === "pago";
   const method = appointment?.payment_method ?? null;
+  const isOnline = method != null && method !== "presencial";
+  const failedOnline =
+    isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(
+      appointment?.payment_status ?? "",
+    );
+
+  // Ao voltar do Mercado Pago, consulta o pagamento na API oficial a cada 2s
+  // até o status virar "pago" (não espera o webhook).
+  const running = useRef(false);
+  useEffect(() => {
+    if (paid || !isOnline) return;
+    let stop = false;
+    const check = async () => {
+      if (running.current || stop) return;
+      running.current = true;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return;
+        const res = await fetch("/api/public/mercadopago-reconcile", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            appointment_id: appointmentId,
+            ...(search.payment_id ? { payment_id: search.payment_id } : {}),
+          }),
+        });
+        const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
+        if (!stop && body.payment_status) {
+          void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
+        }
+      } catch {
+        /* silencioso */
+      } finally {
+        running.current = false;
+      }
+    };
+    void check();
+    const id = window.setInterval(check, 2000);
+    return () => {
+      stop = true;
+      window.clearInterval(id);
+    };
+  }, [paid, isOnline, appointmentId, search.payment_id, qc]);
 
   async function copyOrder() {
     await navigator.clipboard.writeText(orderNumber);
     toast.success("Número do pedido copiado");
   }
+
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
