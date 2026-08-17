@@ -99,11 +99,19 @@ function AgendarPage() {
 
       // Os agendamentos de outros clientes não são visíveis por RLS, por isso a
       // disponibilidade vem de uma função que devolve só os intervalos ocupados.
-      const busy = await supabase.rpc("barber_busy_intervals", {
+      const busy = (await (
+        supabase as unknown as {
+          rpc: (
+            fn: string,
+            args: Record<string, string>,
+          ) => Promise<{ data: Array<{ start_time: string; end_time: string }> | null; error: unknown }>;
+        }
+      ).rpc("barber_busy_intervals", {
         p_barber_id: barbeiroId,
         p_from: start.toISOString(),
         p_to: end.toISOString(),
-      });
+      }));
+
 
       const { data, error } = await supabase
         .from("appointments")
