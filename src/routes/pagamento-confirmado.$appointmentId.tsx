@@ -156,11 +156,23 @@ function ConfirmacaoPage() {
   const failedOnline =
     isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
 
+  // Fallback: mesmo sem nenhuma referência (mp_payment_id NULL, sem parâmetros na
+  // URL e sem localStorage), tentamos reconciliar assim que o agendamento carrega.
+  // O servidor procura o pagamento pelo external_reference (id do agendamento),
+  // então a tela nunca trava esperando um id que pode nunca ter sido salvo.
+  const noReference = appointment != null && !returnedFromMp;
+  const shouldReconcile =
+    appointment != null &&
+    !paid &&
+    !failedOnline &&
+    (isOnline || method == null || method === "online" || status == null || status === "pendente");
+
   // Ao voltar do Mercado Pago ("Voltar para a loja"), consulta o pagamento na API
   // oficial a cada 2s (por até 30s) até virar "pago" — sem esperar o webhook.
   const running = useRef(false);
   useEffect(() => {
-    if (paid || !isOnline) return;
+    if (paid || !shouldReconcile) return;
+
     let stop = false;
     const started = Date.now();
     const check = async () => {
