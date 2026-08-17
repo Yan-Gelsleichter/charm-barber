@@ -287,28 +287,57 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             );
           }
 
+          // Guarda a referência da preferência já na criação do Checkout Pro:
+          // sem isso o agendamento fica sem identificador do MP até o webhook chegar.
+          let referenceSaved = false;
           if (paymentColumnsAvailable) {
-            // Guarda a referência da preferência já na criação do Checkout Pro:
-            // sem isso o agendamento fica sem identificador do MP até o webhook chegar.
             const current = String(appointment.mp_payment_id ?? "");
+            const reference = preference.id ? `pref:${preference.id}` : null;
+            const shouldSaveReference = Boolean(
+              reference && (!current || current.startsWith("pref:")),
+            );
             const patch: Record<string, unknown> = {
               payment_status: "pendente",
               payment_method: "online",
             };
-            if (preference.id && (!current || current.startsWith("pref:"))) {
-              patch["mp_payment_id"] = `pref:${preference.id}`;
+            if (shouldSaveReference && reference) patch["mp_payment_id"] = reference;
+
+            // Retry curto: a gravação precisa acontecer antes de redirecionar o cliente.
+            for (let attempt = 1; attempt <= 3; attempt += 1) {
+              const { data: saved, error } = await admin
+                .from("appointments")
+                .update(patch)
+                .eq("id", appointment.id)
+                .select("mp_payment_id, payment_status")
+                .maybeSingle();
+
+              const savedRef = String(
+                (saved as { mp_payment_id?: string | null } | null)?.mp_payment_id ?? "",
+              );
+              if (!error && (!shouldSaveReference || savedRef === reference)) {
+                referenceSaved = shouldSaveReference;
+                break;
+              }
+              console.error(
+                `Checkout Pro: tentativa ${attempt} de salvar a referência falhou`,
+                error ?? { savedRef, reference },
+              );
+              if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
             }
-            const { error } = await admin
-              .from("appointments")
-              .update(patch)
-              .eq("id", appointment.id);
-            if (error) console.error("Checkout Pro: falha ao marcar pagamento pendente", error);
+
+            if (shouldSaveReference && !referenceSaved) {
+              console.error("Checkout Pro: referência da preferência não persistida", {
+                appointment_id: appointment.id,
+                preference_id: preference.id,
+              });
+            }
           }
 
           return json({
             preference_id: preference.id,
             init_point: preference.init_point,
             amount: Number(amount.toFixed(2)),
+            reference_saved: referenceSaved,
           });
         } catch (error) {
           console.error("Checkout Pro: erro inesperado", error);
