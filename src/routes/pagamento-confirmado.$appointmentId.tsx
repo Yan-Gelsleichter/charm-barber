@@ -241,7 +241,14 @@ function ConfirmacaoPage() {
                   paid ? "font-semibold text-[color:var(--success)]" : "font-medium"
                 }
               >
-                {paid ? "Pago" : "Aguardando pagamento"}
+                {paid
+                  ? "Pago"
+                  : failedOnline
+                    ? "Pagamento não confirmado"
+                    : isOnline
+                      ? "Confirmando pagamento…"
+                      : "Aguardando pagamento"}
+
               </span>
             </div>
             <div className="flex items-center justify-between border-t border-border/60 pt-2">
