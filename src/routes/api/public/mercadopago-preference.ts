@@ -107,7 +107,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           const BASE_COLUMNS = "id, service_id, barber_id, barbershop_id, customer_name, email";
           let appointmentQuery = await admin
             .from("appointments")
-            .select(`${BASE_COLUMNS}, payment_status`)
+            .select(`${BASE_COLUMNS}, payment_status, mp_payment_id`)
             .eq("id", parsed.data.appointment_id)
             .maybeSingle();
           let paymentColumnsAvailable = true;
@@ -132,6 +132,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             customer_name: string | null;
             email: string | null;
             payment_status?: string | null;
+            mp_payment_id?: string | null;
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
