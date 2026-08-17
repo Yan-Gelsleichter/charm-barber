@@ -275,6 +275,16 @@ function AgendarPage() {
         .single();
       if (firstTry.error) {
         console.warn("[agendar] insert falhou:", firstTry.error.message);
+        // Tentativa 1.5: mesmo registro, sem a coluna de pagamento.
+        const withoutPayment = await supabase
+          .from("appointments")
+          .insert(baseAppointment as AppointmentInsert)
+          .select("id")
+          .single();
+        if (!withoutPayment.error) {
+          created = withoutPayment.data as { id: string };
+        } else {
+
         // Tentativa 2: sem colunas opcionais que podem não existir/violar constraint
         // (payment_status inclusive, caso a coluna ainda não exista no banco).
         const { email: _email, barbershop_id: _shop, ...rest } = baseAppointment;
