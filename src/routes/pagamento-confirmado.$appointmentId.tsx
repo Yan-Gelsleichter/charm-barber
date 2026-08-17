@@ -269,6 +269,7 @@ function ConfirmacaoPage() {
     !!appointment &&
     !paid &&
     !failedOnline &&
+    !isPresencial &&
     (isOnline || method == null || status == null || status === "pendente");
 
   const waitingTooLong = reconciling && timedOut;
