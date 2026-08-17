@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, Copy, CalendarDays, ArrowLeft } from "lucide-react";
-import { toast } from "sonner";
+import { CheckCircle2, Loader2, CalendarDays, ArrowLeft } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { readCheckoutRef, clearCheckoutRef } from "@/lib/checkout-ref";
 import { Button } from "@/components/ui/button";
 import { brl, fmtDate, fmtTime } from "@/lib/format";
 
@@ -55,12 +55,12 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
       {
         name: "description",
         content:
-          "Confirmação do pagamento com número do pedido, resumo do valor pago e atalhos para voltar ao checkout ou ver seus agendamentos.",
+          "Confirmação do pagamento com resumo do valor pago e atalhos para voltar ao checkout ou ver seus agendamentos.",
       },
       { property: "og:title", content: "Pagamento confirmado" },
       {
         property: "og:description",
-        content: "Veja o número do pedido e o resumo do valor pago do seu agendamento.",
+        content: "Veja o resumo do valor pago do seu agendamento.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -125,7 +125,7 @@ function ConfirmacaoPage() {
 
   const appointment = q.data?.appointment ?? null;
   const service = q.data?.service ?? null;
-  const orderNumber = `#${appointmentId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+  const storedPreferenceId = readCheckoutRef(appointmentId);
 
   // Status vindo da consulta em tempo real no Mercado Pago (mais rápido que o banco).
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
@@ -137,7 +137,8 @@ function ConfirmacaoPage() {
       search.merchant_order_id ||
       search.preference_id ||
       search.status ||
-      search.collection_status,
+      search.collection_status ||
+      storedPreferenceId,
   );
 
   const status = liveStatus ?? appointment?.payment_status ?? null;
@@ -170,7 +171,9 @@ function ConfirmacaoPage() {
               ? { payment_id: search.payment_id ?? search.collection_id }
               : {}),
             ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
-            ...(search.preference_id ? { preference_id: search.preference_id } : {}),
+            ...(search.preference_id || storedPreferenceId
+              ? { preference_id: search.preference_id ?? storedPreferenceId }
+              : {}),
           }),
         });
         const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
@@ -192,7 +195,7 @@ function ConfirmacaoPage() {
         return;
       }
       void check();
-    }, 3000);
+    }, 2000);
     return () => {
       stop = true;
       window.clearInterval(id);
@@ -205,14 +208,15 @@ function ConfirmacaoPage() {
     search.collection_id,
     search.merchant_order_id,
     search.preference_id,
+    storedPreferenceId,
     qc,
   ]);
 
+  // Pagamento confirmado: a referência da preferência não é mais necessária.
+  useEffect(() => {
+    if (paid) clearCheckoutRef(appointmentId);
+  }, [paid, appointmentId]);
 
-  async function copyOrder() {
-    await navigator.clipboard.writeText(orderNumber);
-    toast.success("Número do pedido copiado");
-  }
 
 
   return (
@@ -239,7 +243,7 @@ function ConfirmacaoPage() {
             </h1>
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               {paid ? (
-                "Pagamento realizado online com sucesso. Guarde o número do pedido abaixo."
+                "Pagamento realizado online com sucesso."
               ) : failedOnline ? (
                 "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
               ) : isOnline && timedOut ? (
@@ -256,19 +260,7 @@ function ConfirmacaoPage() {
 
           </div>
 
-          <section className="surface mt-6 p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Número do pedido
-            </p>
-            <div className="mt-1 flex items-center justify-between gap-3">
-              <p className="font-mono text-lg font-bold">{orderNumber}</p>
-              <Button variant="outline" size="sm" onClick={copyOrder}>
-                <Copy /> Copiar
-              </Button>
-            </div>
-          </section>
-
-          <section className="surface mt-4 space-y-2 p-4 text-sm">
+          <section className="surface mt-6 space-y-2 p-4 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Serviço</span>
               <span className="font-medium">{service?.name ?? "—"}</span>

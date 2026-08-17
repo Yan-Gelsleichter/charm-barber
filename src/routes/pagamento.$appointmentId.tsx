@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { brl, fmtTime } from "@/lib/format";
+import { saveCheckoutRef } from "@/lib/checkout-ref";
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Aguardando pagamento",
@@ -114,10 +115,13 @@ function PagamentoPage() {
       const data = (await response.json().catch(() => ({}))) as {
         error?: string;
         init_point?: string;
+        preference_id?: string;
       };
       if (!response.ok || !data.init_point) {
         throw new Error(data.error ?? "Não foi possível iniciar o pagamento online.");
       }
+      // Vincula a preferência ao agendamento para reconciliar no retorno.
+      saveCheckoutRef(appointmentId, data.preference_id);
       return data.init_point;
     },
     onSuccess: (initPoint) => {
