@@ -180,43 +180,36 @@ function ConfirmacaoPage() {
     let stop = false;
     const started = Date.now();
     const check = async () => {
-      if (running.current || stop) return false;
-      running.current = true;
-      try {
-        // Cliente convidado (sem login) também precisa ver a confirmação:
-        // o token é enviado apenas quando existe.
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
-        const res = await fetch("/api/public/mercadopago-reconcile", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            appointment_id: appointmentId,
-            ...(search.payment_id || search.collection_id
-              ? { payment_id: search.payment_id ?? search.collection_id }
-              : {}),
-            ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
-            ...(search.preference_id || storedPreferenceId || dbPreferenceId
-              ? { preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId }
-              : {}),
-          }),
-        });
-        const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
-        if (!stop && body.payment_status) {
-          setLiveStatus(body.payment_status);
-          void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
-          return body.payment_status === "pago";
-        }
-      } catch {
-        /* silencioso */
-      } finally {
-        running.current = false;
-      }
-      return false;
-    };
+  if (running.current || stop) return false;
+  running.current = true;
+  try {
+    const res = await fetch("/api/public/mercadopago-reconcile", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        appointment_id: appointmentId,
+        payment_id: search.payment_id ?? search.collection_id,
+        merchant_order_id: search.merchant_order_id,
+        preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId,
+      }),
+    });
+    
+    const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
+    
+    if (!stop && body.payment_status) {
+      // Atualiza o estado na tela
+      setLiveStatus(body.payment_status);
+      // Força o React Query a ler o novo valor do banco de dados
+      void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
+      return body.payment_status === "pago";
+    }
+  } catch (e) {
+    console.error("Erro na reconciliação:", e);
+  } finally {
+    running.current = false;
+  }
+  return false;
+};
     void check();
     // Depois de 20s a tela deixa de bloquear (mostra o comprovante com aviso),
     // mas a verificação continua em segundo plano, mais espaçada.
