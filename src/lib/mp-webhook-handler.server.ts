@@ -458,6 +458,7 @@ async function handleNotification(request: Request) {
     );
     const order = (await orderRes.json().catch(() => ({}))) as {
       external_reference?: string;
+      preference_id?: string;
       payments?: PaymentPayload[];
     };
     if (!orderRes.ok) {
@@ -474,7 +475,14 @@ async function handleNotification(request: Request) {
     if (!payment.external_reference && order.external_reference) {
       payment.external_reference = order.external_reference;
     }
-    return applyPayment(admin, payment, paymentId, `${paymentId}:${payment.status ?? action}`);
+    return applyPayment(
+      admin,
+      payment,
+      paymentId,
+      `${paymentId}:${payment.status ?? action}`,
+      order.preference_id ?? preferenceId,
+    );
+
   }
 
   const { ok, status, payment } = await fetchPayment(accessToken, notificationId);
