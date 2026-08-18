@@ -93,11 +93,13 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
-          const userEmail = userData.user.email?.trim().toLowerCase();
+          // Se houver sessão, ela precisa bater com o e-mail do agendamento.
+          // Sem sessão (cliente convidado), seguimos: só devolvemos o status do
+          // pagamento, sem nenhum dado pessoal.
           const apptEmail = String(appointment.email ?? "")
             .trim()
             .toLowerCase();
-          if (!userEmail || !apptEmail || userEmail !== apptEmail) {
+          if (sessionEmail && apptEmail && sessionEmail !== apptEmail) {
             return json({ error: "Acesso negado." }, 403);
           }
 
