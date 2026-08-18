@@ -3,9 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 /**
- * Criação autoritativa de agendamento com service role.
- * O usuário precisa estar logado, mas o INSERT não depende das políticas RLS
- * do cliente.
+ * Criação pública e autoritativa de agendamento com service role.
+ * O INSERT não depende de sessão do cliente nem das políticas RLS.
  */
 
 const requestSchema = z.object({
@@ -15,7 +14,6 @@ const requestSchema = z.object({
   customer_phone: z.string().min(8),
   email: z.string().email().nullable().optional(),
   appointment_time: z.string().min(8),
-  barbershop_id: z.string().uuid().nullable().optional(),
 });
 
 function json(body: unknown, status = 200) {
@@ -39,40 +37,24 @@ export const Route = createFileRoute("/api/public/appointment-create")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const authorization = request.headers.get("authorization") ?? "";
-          if (!authorization.startsWith("Bearer ")) {
-            return json({ error: "Faça login novamente para continuar." }, 401);
-          }
-
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
-          if (!parsed.success) return json({ error: "Dados do agendamento inválidos." }, 400);
+          if (!parsed.success) {
+            const reason = parsed.error.issues[0]?.message ?? "campos obrigatórios ausentes";
+            return json({ error: `Erro ao salvar agendamento: dados inválidos (${reason}).` }, 400);
+          }
 
           const supabaseUrl =
             process.env["SUPABASE_URL"] ||
             process.env["SB_URL"] ||
             process.env["VITE_SUPABASE_URL"] ||
             (import.meta.env.VITE_SUPABASE_URL as string | undefined);
-          const publishableKey =
-            process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-            process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-            (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined);
           const serviceKey =
             process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
             process.env["SB_SERVICE_ROLE_KEY"] ||
             process.env["SERVICE_ROLE_KEY"];
 
-          if (!supabaseUrl || !publishableKey || !serviceKey) {
-            return json({ error: "Serviço temporariamente indisponível." }, 503);
-          }
-
-          const asUser = createClient(supabaseUrl, publishableKey, {
-            global: { headers: { Authorization: authorization } },
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
-          const { data: userData, error: userError } = await asUser.auth.getUser();
-          if (userError || !userData.user) {
-            return json({ error: "Sua sessão expirou. Faça login novamente." }, 401);
+          if (!supabaseUrl || !serviceKey) {
+            return json({ error: "Erro ao salvar agendamento: serviço temporariamente indisponível." }, 503);
           }
 
           // Chaves sb_secret_* são opacas, não JWT. Elas devem ir em `apikey`,
@@ -101,6 +83,41 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           });
 
           const d = parsed.data;
+          // Não confia no vínculo enviado pelo navegador: serviço, barbeiro e
+          // barbearia são confirmados diretamente no banco antes do INSERT.
+          const [barberResult, serviceResult] = await Promise.all([
+            admin.from("barbers").select("id, barbershop_id").eq("id", d.barber_id).maybeSingle(),
+            admin
+              .from("services")
+              .select("id, barber_id, barbershop_id")
+              .eq("id", d.service_id)
+              .maybeSingle(),
+          ]);
+          if (barberResult.error) {
+            return json({ error: databaseError(barberResult.error) }, 500);
+          }
+          if (serviceResult.error) {
+            return json({ error: databaseError(serviceResult.error) }, 500);
+          }
+          const barber = barberResult.data as { id: string; barbershop_id: string | null } | null;
+          const service = serviceResult.data as {
+            id: string;
+            barber_id: string | null;
+            barbershop_id: string | null;
+          } | null;
+          if (!barber || !service || service.barber_id !== barber.id) {
+            return json(
+              { error: "Erro ao salvar agendamento: serviço ou barbeiro inválido." },
+              400,
+            );
+          }
+          const barbershopId = barber.barbershop_id ?? service.barbershop_id;
+          if (!barbershopId) {
+            return json(
+              { error: "Erro ao salvar agendamento: barbeiro sem barbearia vinculada." },
+              400,
+            );
+          }
           const full = {
             barber_id: d.barber_id,
             service_id: d.service_id,
@@ -110,7 +127,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             appointment_time: d.appointment_time,
             status: "confirmado",
             payment_status: "pendente",
-            ...(d.barbershop_id ? { barbershop_id: d.barbershop_id } : {}),
+            barbershop_id: barbershopId,
           };
 
           const inserted = await admin.from("appointments").insert(full).select("id").single();
