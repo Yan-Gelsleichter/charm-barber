@@ -276,9 +276,10 @@ function ConfirmacaoPage() {
     !paid &&
     !failedOnline &&
     !isPresencial &&
+    !timedOut && // depois do tempo limite a tela libera e segue verificando em 2º plano
     (isOnline || method == null || status == null || status === "pendente");
 
-  const waitingTooLong = reconciling && timedOut;
+  const waitingTooLong = timedOut;
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
