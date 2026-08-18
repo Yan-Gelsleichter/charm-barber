@@ -105,12 +105,19 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             barber_id: string | null;
             barbershop_id: string | null;
           } | null;
-          if (!barber || !service || service.barber_id !== barber.id) {
-            return json(
-              { error: "Erro ao salvar agendamento: serviço ou barbeiro inválido." },
-              400,
-            );
-          }
+         if (!barber || !service) {
+  return json(
+    { error: "Erro ao salvar agendamento: serviço ou barbeiro inválido." },
+    400,
+  );
+}
+// Permite o serviço caso o barber_id bata ou caso o serviço seja global (null)
+if (service.barber_id && service.barber_id !== barber.id) {
+  return json(
+    { error: "Erro ao salvar agendamento: este serviço não pertence ao barbeiro selecionado." },
+    400,
+  );
+}
           const barbershopId = barber.barbershop_id ?? service.barbershop_id;
           if (!barbershopId) {
             return json(
