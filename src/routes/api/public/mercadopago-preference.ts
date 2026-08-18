@@ -393,7 +393,15 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
               }
             }
 
-            const parsedBody = (await res.json().catch(() => ({}))) as PreferenceResponse;
+            const rawBody = await res.text().catch(() => "");
+            let parsedBody: PreferenceResponse & {
+              cause?: Array<{ code?: string; description?: string }>;
+            } = {};
+            try {
+              parsedBody = rawBody ? JSON.parse(rawBody) : {};
+            } catch {
+              parsedBody = {};
+            }
 
             if (res.ok && parsedBody.init_point) {
               response = res;
@@ -401,16 +409,27 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
               break;
             }
 
-            const message = String(parsedBody.message ?? parsedBody.error ?? "");
+            const causes = Array.isArray(parsedBody.cause)
+              ? parsedBody.cause
+                  .map((c) => [c.code, c.description].filter(Boolean).join(": "))
+                  .filter(Boolean)
+                  .join(" | ")
+              : "";
+            const message = [String(parsedBody.message ?? parsedBody.error ?? ""), causes]
+              .filter(Boolean)
+              .join(" — ");
             const invalidToken =
               res.status === 401 ||
               res.status === 403 ||
               /invalid[_ ]access[_ ]token|unauthorized|invalid_token/i.test(message);
 
+            // Log completo: mostra exatamente o que o Mercado Pago devolveu.
             console.error("Checkout Pro: preferência recusada", {
               source: candidate.source,
               status: res.status,
               message,
+              raw: rawBody.slice(0, 1000),
+              sentBody: JSON.stringify(body).slice(0, 1000),
             });
             lastError = message || lastError;
 
@@ -424,12 +443,15 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
                 {
                   error:
                     "Credencial do Mercado Pago inválida. Verifique o MP_ACCESS_TOKEN de produção.",
+                  detail: message || undefined,
                 },
                 503,
               );
             }
-            return json({ error: message || lastError }, 400);
+            // Erro de dados/conta: tenta o próximo token (ex.: cai na conta da plataforma).
+            continue;
           }
+
 
           // Checkout Pro: usamos sempre a URL hospedada pelo Mercado Pago.
           const checkoutUrl = preference.init_point || preference.sandbox_init_point || null;
