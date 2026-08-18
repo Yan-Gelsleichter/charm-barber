@@ -201,12 +201,11 @@ function ConfirmacaoPage() {
           }),
         });
         const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
-if (!stop && body.payment_status) {
-  console.log("Status recebido do MP:", body.payment_status);
-  setLiveStatus(body.payment_status);
-  void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
-  return body.payment_status === "pago";
-}
+        if (!stop && body.payment_status) {
+          setLiveStatus(body.payment_status);
+          void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
+          return body.payment_status === "pago";
+        }
       } catch {
         /* silencioso */
       } finally {
@@ -216,7 +215,7 @@ if (!stop && body.payment_status) {
     };
     void check();
     const id = window.setInterval(() => {
-      if (Date.now() - started > 60_000) {
+      if (Date.now() - started > 30_000) {
         window.clearInterval(id);
         // Fallback: uma última consulta antes de avisar que ainda está processando.
         void check().then((ok) => {
