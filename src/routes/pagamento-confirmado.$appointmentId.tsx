@@ -183,12 +183,16 @@ function ConfirmacaoPage() {
       if (running.current || stop) return false;
       running.current = true;
       try {
+        // Cliente convidado (sem login) também precisa ver a confirmação:
+        // o token é enviado apenas quando existe.
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        if (!token) return false;
         const res = await fetch("/api/public/mercadopago-reconcile", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             appointment_id: appointmentId,
             ...(search.payment_id || search.collection_id
@@ -214,15 +218,17 @@ function ConfirmacaoPage() {
       return false;
     };
     void check();
+    // Depois de 20s a tela deixa de bloquear (mostra o comprovante com aviso),
+    // mas a verificação continua em segundo plano, mais espaçada.
+    let slowed = false;
+    let tick = 0;
     const id = window.setInterval(() => {
-      if (Date.now() - started > 30_000) {
-        window.clearInterval(id);
-        // Fallback: uma última consulta antes de avisar que ainda está processando.
-        void check().then((ok) => {
-          if (!stop && !ok) setTimedOut(true);
-        });
-        return;
+      tick += 1;
+      if (!slowed && Date.now() - started > 20_000) {
+        slowed = true;
+        if (!stop) setTimedOut(true);
       }
+      if (slowed && tick % 5 !== 0) return;
       void check();
     }, 2000);
 
@@ -270,9 +276,10 @@ function ConfirmacaoPage() {
     !paid &&
     !failedOnline &&
     !isPresencial &&
+    !timedOut && // depois do tempo limite a tela libera e segue verificando em 2º plano
     (isOnline || method == null || status == null || status === "pendente");
 
-  const waitingTooLong = reconciling && timedOut;
+  const waitingTooLong = timedOut;
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">

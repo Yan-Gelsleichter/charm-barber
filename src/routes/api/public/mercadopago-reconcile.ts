@@ -29,10 +29,11 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          // Sessão é opcional: clientes anônimos (convidados) também precisam
+          // ver o pagamento confirmar. A verificação real é feita contra o
+          // Mercado Pago pelo external_reference do próprio agendamento.
           const authorization = request.headers.get("authorization") ?? "";
-          if (!authorization.startsWith("Bearer ")) {
-            return json({ error: "Faça login novamente." }, 401);
-          }
+          const hasSession = authorization.startsWith("Bearer ");
 
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) return json({ error: "Dados inválidos." }, 400);
@@ -58,12 +59,16 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             return json({ error: "Serviço indisponível." }, 503);
           }
 
-          const asUser = createClient(supabaseUrl, publishableKey, {
-            global: { headers: { Authorization: authorization } },
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
-          const { data: userData, error: userError } = await asUser.auth.getUser();
-          if (userError || !userData.user) return json({ error: "Sessão expirada." }, 401);
+          let sessionEmail: string | null = null;
+          if (hasSession) {
+            const asUser = createClient(supabaseUrl, publishableKey, {
+              global: { headers: { Authorization: authorization } },
+              auth: { persistSession: false, autoRefreshToken: false },
+            });
+            const { data: userData } = await asUser.auth.getUser();
+            sessionEmail = userData?.user?.email?.trim().toLowerCase() ?? null;
+          }
+
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const admin: any = createClient(supabaseUrl, serviceKey, {
@@ -88,11 +93,13 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
-          const userEmail = userData.user.email?.trim().toLowerCase();
+          // Se houver sessão, ela precisa bater com o e-mail do agendamento.
+          // Sem sessão (cliente convidado), seguimos: só devolvemos o status do
+          // pagamento, sem nenhum dado pessoal.
           const apptEmail = String(appointment.email ?? "")
             .trim()
             .toLowerCase();
-          if (!userEmail || !apptEmail || userEmail !== apptEmail) {
+          if (sessionEmail && apptEmail && sessionEmail !== apptEmail) {
             return json({ error: "Acesso negado." }, 403);
           }
 
