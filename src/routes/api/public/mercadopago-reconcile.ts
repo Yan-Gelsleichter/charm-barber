@@ -29,10 +29,11 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          // Sessão é opcional: clientes anônimos (convidados) também precisam
+          // ver o pagamento confirmar. A verificação real é feita contra o
+          // Mercado Pago pelo external_reference do próprio agendamento.
           const authorization = request.headers.get("authorization") ?? "";
-          if (!authorization.startsWith("Bearer ")) {
-            return json({ error: "Faça login novamente." }, 401);
-          }
+          const hasSession = authorization.startsWith("Bearer ");
 
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) return json({ error: "Dados inválidos." }, 400);
