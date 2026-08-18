@@ -221,12 +221,14 @@ function ConfirmacaoPage() {
     // Depois de 20s a tela deixa de bloquear (mostra o comprovante com aviso),
     // mas a verificação continua em segundo plano, mais espaçada.
     let slowed = false;
+    let tick = 0;
     const id = window.setInterval(() => {
+      tick += 1;
       if (!slowed && Date.now() - started > 20_000) {
         slowed = true;
         if (!stop) setTimedOut(true);
       }
-      if (slowed && (Date.now() - started) % 10_000 > 2500) return;
+      if (slowed && tick % 5 !== 0) return;
       void check();
     }, 2000);
 
