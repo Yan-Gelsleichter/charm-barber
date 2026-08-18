@@ -8,13 +8,24 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Barber, WorkingHour, Service, Appointment } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/PhoneInput";
 import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
 import { buildSlots, cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/agendar/$barbeiroId")({
-  head: () => ({ meta: [{ title: "Agendar — VIP BARBER" }] }),
+  head: () => ({
+    meta: [
+      { title: "Agendar horário — VIP BARBER" },
+      { name: "description", content: "Escolha um serviço, data e horário para seu atendimento." },
+      { property: "og:title", content: "Agendar horário — VIP BARBER" },
+      { property: "og:description", content: "Escolha um serviço, data e horário para seu atendimento." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   validateSearch: (
     s: Record<string, unknown>,
   ): { remarcar?: string; servico?: string; data?: string } => ({
@@ -31,23 +42,27 @@ function AgendarPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { session, loading: loadingSession } = useSession();
+  const { session } = useSession();
   const [serviceId, setServiceId] = useState<string | null>(servico ?? null);
   const [date, setDate] = useState<Date | undefined>(() => (data ? new Date(`${data}T12:00:00`) : new Date()));
   const [slotIso, setSlotIso] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
-  const clientName = (meta.name || meta.full_name || session?.user.email || "").toString().trim();
-  const clientPhone = (meta.whatsapp_digits || meta.whatsapp || "").toString();
+  const [clientName, setClientName] = useState(() =>
+    (meta.name || meta.full_name || "").toString(),
+  );
+  const [clientPhone, setClientPhone] = useState(() =>
+    (meta.whatsapp_digits || meta.whatsapp || "").toString(),
+  );
   const clientEmail = (session?.user.email ?? meta.email ?? "").toString().trim().toLowerCase() || null;
 
   useEffect(() => {
-    if (!loadingSession && !session) {
-      toast.info("Entre na sua conta para agendar");
-      navigate({ to: "/auth" });
-    }
-  }, [loadingSession, session, navigate]);
+    if (!session) return;
+    const nextMeta = (session.user.user_metadata ?? {}) as Record<string, string | undefined>;
+    setClientName((current) => current || nextMeta.name || nextMeta.full_name || "");
+    setClientPhone((current) => current || nextMeta.whatsapp_digits || nextMeta.whatsapp || "");
+  }, [session]);
 
 
   const barberQ = useQuery({
@@ -180,9 +195,10 @@ function AgendarPage() {
   const create = useMutation({
     mutationFn: async () => {
       if (!service || !slotIso) throw new Error("Selecione serviço e horário");
-      if (!session) throw new Error("Entre na sua conta para agendar");
-      if (clientName.length < 2) throw new Error("Complete seu nome no perfil");
-      if (phoneDigits(clientPhone).length < 10) throw new Error("Complete seu WhatsApp no perfil");
+      const customerName = clientName.trim();
+      const customerPhone = phoneDigits(clientPhone);
+      if (customerName.length < 2) throw new Error("Informe seu nome");
+      if (customerPhone.length < 10) throw new Error("Informe um telefone válido");
       // Resolver barbershop_id NUNCA pode impedir a criação do agendamento.
       let barbershopId: string | null = barberQ.data?.barbershop_id ?? null;
       if (!barbershopId) {
@@ -206,8 +222,8 @@ function AgendarPage() {
       const baseAppointment = {
         barber_id: barbeiroId,
         service_id: service.id,
-        customer_name: clientName,
-        customer_phone: phoneDigits(clientPhone),
+        customer_name: customerName,
+        customer_phone: customerPhone,
         email: clientEmail,
         appointment_time: slotIso,
         status: "confirmado",
@@ -269,24 +285,18 @@ function AgendarPage() {
       }
       // Novos agendamentos são gravados exclusivamente no servidor com a
       // identidade de serviço. Assim, o INSERT nunca depende da RLS do cliente.
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Erro ao salvar agendamento: sua sessão expirou.");
-
       const response = await fetch("/api/public/appointment-create", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "content-type": "application/json",
         },
         body: JSON.stringify({
           barber_id: barbeiroId,
           service_id: service.id,
-          customer_name: clientName,
-          customer_phone: phoneDigits(clientPhone),
+          customer_name: customerName,
+          customer_phone: customerPhone,
           email: clientEmail,
           appointment_time: slotIso,
-          barbershop_id: barbershopId,
         }),
       });
       const payload = (await response.json().catch(() => null)) as {
@@ -308,7 +318,7 @@ function AgendarPage() {
       // Cada barbeiro tem sua própria lista de clientes: mesmo que o cliente
       // já exista para outro barbeiro, precisamos inserir uma nova linha para
       // este barber_id. Nunca fazemos busca "global".
-      try {
+      if (session) try {
         const uid = session.user.id;
         const emailLower = (session.user.email ?? "").trim().toLowerCase() || null;
         const whatsappDigits = phoneDigits(clientPhone) || null;
@@ -515,6 +525,25 @@ function AgendarPage() {
       {service && slotIso && (
         <Step title="4. Confirmar">
           <div className="space-y-4">
+            <div className="surface grid gap-3 p-4">
+              <label className="grid gap-1.5 text-sm font-medium">
+                Nome
+                <Input
+                  value={clientName}
+                  onChange={(event) => setClientName(event.target.value)}
+                  placeholder="Seu nome"
+                  autoComplete="name"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Telefone
+                <PhoneInput
+                  value={clientPhone}
+                  onChange={setClientPhone}
+                  autoComplete="tel"
+                />
+              </label>
+            </div>
             <div className="surface space-y-3 p-4 text-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -552,7 +581,7 @@ function AgendarPage() {
                 setCreateError(null);
                 create.mutate();
               }}
-              disabled={create.isPending || !session}
+              disabled={create.isPending}
             >
               {create.isPending ? <Loader2 className="animate-spin" /> : "Confirmar agendamento"}
             </Button>
