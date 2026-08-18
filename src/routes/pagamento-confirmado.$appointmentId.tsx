@@ -183,12 +183,16 @@ function ConfirmacaoPage() {
       if (running.current || stop) return false;
       running.current = true;
       try {
+        // Cliente convidado (sem login) também precisa ver a confirmação:
+        // o token é enviado apenas quando existe.
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        if (!token) return false;
         const res = await fetch("/api/public/mercadopago-reconcile", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             appointment_id: appointmentId,
             ...(search.payment_id || search.collection_id
