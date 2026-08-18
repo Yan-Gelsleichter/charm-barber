@@ -495,7 +495,7 @@ async function handleNotification(request: Request) {
     raw.id ?? url.searchParams.get("id_event") ?? `${notificationId}:${action}`,
   ).trim();
 
-  return applyPayment(admin, payment, notificationId, eventId);
+  return applyPayment(admin, payment, notificationId, eventId, preferenceId);
 }
 
 
