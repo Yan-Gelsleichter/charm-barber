@@ -218,15 +218,15 @@ function ConfirmacaoPage() {
       return false;
     };
     void check();
+    // Depois de 20s a tela deixa de bloquear (mostra o comprovante com aviso),
+    // mas a verificação continua em segundo plano, mais espaçada.
+    let slowed = false;
     const id = window.setInterval(() => {
-      if (Date.now() - started > 30_000) {
-        window.clearInterval(id);
-        // Fallback: uma última consulta antes de avisar que ainda está processando.
-        void check().then((ok) => {
-          if (!stop && !ok) setTimedOut(true);
-        });
-        return;
+      if (!slowed && Date.now() - started > 20_000) {
+        slowed = true;
+        if (!stop) setTimedOut(true);
       }
+      if (slowed && (Date.now() - started) % 10_000 > 2500) return;
       void check();
     }, 2000);
 
