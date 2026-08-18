@@ -105,21 +105,29 @@ function PagamentoPage() {
     mutationFn: async () => {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Sua sessão expirou. Faça login novamente.");
 
       const response = await fetch("/api/public/mercadopago-preference", {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          "content-type": "application/json",
+        },
         body: JSON.stringify({ appointment_id: appointmentId }),
       });
       const data = (await response.json().catch(() => ({}))) as {
         error?: string;
+        detail?: string;
         init_point?: string;
         preference_id?: string;
       };
       if (!response.ok || !data.init_point) {
-        throw new Error(data.error ?? "Não foi possível iniciar o pagamento online.");
+        console.error("Checkout Pro: falha ao criar preferência", response.status, data);
+        throw new Error(
+          [data.error, data.detail].filter(Boolean).join(" — ") ||
+            `Não foi possível iniciar o pagamento online (HTTP ${response.status}).`,
+        );
       }
+
       // Vincula a preferência ao agendamento para reconciliar no retorno.
       saveCheckoutRef(appointmentId, data.preference_id);
       return data.init_point;

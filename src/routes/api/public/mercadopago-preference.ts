@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { mpPlatformCredentials, mpEnvGuardError } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
-import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
+import { resolvePayerEmail } from "@/lib/mp-payer.server";
 import { PUBLIC_APP_URL } from "@/lib/app-url";
 
 /**
