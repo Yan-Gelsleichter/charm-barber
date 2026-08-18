@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { mpPlatformCredentials, mpEnvGuardError } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
-import { PAYER_EMAIL_ERROR, resolvePayerEmail } from "@/lib/mp-payer.server";
+import { resolvePayerEmail } from "@/lib/mp-payer.server";
 import { PUBLIC_APP_URL } from "@/lib/app-url";
 
 /**
@@ -60,10 +60,10 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          // A sessão é opcional: clientes anônimos também podem pagar o agendamento.
           const authorization = request.headers.get("authorization") ?? "";
-          if (!authorization.startsWith("Bearer ")) {
-            return json({ error: "Faça login novamente para continuar." }, 401);
-          }
+          const hasSession = authorization.startsWith("Bearer ");
+
 
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) return json({ error: "Dados do pagamento inválidos." }, 400);
@@ -91,14 +91,16 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             return json({ error: "O pagamento está temporariamente indisponível." }, 503);
           }
 
-          const asUser = createClient(supabaseUrl, publishableKey, {
-            global: { headers: { Authorization: authorization } },
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
-          const { data: userData, error: userError } = await asUser.auth.getUser();
-          if (userError || !userData.user) {
-            return json({ error: "Sua sessão expirou. Faça login novamente." }, 401);
+          let sessionEmail: string | null = null;
+          if (hasSession) {
+            const asUser = createClient(supabaseUrl, publishableKey, {
+              global: { headers: { Authorization: authorization } },
+              auth: { persistSession: false, autoRefreshToken: false },
+            });
+            const { data: userData } = await asUser.auth.getUser();
+            sessionEmail = userData.user?.email?.trim().toLowerCase() ?? null;
           }
+
 
           const admin = createClient(supabaseUrl, serviceKey, {
             auth: { persistSession: false, autoRefreshToken: false },
@@ -136,15 +138,15 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
-          const userEmail = userData.user.email?.trim().toLowerCase();
           const appointmentEmail = String(appointment.email ?? "")
             .trim()
             .toLowerCase();
-          if (!userEmail || !appointmentEmail || userEmail !== appointmentEmail) {
-            return json({ error: "Você não tem acesso a este agendamento." }, 403);
-          }
-          const payerEmail = resolvePayerEmail(userEmail, appointmentEmail);
-          if (!payerEmail) return json({ error: PAYER_EMAIL_ERROR }, 400);
+          // Sem sessão usamos o e-mail do agendamento; se nada existir, um e-mail
+          // técnico válido é suficiente para o Checkout Pro (o pagador informa o dele lá).
+          const payerEmail =
+            resolvePayerEmail(sessionEmail, appointmentEmail) ??
+            `cliente+${appointment.id.slice(0, 8)}@charm-barber.app`;
+
           if (appointment.payment_status === "pago") {
             return json({ error: "Este agendamento já está pago.", payment_status: "pago" }, 409);
           }
@@ -391,7 +393,15 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
               }
             }
 
-            const parsedBody = (await res.json().catch(() => ({}))) as PreferenceResponse;
+            const rawBody = await res.text().catch(() => "");
+            let parsedBody: PreferenceResponse & {
+              cause?: Array<{ code?: string; description?: string }>;
+            } = {};
+            try {
+              parsedBody = rawBody ? JSON.parse(rawBody) : {};
+            } catch {
+              parsedBody = {};
+            }
 
             if (res.ok && parsedBody.init_point) {
               response = res;
@@ -399,16 +409,27 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
               break;
             }
 
-            const message = String(parsedBody.message ?? parsedBody.error ?? "");
+            const causes = Array.isArray(parsedBody.cause)
+              ? parsedBody.cause
+                  .map((c) => [c.code, c.description].filter(Boolean).join(": "))
+                  .filter(Boolean)
+                  .join(" | ")
+              : "";
+            const message = [String(parsedBody.message ?? parsedBody.error ?? ""), causes]
+              .filter(Boolean)
+              .join(" — ");
             const invalidToken =
               res.status === 401 ||
               res.status === 403 ||
               /invalid[_ ]access[_ ]token|unauthorized|invalid_token/i.test(message);
 
+            // Log completo: mostra exatamente o que o Mercado Pago devolveu.
             console.error("Checkout Pro: preferência recusada", {
               source: candidate.source,
               status: res.status,
               message,
+              raw: rawBody.slice(0, 1000),
+              sentBody: JSON.stringify(body).slice(0, 1000),
             });
             lastError = message || lastError;
 
@@ -422,12 +443,15 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
                 {
                   error:
                     "Credencial do Mercado Pago inválida. Verifique o MP_ACCESS_TOKEN de produção.",
+                  detail: message || undefined,
                 },
                 503,
               );
             }
-            return json({ error: message || lastError }, 400);
+            // Erro de dados/conta: tenta o próximo token (ex.: cai na conta da plataforma).
+            continue;
           }
+
 
           // Checkout Pro: usamos sempre a URL hospedada pelo Mercado Pago.
           const checkoutUrl = preference.init_point || preference.sandbox_init_point || null;
