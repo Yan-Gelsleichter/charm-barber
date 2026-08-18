@@ -25,7 +25,16 @@ function MeusAgendamentosPage() {
   const navigate = useNavigate();
   const { cliente } = Route.useSearch();
   const { session, loading } = useSession();
-
+  // ADICIONE ESTE BLOCO AQUI: Força a atualização automática dos dados assim que a tela abre ou ganha foco
+  useEffect(() => {
+    const handleFocus = () => {
+      void dataQ.refetch();
+    };
+    window.addEventListener("focus", handleFocus);
+    // Dispara uma busca imediata ao carregar a página para garantir o status atualizado
+    void dataQ.refetch();
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
   }, [loading, session, navigate]);
