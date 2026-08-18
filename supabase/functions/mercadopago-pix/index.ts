@@ -1,9 +1,6 @@
 // Supabase Edge Function: mercadopago-pix
 // Cria um pagamento PIX (ou consulta o status) usando o access_token do
 // Mercado Pago da barbearia dona do agendamento (Mercado Pago Connect).
-//
-// Deploy:  supabase functions deploy mercadopago-pix
-// Secrets: SERVICE_ROLE_KEY (SUPABASE_URL e SUPABASE_ANON_KEY são automáticos)
 
 // deno-lint-ignore-file
 // @ts-nocheck
@@ -19,20 +16,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "missing bearer token" }, 401);
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE = Deno.env.get("SERVICE_ROLE_KEY")!;
 
-    const asUser = createClient(SUPABASE_URL, ANON, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData } = await asUser.auth.getUser();
-    if (!userData?.user) return json({ error: "unauthenticated" }, 401);
-
     const body = await req.json().catch(() => ({}));
+
+    // Usamos o admin (service_role) para buscar o agendamento e barbearia com segurança,
+    // liberando a necessidade de token de usuário logado para clientes anônimos/convidados.
     const admin = createClient(SUPABASE_URL, SERVICE, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -64,7 +54,6 @@ Deno.serve(async (req) => {
 
     const payerEmail =
       (appointment.email && String(appointment.email).trim()) ||
-      userData.user.email ||
       "cliente@example.com";
 
     const res = await fetch("https://api.mercadopago.com/v1/payments", {
@@ -86,7 +75,7 @@ Deno.serve(async (req) => {
     });
     const pay = await res.json();
     if (!res.ok) {
-      return json({ error: pay.message ?? "falha ao criar pagamento PIX" }, 400);
+      return json({ error: pay.message ?? "falha ao criar pagamento PIX", details: pay }, 400);
     }
 
     const tx = pay.point_of_interaction?.transaction_data ?? {};
