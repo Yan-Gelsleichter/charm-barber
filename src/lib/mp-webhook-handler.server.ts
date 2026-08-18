@@ -142,7 +142,9 @@ type PaymentPayload = {
   payment_type_id?: string;
   payment_method_id?: string;
   external_reference?: string;
-  metadata?: { appointment_id?: string };
+  preference_id?: string;
+  order?: { id?: number | string; type?: string };
+  metadata?: { appointment_id?: string; preference_id?: string };
 };
 
 async function fetchPayment(accessToken: string, paymentId: string) {
@@ -153,17 +155,64 @@ async function fetchPayment(accessToken: string, paymentId: string) {
   return { ok: res.ok, status: res.status, payment: body };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Descobre o agendamento do pagamento.
+ *
+ * 1) external_reference "<appointment_id>:<sufixo>" ou metadata.appointment_id;
+ * 2) busca em appointments por mp_payment_id — que pode conter o id do pagamento,
+ *    a preferência ("pref:<id>" ou o id puro) ou a própria external_reference.
+ */
+async function resolveAppointmentId(
+  admin: Admin,
+  payment: PaymentPayload,
+  paymentId: string,
+  preferenceId?: string | null,
+): Promise<string | null> {
+  const direct = payment.external_reference?.split(":")[0] || payment.metadata?.appointment_id;
+  if (direct && UUID_RE.test(direct)) return direct;
+
+  const prefId =
+    preferenceId || payment.preference_id || payment.metadata?.preference_id || null;
+  const candidates = [
+    paymentId,
+    prefId ? `pref:${prefId}` : null,
+    prefId,
+    payment.external_reference ?? null,
+    payment.order?.id != null ? String(payment.order.id) : null,
+  ].filter((v): v is string => Boolean(v));
+
+  for (const ref of candidates) {
+    const { data } = await admin
+      .from("appointments")
+      .select("id")
+      .eq("mp_payment_id", ref)
+      .maybeSingle();
+    const row = data as { id?: string } | null;
+    if (row?.id) return row.id;
+  }
+  return direct ?? null;
+}
+
 /** Aplica o status de um pagamento (PIX ou cartão) no agendamento, com idempotência. */
 async function applyPayment(
   admin: Admin,
   payment: PaymentPayload,
   paymentId: string,
   eventId: string,
+  preferenceId?: string | null,
 ) {
-  // A external_reference é única por tentativa: "<appointment_id>:<sufixo>".
-  const appointmentId =
-    payment.external_reference?.split(":")[0] || payment.metadata?.appointment_id;
-  if (!appointmentId) return new Response("no appointment", { status: 200 });
+  const appointmentId = await resolveAppointmentId(admin, payment, paymentId, preferenceId);
+  if (!appointmentId) {
+    console.warn("Webhook MP: agendamento não localizado", {
+      paymentId,
+      preferenceId,
+      external_reference: payment.external_reference,
+    });
+    return new Response("no appointment", { status: 200 });
+  }
+
 
   // aprovado -> pago | pendente | estornado (refunded/charged_back) | cancelado/expirado/falhou
   const paymentStatus = mapPaymentStatus(payment.status);
@@ -409,6 +458,7 @@ async function handleNotification(request: Request) {
     );
     const order = (await orderRes.json().catch(() => ({}))) as {
       external_reference?: string;
+      preference_id?: string;
       payments?: PaymentPayload[];
     };
     if (!orderRes.ok) {
@@ -425,7 +475,14 @@ async function handleNotification(request: Request) {
     if (!payment.external_reference && order.external_reference) {
       payment.external_reference = order.external_reference;
     }
-    return applyPayment(admin, payment, paymentId, `${paymentId}:${payment.status ?? action}`);
+    return applyPayment(
+      admin,
+      payment,
+      paymentId,
+      `${paymentId}:${payment.status ?? action}`,
+      order.preference_id ?? preferenceId,
+    );
+
   }
 
   const { ok, status, payment } = await fetchPayment(accessToken, notificationId);
@@ -438,7 +495,7 @@ async function handleNotification(request: Request) {
     raw.id ?? url.searchParams.get("id_event") ?? `${notificationId}:${action}`,
   ).trim();
 
-  return applyPayment(admin, payment, notificationId, eventId);
+  return applyPayment(admin, payment, notificationId, eventId, preferenceId);
 }
 
 
