@@ -445,6 +445,11 @@ async function handleNotification(request: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // FORÇA O REGISTRO IMEDIATO PARA TESTAR SE O WEBHOOK CHEGOU ATÉ AQUI
+  await admin.from("mp_webhook_events").insert({
+    event_id: `${notificationId}-${Date.now()}`,
+  }).maybeSingle();
+
   // 1) Identifica a barbearia/barbeiro dono do pagamento (multi-tenant).
   const collectorId = raw.user_id != null ? String(raw.user_id) : url.searchParams.get("user_id");
   const preferenceId = url.searchParams.get("preference_id");
