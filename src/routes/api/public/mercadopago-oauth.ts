@@ -23,7 +23,9 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           // Sem code/state não houve retorno do OAuth (acesso direto/preload): não processa nada.
           if (!code || !state) return Response.redirect(appUrl, 302);
 
-          const redirectUri = `${appUrl}/api/public/mercadopago-oauth`;
+          // O redirect_uri da troca do code precisa ser IDÊNTICO ao usado na
+          // autorização: use a origem real em que o callback chegou.
+          const redirectUri = `${url.origin}/api/public/mercadopago-oauth`;
 
 
           const tokenRes = await fetch("https://api.mercadopago.com/oauth/token", {
