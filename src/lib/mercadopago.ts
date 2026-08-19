@@ -1,3 +1,5 @@
+import { publicAppOrigin } from "@/lib/app-url";
+
 export const MP_CLIENT_ID_KEY = "mp_client_id";
 
 export type PayoutMode = "unica" | "split";
