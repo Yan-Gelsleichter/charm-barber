@@ -38,8 +38,8 @@ export function mpRedirectUri() {
 /** state = barbershop_id (conta única) ou "barber:<barber_id>" (split por subcontas) */
 export function mpAuthUrl(clientId: string, state: string) {
   return (
-    `https://auth.mercadopago.com.br/authorization?client_id=${encodeURIComponent(clientId)}` +
-    `&response_type=code&platform_id=mp&state=${encodeURIComponent(state)}` +
+    `https://auth.mercadopago.com/authorization?client_id=${encodeURIComponent(clientId)}` +
+    `&response_type=code&state=${encodeURIComponent(state)}` +
     `&redirect_uri=${encodeURIComponent(mpRedirectUri())}`
   );
 }
@@ -65,8 +65,8 @@ export async function mpAuthUrlPkce(clientId: string, state: string) {
   const challenge = base64url(new Uint8Array(digest));
   const fullState = `${state}|pkce:${verifier}`;
   return (
-    `https://auth.mercadopago.com.br/authorization?client_id=${encodeURIComponent(clientId)}` +
-    `&response_type=code&platform_id=mp&state=${encodeURIComponent(fullState)}` +
+    `https://auth.mercadopago.com/authorization?client_id=${encodeURIComponent(clientId)}` +
+    `&response_type=code&state=${encodeURIComponent(fullState)}` +
     `&redirect_uri=${encodeURIComponent(mpRedirectUri())}` +
     `&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=S256`
   );

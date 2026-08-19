@@ -29,11 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
-  envClientId,
-  mpAuthUrlPkce,
   mpRedirectUri,
-  saveClientId,
-  storedClientId,
   type PayoutMode,
 } from "@/lib/mercadopago";
 
@@ -92,7 +88,6 @@ export function PagamentosTab({ barber }: { barber: Barber }) {
 /** Tela do barbeiro (funcionário): conecta a própria conta no modo split. */
 function MeuMercadoPago({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
-  const [clientId, setClientId] = useState(() => envClientId() || storedClientId());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const meQ = useQuery({
     queryKey: ["mp-status-barber", barber.id],
@@ -144,14 +139,8 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
       toast.error("Não foi possível desconectar", { description: e.message }),
   });
 
-  async function connect() {
-    const id = clientId.trim();
-    if (!id) {
-      toast.error("Informe o Client ID da aplicação no Mercado Pago");
-      return;
-    }
-    saveClientId(id);
-    window.location.href = await mpAuthUrlPkce(id, `barber:${barber.id}`);
+  function connect() {
+    window.location.href = `/api/public/mercadopago-connect?target=${encodeURIComponent(`barber:${barber.id}`)}`;
   }
 
   return (
@@ -189,18 +178,6 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
             )}
           </div>
         </div>
-
-        {!envClientId() && (
-          <div className="space-y-1">
-            <Label htmlFor="mpclientbarber">Client ID da aplicação Mercado Pago</Label>
-            <Input
-              id="mpclientbarber"
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              placeholder="Ex.: 1234567890123456"
-            />
-          </div>
-        )}
 
         <div className="space-y-1">
           <Label>Redirect URI</Label>
@@ -262,7 +239,6 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
 function AdminPagamentos({ barber }: { barber: Barber }) {
   const shopId = barber.barbershop_id ?? null;
   const qc = useQueryClient();
-  const [clientId, setClientId] = useState(() => envClientId() || storedClientId());
   const [mode, setMode] = useState<PayoutMode>("unica");
   const redirectUri = mpRedirectUri();
 
@@ -331,18 +307,12 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
   const { platformReady, platformEnv } = usePlatformMp();
   const connected = !!statusQ.data?.mp_user_id;
 
-  async function connect() {
+  function connect() {
     if (!shopId) {
       toast.error("Sua conta não está vinculada a uma barbearia");
       return;
     }
-    const id = clientId.trim();
-    if (!id) {
-      toast.error("Informe o Client ID da sua aplicação no Mercado Pago");
-      return;
-    }
-    saveClientId(id);
-    window.location.href = await mpAuthUrlPkce(id, shopId);
+    window.location.href = `/api/public/mercadopago-connect?target=${encodeURIComponent(shopId)}`;
   }
 
   return (
@@ -428,18 +398,6 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
             )}
           </div>
         </div>
-
-        {!envClientId() && (
-          <div className="space-y-1">
-            <Label htmlFor="mpclient">Client ID da aplicação Mercado Pago</Label>
-            <Input
-              id="mpclient"
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              placeholder="Ex.: 1234567890123456"
-            />
-          </div>
-        )}
 
         <div className="space-y-1">
           <Label>Redirect URI (cadastre no painel do Mercado Pago)</Label>
