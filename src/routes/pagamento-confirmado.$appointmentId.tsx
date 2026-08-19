@@ -180,48 +180,49 @@ function ConfirmacaoPage() {
     let stop = false;
     const started = Date.now();
     const check = async () => {
-  if (running.current || stop) return false;
-  running.current = true;
-  try {
-    const res = await fetch("/api/public/mercadopago-reconcile", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        appointment_id: appointmentId,
-        payment_id: search.payment_id ?? search.collection_id,
-        merchant_order_id: search.merchant_order_id,
-        preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId,
-      }),
-    });
-    
-    const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
-    
-    if (!stop && body.payment_status) {
-      // Atualiza o estado na tela
-      setLiveStatus(body.payment_status);
-      // Força o React Query a ler o novo valor do banco de dados
-      void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
-      return body.payment_status === "pago";
-    }
-  } catch (e) {
-    console.error("Erro na reconciliação:", e);
-  } finally {
-    running.current = false;
-  }
-  return false;
-};
-    void check();
-    // Depois de 20s a tela deixa de bloquear (mostra o comprovante com aviso),
-    // mas a verificação continua em segundo plano, mais espaçada.
-    let slowed = false;
-    let tick = 0;
-    const id = window.setInterval(() => {
-      tick += 1;
-      if (!slowed && Date.now() - started > 20_000) {
-        slowed = true;
-        if (!stop) setTimedOut(true);
+      if (running.current || stop) return false;
+      running.current = true;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return false;
+        const res = await fetch("/api/public/mercadopago-reconcile", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            appointment_id: appointmentId,
+            ...(search.payment_id || search.collection_id
+              ? { payment_id: search.payment_id ?? search.collection_id }
+              : {}),
+            ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
+            ...(search.preference_id || storedPreferenceId || dbPreferenceId
+              ? { preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId }
+              : {}),
+          }),
+        });
+        const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
+        if (!stop && body.payment_status) {
+          setLiveStatus(body.payment_status);
+          void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
+          return body.payment_status === "pago";
+        }
+      } catch {
+        /* silencioso */
+      } finally {
+        running.current = false;
       }
-      if (slowed && tick % 5 !== 0) return;
+      return false;
+    };
+    void check();
+    const id = window.setInterval(() => {
+      if (Date.now() - started > 30_000) {
+        window.clearInterval(id);
+        // Fallback: uma última consulta antes de avisar que ainda está processando.
+        void check().then((ok) => {
+          if (!stop && !ok) setTimedOut(true);
+        });
+        return;
+      }
       void check();
     }, 2000);
 
@@ -269,10 +270,9 @@ function ConfirmacaoPage() {
     !paid &&
     !failedOnline &&
     !isPresencial &&
-    !timedOut && // depois do tempo limite a tela libera e segue verificando em 2º plano
     (isOnline || method == null || status == null || status === "pendente");
 
-  const waitingTooLong = timedOut;
+  const waitingTooLong = reconciling && timedOut;
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
