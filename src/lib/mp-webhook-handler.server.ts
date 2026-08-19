@@ -516,6 +516,6 @@ async function handleNotification(request: Request) {
 
   const finalPreferenceId = preferenceId || payment.preference_id || null;
   return applyPayment(admin, payment, notificationId, eventId, finalPreferenceId);
-
+}
 
 export { handleNotification };
