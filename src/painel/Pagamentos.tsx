@@ -101,7 +101,7 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
       return (data as { mp_user_id?: string | null } | null) ?? null;
     },
   });
-  const { platformReady, platformEnv } = usePlatformMp();
+  usePlatformMp();
   const connected = !!meQ.data?.mp_user_id;
 
   const disconnect = useMutation({
@@ -431,7 +431,7 @@ function ComissoesBarbeiros({
   shopMpUserId?: string | null;
 }) {
   const qc = useQueryClient();
-  const { platformReady, platformEnv } = usePlatformMp();
+  usePlatformMp();
   const [draft, setDraft] = useState<Record<string, string>>({});
 
   const listQ = useQuery({
