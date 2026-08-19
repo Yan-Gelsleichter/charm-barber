@@ -23,10 +23,14 @@ export function saveClientId(id: string) {
   }
 }
 
+/**
+ * Redirect URI do OAuth. SEMPRE usa o domínio público de produção — o
+ * Mercado Pago exige que a URL seja idêntica à cadastrada na aplicação;
+ * domínios de preview/localhost fazem o MP recusar com "aplicação não está
+ * pronta para conexão".
+ */
 export function mpRedirectUri() {
-  const base =
-    typeof window !== "undefined" ? window.location.origin : "https://charm-barber.lovable.app";
-  return `${base}/api/public/mercadopago-oauth`;
+  return `${publicAppOrigin()}/api/public/mercadopago-oauth`;
 }
 
 /** state = barbershop_id (conta única) ou "barber:<barber_id>" (split por subcontas) */
