@@ -164,6 +164,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * 2) busca em appointments por mp_payment_id — que pode conter o id do pagamento,
  *    a preferência ("pref:<id>" ou o id puro) ou a própria external_reference.
  */
+/**
+ * Descobre o agendamento do pagamento.
+ *
+ * 1) external_reference "<appointment_id>:<sufixo>" ou metadata.appointment_id;
+ * 2) busca em appointments por mp_payment_id — incluindo suporte a prefixos de preferência (pref:).
+ */
 async function resolveAppointmentId(
   admin: Admin,
   payment: PaymentPayload,
@@ -175,6 +181,7 @@ async function resolveAppointmentId(
 
   const prefId =
     preferenceId || payment.preference_id || payment.metadata?.preference_id || null;
+  
   const candidates = [
     paymentId,
     prefId ? `pref:${prefId}` : null,
@@ -192,6 +199,18 @@ async function resolveAppointmentId(
     const row = data as { id?: string } | null;
     if (row?.id) return row.id;
   }
+
+  // Fallback inteligente: busca se a preferência está contida no mp_payment_id (cobrindo o caso do prefixo "pref:")
+  if (prefId) {
+    const { data } = await admin
+      .from("appointments")
+      .select("id")
+      .ilike("mp_payment_id", `%${prefId}%`)
+      .maybeSingle();
+    const row = data as { id?: string } | null;
+    if (row?.id) return row.id;
+  }
+
   return direct ?? null;
 }
 
