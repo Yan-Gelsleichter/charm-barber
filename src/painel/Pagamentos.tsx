@@ -169,11 +169,9 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
               <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
                 <CheckCircle2 className="size-3" /> Conectada (conta {meQ.data?.mp_user_id})
               </p>
-            ) : platformReady ? (
-              <PlatformConnected env={platformEnv} />
             ) : (
               <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                <AlertCircle className="size-3" /> Não conectada
+                <AlertCircle className="size-3" /> Não conectado ao Mercado Pago
               </p>
             )}
           </div>
@@ -534,11 +532,9 @@ function ComissoesBarbeiros({
                         <CheckCircle2 className="size-3" /> Mercado Pago conectado (conta{" "}
                         {b.mp_user_id ?? shopMpUserId})
                       </p>
-                    ) : platformReady ? (
-                      <PlatformConnected env={platformEnv} />
                     ) : (
                       <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <AlertCircle className="size-3" /> Mercado Pago não conectado
+                        <AlertCircle className="size-3" /> Não conectado ao Mercado Pago
                       </p>
                     )}
                   </div>
