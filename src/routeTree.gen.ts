@@ -18,6 +18,7 @@ import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/p
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
 import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/public/appointment-create'
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
+import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
 import { Route as ApiPublicMercadopagoPreferenceRouteImport } from './routes/api/public/mercadopago-preference'
 import { Route as ApiPublicMercadopagoReconcileRouteImport } from './routes/api/public/mercadopago-reconcile'
@@ -73,6 +74,12 @@ const ApiPublicAppointmentLocalPaymentRoute =
   ApiPublicAppointmentLocalPaymentRouteImport.update({
     id: '/api/public/appointment-local-payment',
     path: '/api/public/appointment-local-payment',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicMercadopagoConnectRoute =
+  ApiPublicMercadopagoConnectRouteImport.update({
+    id: '/api/public/mercadopago-connect',
+    path: '/api/public/mercadopago-connect',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicMercadopagoOauthRoute =
@@ -133,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
@@ -152,6 +160,7 @@ export interface FileRoutesByTo {
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
@@ -172,6 +181,7 @@ export interface FileRoutesById {
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
@@ -231,6 +243,7 @@ export interface FileRouteTypes {
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
@@ -251,6 +264,7 @@ export interface RootRouteChildren {
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
   ApiPublicAppointmentCreateRoute: typeof ApiPublicAppointmentCreateRoute
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
+  ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
   ApiPublicMercadopagoPreferenceRoute: typeof ApiPublicMercadopagoPreferenceRoute
   ApiPublicMercadopagoReconcileRoute: typeof ApiPublicMercadopagoReconcileRoute
@@ -326,6 +340,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAppointmentLocalPaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mercadopago-connect': {
+      id: '/api/public/mercadopago-connect'
+      path: '/api/public/mercadopago-connect'
+      fullPath: '/api/public/mercadopago-connect'
+      preLoaderRoute: typeof ApiPublicMercadopagoConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/mercadopago-oauth': {
       id: '/api/public/mercadopago-oauth'
       path: '/api/public/mercadopago-oauth'
@@ -395,6 +416,7 @@ const rootRouteChildren: RootRouteChildren = {
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
   ApiPublicAppointmentCreateRoute: ApiPublicAppointmentCreateRoute,
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
+  ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
   ApiPublicMercadopagoPreferenceRoute: ApiPublicMercadopagoPreferenceRoute,
   ApiPublicMercadopagoReconcileRoute: ApiPublicMercadopagoReconcileRoute,
