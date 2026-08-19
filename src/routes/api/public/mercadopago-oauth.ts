@@ -28,9 +28,9 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           const state = pkceIdx >= 0 ? rawState.slice(0, pkceIdx) : rawState;
           const codeVerifier = pkceIdx >= 0 ? rawState.slice(pkceIdx + "|pkce:".length) : null;
 
-          // O redirect_uri da troca do code precisa ser IDÊNTICO ao usado na
-          // autorização: use a origem real em que o callback chegou.
-          const redirectUri = `${url.origin}/api/public/mercadopago-oauth`;
+          // Deve ser byte a byte igual à URL usada na autorização e cadastrada
+          // na aplicação do Mercado Pago.
+          const redirectUri = "https://charm-barber.lovable.app/api/public/mercadopago-oauth";
 
 
           const tokenRes = await fetch("https://api.mercadopago.com/oauth/token", {

@@ -144,14 +144,8 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
       toast.error("Não foi possível desconectar", { description: e.message }),
   });
 
-  async function connect() {
-    const id = clientId.trim();
-    if (!id) {
-      toast.error("Informe o Client ID da aplicação no Mercado Pago");
-      return;
-    }
-    saveClientId(id);
-    window.location.href = await mpAuthUrlPkce(id, `barber:${barber.id}`);
+  function connect() {
+    window.location.href = `/api/public/mercadopago-connect?target=${encodeURIComponent(`barber:${barber.id}`)}`;
   }
 
   return (
@@ -331,18 +325,12 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
   const { platformReady, platformEnv } = usePlatformMp();
   const connected = !!statusQ.data?.mp_user_id;
 
-  async function connect() {
+  function connect() {
     if (!shopId) {
       toast.error("Sua conta não está vinculada a uma barbearia");
       return;
     }
-    const id = clientId.trim();
-    if (!id) {
-      toast.error("Informe o Client ID da sua aplicação no Mercado Pago");
-      return;
-    }
-    saveClientId(id);
-    window.location.href = await mpAuthUrlPkce(id, shopId);
+    window.location.href = `/api/public/mercadopago-connect?target=${encodeURIComponent(shopId)}`;
   }
 
   return (
