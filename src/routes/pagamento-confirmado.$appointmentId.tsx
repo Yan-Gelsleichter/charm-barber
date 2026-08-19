@@ -183,8 +183,9 @@ function ConfirmacaoPage() {
     if (running.current || stop) return false;
     running.current = true;
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      // Pega o token de forma segura, sem travar se não houver login ativo
+      const sessionResponse = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      const token = sessionResponse.data.session?.access_token;
 
       const res = await fetch("/api/public/mercadopago-reconcile", {
         method: "POST",
