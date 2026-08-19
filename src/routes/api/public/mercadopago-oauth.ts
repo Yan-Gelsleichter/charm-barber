@@ -15,13 +15,18 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
         const url = new URL(request.url);
         const appUrl = process.env["APP_URL"] || url.origin;
         const code = url.searchParams.get("code");
-        const state = url.searchParams.get("state"); // barbershop_id
+        const rawState = url.searchParams.get("state"); // barbershop_id [|pkce:<verifier>]
         const errorParam = url.searchParams.get("error");
 
         try {
           if (errorParam) return backTo(appUrl, { mp: "erro", mp_msg: errorParam });
           // Sem code/state não houve retorno do OAuth (acesso direto/preload): não processa nada.
-          if (!code || !state) return Response.redirect(appUrl, 302);
+          if (!code || !rawState) return Response.redirect(appUrl, 302);
+
+          // O state pode carregar o code_verifier do PKCE: "<state>|pkce:<verifier>"
+          const pkceIdx = rawState.indexOf("|pkce:");
+          const state = pkceIdx >= 0 ? rawState.slice(0, pkceIdx) : rawState;
+          const codeVerifier = pkceIdx >= 0 ? rawState.slice(pkceIdx + "|pkce:".length) : null;
 
           // O redirect_uri da troca do code precisa ser IDÊNTICO ao usado na
           // autorização: use a origem real em que o callback chegou.
@@ -37,8 +42,10 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
               client_secret: process.env["MP_CLIENT_SECRET"],
               code,
               redirect_uri: redirectUri,
+              ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
             }),
           });
+
           const token = (await tokenRes.json()) as {
             access_token?: string;
             refresh_token?: string;
