@@ -30,7 +30,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   envClientId,
-  mpAuthUrl,
+  mpAuthUrlPkce,
   mpRedirectUri,
   saveClientId,
   storedClientId,
@@ -144,14 +144,14 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
       toast.error("Não foi possível desconectar", { description: e.message }),
   });
 
-  function connect() {
+  async function connect() {
     const id = clientId.trim();
     if (!id) {
       toast.error("Informe o Client ID da aplicação no Mercado Pago");
       return;
     }
     saveClientId(id);
-    window.location.href = mpAuthUrl(id, `barber:${barber.id}`);
+    window.location.href = await mpAuthUrlPkce(id, `barber:${barber.id}`);
   }
 
   return (
@@ -331,7 +331,7 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
   const { platformReady, platformEnv } = usePlatformMp();
   const connected = !!statusQ.data?.mp_user_id;
 
-  function connect() {
+  async function connect() {
     if (!shopId) {
       toast.error("Sua conta não está vinculada a uma barbearia");
       return;
@@ -342,7 +342,7 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
       return;
     }
     saveClientId(id);
-    window.location.href = mpAuthUrl(id, shopId);
+    window.location.href = await mpAuthUrlPkce(id, shopId);
   }
 
   return (
