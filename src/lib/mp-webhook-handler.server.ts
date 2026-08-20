@@ -203,7 +203,6 @@ async function resolveAppointmentId(
     const { data: byDirect } = await admin.from("appointments").select("id").eq("id", direct).maybeSingle();
     if (byDirect?.id) return byDirect.id;
   }
-
   return null;
 }
 
