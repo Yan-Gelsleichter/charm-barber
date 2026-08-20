@@ -1,6 +1,5 @@
 
 import { createClient } from "@supabase/supabase-js";
-
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mapPaymentStatus } from "@/lib/mp-status.server";
 
@@ -12,14 +11,12 @@ function isMissingColumn(error: { message?: string; code?: string } | null) {
 }
 
 export type MpTenant = {
-  /** "barber" (split por subconta) | "barbershop" (conta única) | "platform" */
   kind: "barber" | "barbershop" | "platform";
   id: string | null;
   accessToken: string | null;
   webhookSecret: string | null;
 };
 
-/** Busca uma linha da conta conectada, tolerando bancos sem a coluna mp_webhook_secret. */
 async function fetchTenantRow(
   admin: Admin,
   table: "barbers" | "barbershops",
@@ -62,14 +59,6 @@ function tenantFromRow(kind: "barber" | "barbershop", row: {
   };
 }
 
-/**
- * Identifica a barbearia (ou barbeiro, no modo split) dona da notificação.
- *
- * Ordem de resolução:
- *  1. collector id (`user_id` da notificação) — conta que recebeu o dinheiro;
- *  2. agendamento já vinculado ao pagamento/preferência (`mp_payment_id`);
- *  3. credenciais da plataforma, quando configuradas.
- */
 async function resolveTenant(
   admin: Admin,
   collectorId: string | null,
@@ -86,7 +75,6 @@ async function resolveTenant(
     if (shop) return shop;
   }
 
-  // Fallback: agendamento vinculado a esse pagamento ou à preferência criada.
   const refs = [paymentId, preferenceId ? `pref:${preferenceId}` : null, preferenceId].filter(
     Boolean,
   ) as string[];
@@ -117,7 +105,6 @@ async function resolveTenant(
   return null;
 }
 
-
 function isMissingTable(error: { message?: string; code?: string } | null) {
   return !!error && (error.code === "42P01" || /relation .* does not exist/i.test(error.message ?? ""));
 }
@@ -126,7 +113,6 @@ function isDuplicate(error: { code?: string; message?: string } | null) {
   return !!error && (error.code === "23505" || /duplicate key/i.test(error.message ?? ""));
 }
 
-/** Nome amigável do meio de pagamento (PIX, cartão, boleto...). */
 function methodLabel(payment: { payment_type_id?: string; payment_method_id?: string }) {
   const type = (payment.payment_type_id ?? "").toLowerCase();
   if (type === "credit_card") return "credit_card";
@@ -157,12 +143,6 @@ async function fetchPayment(accessToken: string, paymentId: string) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * Descobre o agendamento do pagamento:
- * 1) external_reference "<appointment_id>:<sufixo>" ou metadata.appointment_id;
- * 2) mp_payment_id igual ao id do pagamento;
- * 3) mp_payment_id contendo a preferência ("pref:<id>" ou o id puro).
- */
 async function resolveAppointmentId(
   admin: Admin,
   payment: PaymentPayload,
@@ -203,8 +183,7 @@ async function resolveAppointmentId(
   return null;
 }
 
-
-/** Aplica o status de um pagamento (PIX ou cartão) no agendamento, com idempotência. */
+/** Função applyPayment corrigida para atualizar status, paid_at e ID real */
 async function applyPayment(
   admin: Admin,
   payment: PaymentPayload,
@@ -213,21 +192,19 @@ async function applyPayment(
   preferenceId?: string | null,
 ) {
   const appointmentId = await resolveAppointmentId(admin, payment, paymentId, preferenceId);
+  
   if (!appointmentId) {
-    console.warn("Webhook MP: agendamento não localizado", {
-      paymentId,
-      preferenceId,
-      external_reference: payment.external_reference,
-    });
-    return new Response("no appointment", { status: 200 });
+    console.warn("Webhook MP: agendamento não localizado", { paymentId, preferenceId });
+    await admin.from("mp_webhook_events").insert({
+      event_id: eventId,
+      payment_id: paymentId,
+      status: payment.status,
+    }).maybeSingle();
+    return new Response("no appointment found", { status: 200 });
   }
 
-
-  // aprovado -> pago | pendente | estornado (refunded/charged_back) | cancelado/expirado/falhou
   const paymentStatus = mapPaymentStatus(payment.status);
 
-  // Idempotência: registra o evento antes de aplicar. Se já existe, o Mercado Pago
-  // reenviou a mesma notificação e nada é atualizado de novo.
   let claimed = false;
   const { error: claimError } = await admin.from("mp_webhook_events").insert({
     event_id: eventId,
@@ -235,70 +212,40 @@ async function applyPayment(
     appointment_id: appointmentId,
     status: paymentStatus,
   });
-  if (claimError) {
-    if (isDuplicate(claimError)) {
-      return new Response("duplicate", { status: 200 });
-    }
-    if (isMissingTable(claimError)) {
-      console.warn("Webhook MP: tabela mp_webhook_events ausente; rode docs/add-webhook-events.sql");
-    } else {
-      console.error("Webhook MP: falha ao registrar evento", claimError);
-    }
+  if (claimError && !isDuplicate(claimError)) {
+    console.error("Webhook MP: falha ao registrar evento", claimError);
   } else {
     claimed = true;
   }
 
-  // Estado atual: evita que uma notificação atrasada rebaixe um pagamento já pago
-  // e preserva o paid_at original.
-  const { data: currentRow } = await admin
-    .from("appointments")
-    .select("payment_status, paid_at")
-    .eq("id", appointmentId)
-    .maybeSingle();
-  const current = currentRow as { payment_status?: string | null; paid_at?: string | null } | null;
-  if (current?.payment_status === "pago" && paymentStatus !== "pago" && paymentStatus !== "estornado") {
-    return new Response("ok", { status: 200 });
-  }
+  const isApproved = paymentStatus === "pago" || payment.status === "approved";
 
   const values: Record<string, unknown> = {
-    payment_status: paymentStatus,
+    payment_status: isApproved ? "pago" : paymentStatus,
     payment_method: methodLabel(payment),
     mp_payment_id: paymentId,
-    paid_at:
-      paymentStatus === "pago"
-        ? (current?.paid_at ?? new Date().toISOString())
-        : paymentStatus === "estornado"
-          ? (current?.paid_at ?? null)
-          : null,
+    paid_at: isApproved ? new Date().toISOString() : null,
   };
-
 
   const { error } = await admin.from("appointments").update(values).eq("id", appointmentId);
 
   if (error) {
-    if (isMissingColumn(error)) {
-      console.warn("Webhook MP: colunas de pagamento ausentes; rode docs/add-payment-columns.sql");
-    } else {
-      console.error("Webhook MP: falha ao atualizar agendamento", error);
-    }
-    // libera o evento para que um reenvio possa tentar novamente
+    console.error("Webhook MP: falha ao atualizar agendamento", error);
     if (claimed) {
       await admin.from("mp_webhook_events").delete().eq("event_id", eventId);
     }
-  } else if (paymentStatus === "pago") {
-    const { error: statusError } = await admin
+  } else if (isApproved) {
+    await admin
       .from("appointments")
       .update({ status: "confirmado" })
       .eq("id", appointmentId);
-    if (statusError) {
-      console.warn("Webhook MP: pagamento salvo, mas agendamento não foi confirmado", statusError);
-    }
+      
+    console.log(`✅ SUCESSO! Agendamento ${appointmentId} atualizado para PAGO.`);
   }
 
   return new Response("ok", { status: 200 });
 }
 
-/** Escolhe o pagamento mais relevante de uma merchant_order (Checkout Pro / cartão). */
 function pickOrderPayment(payments: PaymentPayload[]) {
   const priority = ["approved", "authorized", "refunded", "charged_back", "in_process", "pending"];
   const sorted = [...payments].sort((a, b) => {
@@ -341,17 +288,6 @@ async function hmacSha256Hex(secret: string, message: string) {
 
 type SignatureResult = "valid" | "unsigned" | "invalid" | "stale" | "no-secret";
 
-/**
- * Valida a assinatura do Mercado Pago (`x-signature` + `x-request-id`).
- *
- * Multi-tenant: usa a "Assinatura secreta" da barbearia/barbeiro dono do
- * pagamento (`mp_webhook_secret`) e só cai na secret global MP_WEBHOOK_SECRET
- * quando a conta não tem uma própria configurada.
- *
- * Nunca respondemos 401 — o painel do Mercado Pago desativa a URL quando
- * recebe erro. Em vez disso classificamos o evento e descartamos (com 200)
- * o que estiver assinado de forma inválida ou fora da janela de tempo.
- */
 async function verifySignature(
   request: Request,
   url: URL,
@@ -360,11 +296,7 @@ async function verifySignature(
 ): Promise<SignatureResult> {
   const secret =
     (tenantSecret ?? "").trim() || (process.env["MP_WEBHOOK_SECRET"] ?? "").trim();
-  if (!secret) {
-    console.warn("Webhook MP: nenhuma assinatura secreta configurada para esta conta");
-    return "no-secret";
-  }
-
+  if (!secret) return "no-secret";
 
   const signature = request.headers.get("x-signature") ?? "";
   const requestId = request.headers.get("x-request-id") ?? "";
@@ -376,34 +308,21 @@ async function verifySignature(
   );
   const ts = parts["ts"];
   const v1 = parts["v1"];
-  if (!ts || !v1) {
-    // Testes manuais e validações de URL chegam sem assinatura.
-    console.warn("Webhook MP: notificação sem assinatura (será reconsultada na API)");
-    return "unsigned";
-  }
+  if (!ts || !v1) return "unsigned";
 
-  // Janela anti-replay de 10 minutos (aceita ts em segundos ou milissegundos).
   const tsMs = Number(ts) * (String(ts).length > 12 ? 1 : 1000);
-  if (Number.isFinite(tsMs) && Math.abs(Date.now() - tsMs) > 10 * 60 * 1000) {
-    console.error("Webhook MP: timestamp fora da janela permitida");
-    return "stale";
-  }
+  if (Number.isFinite(tsMs) && Math.abs(Date.now() - tsMs) > 10 * 60 * 1000) return "stale";
 
   const id = (url.searchParams.get("data.id") ?? dataId).toLowerCase();
   const manifest = `id:${id};request-id:${requestId};ts:${ts};`;
   const expected = await hmacSha256Hex(secret, manifest);
-  if (!timingSafeEqualHex(expected, v1.toLowerCase())) {
-    console.error("Webhook MP: assinatura inválida");
-    return "invalid";
-  }
+  if (!timingSafeEqualHex(expected, v1.toLowerCase())) return "invalid";
   return "valid";
 }
-
 
 async function handleNotification(request: Request) {
   const url = new URL(request.url);
   const raw = (await request.json().catch(() => ({}))) as RawNotification;
-
 
   const topic = raw.type ?? raw.topic ?? url.searchParams.get("topic") ?? url.searchParams.get("type") ?? "";
   const isOrder = topic.includes("merchant_order");
@@ -411,7 +330,6 @@ async function handleNotification(request: Request) {
     return new Response("ignored", { status: 200 });
   }
 
-  // merchant_order pode chegar com o id em `resource` (URL completa).
   const resourceId = raw.resource ? String(raw.resource).split("/").filter(Boolean).pop() : null;
   const notificationId = String(
     raw.data?.id ?? resourceId ?? url.searchParams.get("data.id") ?? url.searchParams.get("id") ?? "",
@@ -426,44 +344,20 @@ async function handleNotification(request: Request) {
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
     process.env["SB_SERVICE_ROLE_KEY"] ||
     process.env["SERVICE_ROLE_KEY"];
-  if (!supabaseUrl || !serviceKey) {
-    console.error("Webhook MP: credenciais do banco ausentes");
-    return new Response("misconfigured", { status: 500 });
-  }
+  if (!supabaseUrl || !serviceKey) return new Response("misconfigured", { status: 500 });
 
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // FORÇA O REGISTRO IMEDIATO PARA TESTAR SE O WEBHOOK CHEGOU ATÉ AQUI
-  await admin.from("mp_webhook_events").insert({
-    event_id: `${notificationId}-${Date.now()}`,
-  }).maybeSingle();
-
-  // 1) Identifica a barbearia/barbeiro dono do pagamento (multi-tenant).
   const collectorId = raw.user_id != null ? String(raw.user_id) : url.searchParams.get("user_id");
   const preferenceId = url.searchParams.get("preference_id");
-  const tenant = await resolveTenant(
-    admin,
-    collectorId,
-    isOrder ? "" : notificationId,
-    preferenceId,
-  );
-  if (!tenant?.accessToken) {
-    console.error("Webhook MP: conta não identificada para o pagamento", notificationId);
-    return new Response("unknown account", { status: 200 });
-  }
+  const tenant = await resolveTenant(admin, collectorId, isOrder ? "" : notificationId, preferenceId);
+  if (!tenant?.accessToken) return new Response("unknown account", { status: 200 });
   const accessToken = tenant.accessToken;
 
-  // 2) Valida a assinatura com a secret específica da conta (fallback: global).
-  //    Sempre respondemos 200 para o Mercado Pago não desativar a URL.
   const signature = await verifySignature(request, url, notificationId, tenant.webhookSecret);
-  if (signature === "invalid" || signature === "stale") {
-    // Possível spoof/replay: confirmamos o recebimento, mas não tocamos no banco.
-    console.error("Webhook MP: notificação descartada", { tenant: tenant.kind, id: tenant.id });
-    return new Response("ok", { status: 200 });
-  }
-
+  if (signature === "invalid" || signature === "stale") return new Response("ok", { status: 200 });
 
   if (isOrder) {
     const orderRes = await fetch(
@@ -475,40 +369,23 @@ async function handleNotification(request: Request) {
       preference_id?: string;
       payments?: PaymentPayload[];
     };
-    if (!orderRes.ok) {
-      console.error("Webhook MP: falha ao consultar merchant_order", orderRes.status, order);
-      return new Response("order fetch failed", { status: 200 });
-    }
+    if (!orderRes.ok) return new Response("order fetch failed", { status: 200 });
     const chosen = pickOrderPayment(order.payments ?? []);
     if (!chosen?.id) return new Response("no payment in order", { status: 200 });
 
-    // busca o pagamento completo para ter external_reference/metadata confiáveis
     const paymentId = String(chosen.id);
     const detail = await fetchPayment(accessToken, paymentId);
     const payment: PaymentPayload = detail.ok ? detail.payment : chosen;
     if (!payment.external_reference && order.external_reference) {
       payment.external_reference = order.external_reference;
     }
-    return applyPayment(
-      admin,
-      payment,
-      paymentId,
-      `${paymentId}:${payment.status ?? action}`,
-      order.preference_id ?? preferenceId,
-    );
-
+    return applyPayment(admin, payment, paymentId, `${paymentId}:${payment.status ?? action}`, order.preference_id ?? preferenceId);
   }
 
-  const { ok, status, payment } = await fetchPayment(accessToken, notificationId);
-  if (!ok) {
-    console.error("Webhook MP: falha ao consultar pagamento", status, payment);
-    return new Response("payment fetch failed", { status: 200 });
-  }
+  const { ok, payment } = await fetchPayment(accessToken, notificationId);
+  if (!ok) return new Response("payment fetch failed", { status: 200 });
 
-  const eventId = String(
-    raw.id ?? url.searchParams.get("id_event") ?? `${notificationId}:${action}`,
-  ).trim();
-
+  const eventId = String(raw.id ?? url.searchParams.get("id_event") ?? `${notificationId}:${action}`).trim();
   const finalPreferenceId = preferenceId || payment.preference_id || null;
   return applyPayment(admin, payment, notificationId, eventId, finalPreferenceId);
 }
