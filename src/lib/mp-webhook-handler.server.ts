@@ -158,93 +158,51 @@ async function fetchPayment(accessToken: string, paymentId: string) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Descobre o agendamento do pagamento.
- *
+ * Descobre o agendamento do pagamento:
  * 1) external_reference "<appointment_id>:<sufixo>" ou metadata.appointment_id;
- * 2) busca em appointments por mp_payment_id — que pode conter o id do pagamento,
- *    a preferência ("pref:<id>" ou o id puro) ou a própria external_reference.
+ * 2) mp_payment_id igual ao id do pagamento;
+ * 3) mp_payment_id contendo a preferência ("pref:<id>" ou o id puro).
  */
-/**
- * Descobre o agendamento do pagamento.
- *
- * 1) external_reference "<appointment_id>:<sufixo>" ou metadata.appointment_id;
- * 2) busca em appointments por mp_payment_id — incluindo suporte a prefixos de preferência (pref:).
- */
-async function applyPayment(
+async function resolveAppointmentId(
   admin: Admin,
   payment: PaymentPayload,
   paymentId: string,
-  eventId: string,
-): Promise<void> {
-  const prefId = payment.preference_id || payment.metadata?.preference_id;
-  const cleanPrefId = prefId ? String(prefId).split("/").filter(Boolean).pop() : null;
-
-  console.log("Processando pagamento:", { paymentId, cleanPrefId, status: payment.status });
-
-  // Só prossegue se o pagamento estiver aprovado
-  if (payment.status !== "approved") {
-    console.log("Pagamento não está aprovado. Status:", payment.status);
-    return;
-  }
-
-  // Tenta encontrar o agendamento de todas as formas possíveis na tabela appointments
-  let appointmentId: string | null = null;
-
-  // 1. Busca exata pelo mp_payment_id (caso já esteja salvo o ID ou a preferência)
-  if (cleanPrefId) {
-    const { data: appByPref } = await admin
+  preferenceId?: string | null,
+): Promise<string | null> {
+  const direct =
+    payment.external_reference?.split(":")[0]?.trim() ||
+    payment.metadata?.appointment_id ||
+    null;
+  if (direct && UUID_RE.test(direct)) {
+    const { data } = await admin
       .from("appointments")
       .select("id")
-      .ilike("mp_payment_id", `%${cleanPrefId}%`)
+      .eq("id", direct)
       .maybeSingle();
-    if (appByPref?.id) appointmentId = appByPref.id;
+    if (data?.id) return data.id as string;
   }
 
-  // 2. Busca pelo paymentId exato
-  if (!appointmentId) {
-    const { data: appByPayment } = await admin
-      .from("appointments")
-      .select("id")
-      .eq("mp_payment_id", paymentId)
-      .maybeSingle();
-    if (appByPayment?.id) appointmentId = appByPayment.id;
-  }
-
-  // 3. Busca pelo external_reference ou metadata
-  if (!appointmentId) {
-    const direct = payment.external_reference?.split(":")[0] || payment.metadata?.appointment_id;
-    if (direct) {
-      const { data: appByDirect } = await admin
-        .from("appointments")
-        .select("id")
-        .eq("id", direct)
-        .maybeSingle();
-      if (appByDirect?.id) appointmentId = appByDirect.id;
-    }
-  }
-
-  if (!appointmentId) {
-    console.warn("⚠️ Agendamento não encontrado para o pagamento:", paymentId);
-    return;
-  }
-
-  // ATUALIZAÇÃO DIRETA NO BANCO: Muda para pago, preenche a data e o ID real do Mercado Pago
-  const { error: updateError } = await admin
+  const { data: byPayment } = await admin
     .from("appointments")
-    .update({
-      payment_status: "pago",
-      paid_at: new Date().toISOString(),
-      mp_payment_id: paymentId,
-      payment_method: payment.payment_type_id || "online",
-    })
-    .eq("id", appointmentId);
+    .select("id")
+    .eq("mp_payment_id", paymentId)
+    .maybeSingle();
+  if (byPayment?.id) return byPayment.id as string;
 
-  if (updateError) {
-    console.error("❌ Erro ao atualizar agendamento para pago:", updateError);
-  } else {
-    console.log(`✅ Sucesso! Agendamento ${appointmentId} atualizado para PAGO.`);
+  const rawPref = preferenceId || payment.preference_id || payment.metadata?.preference_id || null;
+  const prefId = rawPref ? String(rawPref).split("/").filter(Boolean).pop() : null;
+  if (prefId) {
+    const { data: byPref } = await admin
+      .from("appointments")
+      .select("id")
+      .ilike("mp_payment_id", `%${prefId}%`)
+      .maybeSingle();
+    if (byPref?.id) return byPref.id as string;
   }
+
+  return null;
 }
+
 
 /** Aplica o status de um pagamento (PIX ou cartão) no agendamento, com idempotência. */
 async function applyPayment(
