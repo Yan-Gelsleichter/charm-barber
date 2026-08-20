@@ -176,42 +176,55 @@ async function resolveAppointmentId(
   paymentId: string,
   preferenceId?: string | null,
 ): Promise<string | null> {
+  // 1. Tenta pegar pelo external_reference ou metadata se for um UUID válido
   const direct = payment.external_reference?.split(":")[0] || payment.metadata?.appointment_id;
-  if (direct && UUID_RE.test(direct)) return direct;
+  if (direct && UUID_RE.test(direct)) {
+    const { data } = await admin.from("appointments").select("id").eq("id", direct).maybeSingle();
+    if (data?.id) return data.id;
+  }
 
   const prefId =
     preferenceId || payment.preference_id || payment.metadata?.preference_id || null;
   
+  // Extrai trecho limpo do preference_id caso venha com URL ou prefixos
+  const cleanPrefId = prefId ? String(prefId).split("/").filter(Boolean).pop() : null;
+
   const candidates = [
     paymentId,
+    cleanPrefId ? `pref:${cleanPrefId}` : null,
+    cleanPrefId,
     prefId ? `pref:${prefId}` : null,
     prefId,
     payment.external_reference ?? null,
     payment.order?.id != null ? String(payment.order.id) : null,
   ].filter((v): v is string => Boolean(v));
 
+  // Tenta encontrar por exatidão nas colunas mp_payment_id ou id
   for (const ref of candidates) {
+    let query = admin.from("appointments").select("id");
+    if (UUID_RE.test(ref)) {
+      query = query.or(`id.eq.${ref},mp_payment_id.eq.${ref}`);
+    } else {
+      query = query.eq("mp_payment_id", ref);
+    }
+    const { data } = await query.maybeSingle();
+    const row = data as { id?: string } | null;
+    if (row?.id) return row.id;
+  }
+
+  // Fallback ultra abrangente: se temos qualquer parte da preferência ou external_reference, busca por aproximação
+  const searchterm = cleanPrefId || payment.external_reference;
+  if (searchterm && searchterm.length > 5) {
     const { data } = await admin
       .from("appointments")
       .select("id")
-      .eq("mp_payment_id", ref)
+      .ilike("mp_payment_id", `%${searchterm}%`)
       .maybeSingle();
     const row = data as { id?: string } | null;
     if (row?.id) return row.id;
   }
 
-  // Fallback inteligente: busca se a preferência está contida no mp_payment_id (cobrindo o caso do prefixo "pref:")
-  if (prefId) {
-    const { data } = await admin
-      .from("appointments")
-      .select("id")
-      .ilike("mp_payment_id", `%${prefId}%`)
-      .maybeSingle();
-    const row = data as { id?: string } | null;
-    if (row?.id) return row.id;
-  }
-
-  return direct ?? null;
+  return direct && UUID_RE.test(direct) ? direct : null;
 }
 
 /** Aplica o status de um pagamento (PIX ou cartão) no agendamento, com idempotência. */
