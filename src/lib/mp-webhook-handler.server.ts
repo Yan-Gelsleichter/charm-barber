@@ -179,7 +179,9 @@ async function resolveAppointmentId(
   const prefId = preferenceId || payment.preference_id || payment.metadata?.preference_id || null;
   const cleanPrefId = prefId ? String(prefId).split("/").filter(Boolean).pop() : null;
 
-  // 1. Tenta buscar se o mp_payment_id contém o id do pagamento atual
+  console.log("DEBUG WEBHOOK:", { paymentId, cleanPrefId, external_reference: payment.external_reference });
+
+  // 1. Tenta buscar exato pelo paymentId na coluna mp_payment_id
   const { data: byPaymentId } = await admin
     .from("appointments")
     .select("id")
@@ -187,7 +189,7 @@ async function resolveAppointmentId(
     .maybeSingle();
   if (byPaymentId?.id) return byPaymentId.id;
 
-  // 2. Tenta buscar se o mp_payment_id contém a preferência (ex: pref:1110192221-...)
+  // 2. Tenta buscar por aproximação se temos o cleanPrefId
   if (cleanPrefId) {
     const { data: byPref } = await admin
       .from("appointments")
@@ -197,12 +199,14 @@ async function resolveAppointmentId(
     if (byPref?.id) return byPref.id;
   }
 
-  // 3. Fallback pelo external_reference se houver
+  // 3. Fallback pelo external_reference
   const direct = payment.external_reference?.split(":")[0] || payment.metadata?.appointment_id;
   if (direct && UUID_RE.test(direct)) {
     const { data: byDirect } = await admin.from("appointments").select("id").eq("id", direct).maybeSingle();
     if (byDirect?.id) return byDirect.id;
   }
+
+  console.warn("DEBUG WEBHOOK: Nao encontrou agendamento para os dados acima!");
   return null;
 }
 
