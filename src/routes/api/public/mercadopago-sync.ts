@@ -65,28 +65,28 @@ export const Route = createFileRoute("/api/public/mercadopago-sync")({
             process.env["SUPABASE_URL"] ||
             process.env["SB_URL"] ||
             process.env["VITE_SUPABASE_URL"];
-          const publishableKey =
-            process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-            process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
           const serviceKey =
             process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
             process.env["SB_SERVICE_ROLE_KEY"] ||
             process.env["SERVICE_ROLE_KEY"];
-          if (!supabaseUrl || !publishableKey || !serviceKey) {
+          if (!supabaseUrl || !serviceKey) {
             return json({ error: "Serviço indisponível." }, 503);
           }
 
-          const asUser = createClient(supabaseUrl, publishableKey, {
-            global: { headers: { Authorization: authorization } },
+          const admin: Admin & {
+            auth: { getUser: (jwt: string) => Promise<{ data: { user: { id: string } | null }; error: unknown }> };
+          } = createClient(supabaseUrl, serviceKey, {
             auth: { persistSession: false, autoRefreshToken: false },
-          });
-          const { data: userData, error: userError } = await asUser.auth.getUser();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          }) as any;
+
+          // Valida o token do usuário usando a chave de serviço (não depende
+          // da publishable key estar presente no ambiente do worker).
+          const { data: userData, error: userError } = await admin.auth.getUser(
+            authorization.slice("Bearer ".length).trim(),
+          );
           if (userError || !userData.user) return json({ error: "Sessão expirada." }, 401);
 
-          const admin: Admin = createClient(supabaseUrl, serviceKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
 
           // Só barbeiros/admins podem reconciliar, e apenas da própria barbearia.
           const { data: me } = await admin
