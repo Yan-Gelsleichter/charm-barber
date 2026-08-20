@@ -216,17 +216,17 @@ function ConfirmacaoPage() {
       return false;
     };
     void check();
+    // Consulta o Mercado Pago a cada 4s até o pagamento ser aprovado.
     const id = window.setInterval(() => {
-      if (Date.now() - started > 30_000) {
-        window.clearInterval(id);
-        // Fallback: uma última consulta antes de avisar que ainda está processando.
-        void check().then((ok) => {
-          if (!stop && !ok) setTimedOut(true);
-        });
-        return;
-      }
-      void check();
-    }, 2000);
+      void check().then((ok) => {
+        if (ok) {
+          window.clearInterval(id);
+          return;
+        }
+        // Após 30s apenas troca a mensagem — o polling continua.
+        if (!stop && Date.now() - started > 30_000) setTimedOut(true);
+      });
+    }, 4000);
 
     // Volta do Mercado Pago / troca de aba: força checagem imediata.
     const onWake = () => {
