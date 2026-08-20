@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, CalendarDays, ArrowLeft } from "lucide-react";
 
@@ -185,10 +185,12 @@ function ConfirmacaoPage() {
       try {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        if (!token) return false;
         const res = await fetch("/api/public/mercadopago-reconcile", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "content-type": "application/json",
+          },
           body: JSON.stringify({
             appointment_id: appointmentId,
             ...(search.payment_id || search.collection_id
@@ -214,17 +216,17 @@ function ConfirmacaoPage() {
       return false;
     };
     void check();
+    // Consulta o Mercado Pago a cada 4s até o pagamento ser aprovado.
     const id = window.setInterval(() => {
-      if (Date.now() - started > 30_000) {
-        window.clearInterval(id);
-        // Fallback: uma última consulta antes de avisar que ainda está processando.
-        void check().then((ok) => {
-          if (!stop && !ok) setTimedOut(true);
-        });
-        return;
-      }
-      void check();
-    }, 2000);
+      void check().then((ok) => {
+        if (ok) {
+          window.clearInterval(id);
+          return;
+        }
+        // Após 30s apenas troca a mensagem — o polling continua.
+        if (!stop && Date.now() - started > 30_000) setTimedOut(true);
+      });
+    }, 4000);
 
     // Volta do Mercado Pago / troca de aba: força checagem imediata.
     const onWake = () => {
@@ -259,6 +261,14 @@ function ConfirmacaoPage() {
   useEffect(() => {
     if (paid) clearCheckoutRef(appointmentId);
   }, [paid, appointmentId]);
+
+  // Aprovado no Mercado Pago: leva o cliente para "Meus agendamentos".
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!paid || isPresencial) return;
+    const t = window.setTimeout(() => navigate({ to: "/meus-agendamentos" }), 1500);
+    return () => window.clearTimeout(t);
+  }, [paid, isPresencial, navigate]);
 
 
 
