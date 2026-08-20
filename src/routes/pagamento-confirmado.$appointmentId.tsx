@@ -266,7 +266,7 @@ function ConfirmacaoPage() {
   const navigate = useNavigate();
   useEffect(() => {
     if (!paid || isPresencial) return;
-    const t = window.setTimeout(() => navigate({ to: "/meus-agendamentos" }), 1500);
+    const t = window.setTimeout(() => navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } }), 1500);
     return () => window.clearTimeout(t);
   }, [paid, isPresencial, navigate]);
 
@@ -294,7 +294,7 @@ function ConfirmacaoPage() {
         <section className="surface p-5 text-center text-sm">
           <p className="font-medium">Agendamento não encontrado</p>
           <Button asChild variant="outline" className="mt-4 w-full">
-            <Link to="/meus-agendamentos">Ver meus agendamentos</Link>
+            <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>Ver meus agendamentos</Link>
           </Button>
         </section>
       ) : reconciling ? (
@@ -365,7 +365,7 @@ function ConfirmacaoPage() {
           {/* Botões sempre disponíveis — a navegação nunca trava */}
           <div className="mt-6 grid gap-3">
             <Button asChild variant="hero" size="xl" className="w-full">
-              <Link to="/meus-agendamentos">
+              <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>
                 <CalendarDays /> Ver meus agendamentos
               </Link>
             </Button>
@@ -461,7 +461,7 @@ function ConfirmacaoPage() {
 
           <div className="mt-6 grid gap-3">
             <Button asChild variant="hero" size="xl" className="w-full">
-              <Link to="/meus-agendamentos">
+              <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>
                 <CalendarDays /> Ver meus agendamentos
               </Link>
             </Button>
