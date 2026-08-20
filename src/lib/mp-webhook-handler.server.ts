@@ -157,7 +157,51 @@ async function fetchPayment(accessToken: string, paymentId: string) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Descobre o agendamento do pagamento:
+ * 1) external_reference "<appointment_id>:<sufixo>" ou metadata.appointment_id;
+ * 2) mp_payment_id igual ao id do pagamento;
+ * 3) mp_payment_id contendo a preferência ("pref:<id>" ou o id puro).
+ */
+async function resolveAppointmentId(
+  admin: Admin,
+  payment: PaymentPayload,
+  paymentId: string,
+  preferenceId?: string | null,
+): Promise<string | null> {
+  const direct =
+    payment.external_reference?.split(":")[0]?.trim() ||
+    payment.metadata?.appointment_id ||
+    null;
+  if (direct && UUID_RE.test(direct)) {
+    const { data } = await admin
+      .from("appointments")
+      .select("id")
+      .eq("id", direct)
+      .maybeSingle();
+    if (data?.id) return data.id as string;
+  }
 
+  const { data: byPayment } = await admin
+    .from("appointments")
+    .select("id")
+    .eq("mp_payment_id", paymentId)
+    .maybeSingle();
+  if (byPayment?.id) return byPayment.id as string;
+
+  const rawPref = preferenceId || payment.preference_id || payment.metadata?.preference_id || null;
+  const prefId = rawPref ? String(rawPref).split("/").filter(Boolean).pop() : null;
+  if (prefId) {
+    const { data: byPref } = await admin
+      .from("appointments")
+      .select("id")
+      .ilike("mp_payment_id", `%${prefId}%`)
+      .maybeSingle();
+    if (byPref?.id) return byPref.id as string;
+  }
+
+  return null;
+}
 
 
 /** Aplica o status de um pagamento (PIX ou cartão) no agendamento, com idempotência. */
