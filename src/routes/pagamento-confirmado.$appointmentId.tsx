@@ -185,10 +185,12 @@ function ConfirmacaoPage() {
       try {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        if (!token) return false;
         const res = await fetch("/api/public/mercadopago-reconcile", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "content-type": "application/json",
+          },
           body: JSON.stringify({
             appointment_id: appointmentId,
             ...(search.payment_id || search.collection_id
