@@ -58,12 +58,16 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             return json({ error: "Serviço indisponível." }, 503);
           }
 
-          const asUser = createClient(supabaseUrl, publishableKey, {
-            global: { headers: { Authorization: authorization } },
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
-          const { data: userData, error: userError } = await asUser.auth.getUser();
-          if (userError || !userData.user) return json({ error: "Sessão expirada." }, 401);
+          let userEmail: string | null = null;
+          if (hasSession) {
+            const asUser = createClient(supabaseUrl, publishableKey, {
+              global: { headers: { Authorization: authorization } },
+              auth: { persistSession: false, autoRefreshToken: false },
+            });
+            const { data: userData } = await asUser.auth.getUser();
+            userEmail = userData?.user?.email?.trim().toLowerCase() ?? null;
+          }
+
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const admin: any = createClient(supabaseUrl, serviceKey, {
