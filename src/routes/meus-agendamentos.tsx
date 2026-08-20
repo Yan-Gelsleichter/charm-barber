@@ -15,15 +15,16 @@ import { PaymentBadge } from "@/components/PaymentBadge";
 
 export const Route = createFileRoute("/meus-agendamentos")({
   head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
-  validateSearch: (s: Record<string, unknown>): { cliente?: boolean } => ({
+  validateSearch: (s: Record<string, unknown>): { cliente?: boolean; agendamento?: string } => ({
     cliente: s.cliente === "1" || s.cliente === true,
+    agendamento: typeof s.agendamento === "string" && s.agendamento ? s.agendamento : undefined,
   }),
   component: MeusAgendamentosPage,
 });
 
 function MeusAgendamentosPage() {
   const navigate = useNavigate();
-  const { cliente } = Route.useSearch();
+  const { cliente, agendamento: guestId } = Route.useSearch();
   const { session, loading } = useSession();
   // ADICIONE ESTE BLOCO AQUI: Força a atualização automática dos dados assim que a tela abre ou ganha foco
   useEffect(() => {
@@ -36,8 +37,8 @@ function MeusAgendamentosPage() {
     return () => window.removeEventListener("focus", handleFocus);
   }, []);
   useEffect(() => {
-    if (!loading && !session) navigate({ to: "/auth" });
-  }, [loading, session, navigate]);
+    if (!loading && !session && !guestId) navigate({ to: "/auth" });
+  }, [loading, session, guestId, navigate]);
 
   useEffect(() => {
     if (!cliente || !session) return;
@@ -52,16 +53,55 @@ function MeusAgendamentosPage() {
   const phone = phoneDigits(meta.whatsapp_digits || meta.whatsapp || "");
 
   const dataQ = useQuery({
-    queryKey: ["my-appointments", uid, phone, email, metaName],
-    enabled: !!uid,
+    queryKey: ["my-appointments", uid, phone, email, metaName, guestId ?? null],
+    enabled: !!uid || !!guestId,
     refetchInterval: 15_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
+      const empty = {
+        appointments: [] as Appointment[],
+        barbersMap: new Map<string, Barber>(),
+        servicesMap: new Map<string, Service>(),
+      };
+
+      // Convidado (sem login): busca pelo agendamento recém-criado e pelos do mesmo telefone.
+      if (!uid && guestId) {
+        const { data: one } = await supabase
+          .from("appointments")
+          .select("*")
+          .eq("id", guestId)
+          .maybeSingle();
+        const base = one as Appointment | null;
+        if (!base) return empty;
+        let list: Appointment[] = [base];
+        if (base.customer_phone) {
+          const { data: same } = await supabase
+            .from("appointments")
+            .select("*")
+            .eq("customer_phone", base.customer_phone)
+            .order("appointment_time", { ascending: false })
+            .limit(50);
+          const rows = (same ?? []) as Appointment[];
+          if (rows.length) list = rows;
+        }
+        const barberIds = Array.from(new Set(list.map((a) => a.barber_id)));
+        const serviceIds = Array.from(new Set(list.map((a) => a.service_id)));
+        const [br, sv] = await Promise.all([
+          supabase.from("barbers").select("*").in("id", barberIds),
+          supabase.from("services").select("*").in("id", serviceIds),
+        ]);
+        return {
+          appointments: list,
+          barbersMap: new Map(((br.data ?? []) as Barber[]).map((b) => [b.id, b])),
+          servicesMap: new Map(((sv.data ?? []) as Service[]).map((s2) => [s2.id, s2])),
+        };
+      }
+
       // Encontra agendamentos por telefone (preferencial) ou pelo nome do usuário
       const orParts: string[] = [];
       if (phone) orParts.push(`customer_phone.eq.${phone}`);
       if (metaName) orParts.push(`customer_name.ilike.${metaName}`);
-      if (orParts.length === 0) return { appointments: [] as Appointment[], barbersMap: new Map<string, Barber>(), servicesMap: new Map<string, Service>() };
+      if (orParts.length === 0) return empty;
 
       const { data: ap, error } = await supabase
         .from("appointments")
@@ -90,7 +130,7 @@ function MeusAgendamentosPage() {
     },
   });
 
-  if (loading || !session) {
+  if (loading || (!session && !guestId)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="animate-spin" />
@@ -98,7 +138,8 @@ function MeusAgendamentosPage() {
     );
   }
 
-  const displayName = metaName || email || "Cliente";
+  const guestName = dataQ.data?.appointments[0]?.customer_name ?? null;
+  const displayName = metaName || email || guestName || "Cliente";
   async function cancelAppointment(appointment: Appointment) {
     const { data: updated, error: updateError } = await supabase
       .from("appointments")
@@ -138,6 +179,7 @@ function MeusAgendamentosPage() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {session && (
           <Button
             variant="ghost"
             size="sm"
@@ -148,6 +190,7 @@ function MeusAgendamentosPage() {
           >
             <LogOut /> Sair
           </Button>
+          )}
         </div>
       </header>
 
