@@ -262,6 +262,14 @@ function ConfirmacaoPage() {
     if (paid) clearCheckoutRef(appointmentId);
   }, [paid, appointmentId]);
 
+  // Aprovado no Mercado Pago: leva o cliente para "Meus agendamentos".
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!paid || isPresencial) return;
+    const t = window.setTimeout(() => navigate({ to: "/meus-agendamentos" }), 1500);
+    return () => window.clearTimeout(t);
+  }, [paid, isPresencial, navigate]);
+
 
 
   // Estado de reconciliação persistente: aparece ao voltar do Mercado Pago e
