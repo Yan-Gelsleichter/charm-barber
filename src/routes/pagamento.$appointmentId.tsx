@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { brl, fmtTime } from "@/lib/format";
 import { saveCheckoutRef } from "@/lib/checkout-ref";
+import { postPublicApi } from "@/lib/api-fetch";
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Aguardando pagamento",
@@ -106,25 +107,21 @@ function PagamentoPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
-      const response = await fetch("/api/public/mercadopago-preference", {
-        method: "POST",
-        headers: {
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ appointment_id: appointmentId }),
-      });
-      const data = (await response.json().catch(() => ({}))) as {
+      const data = await postPublicApi<{
         error?: string;
         detail?: string;
         init_point?: string;
         preference_id?: string;
-      };
-      if (!response.ok || !data.init_point) {
-        console.error("Checkout Pro: falha ao criar preferência", response.status, data);
+      }>(
+        "/api/public/mercadopago-preference",
+        { appointment_id: appointmentId },
+        accessToken,
+      );
+      if (!data?.init_point) {
+        console.error("Checkout Pro: falha ao criar preferência", data);
         throw new Error(
-          [data.error, data.detail].filter(Boolean).join(" — ") ||
-            `Não foi possível iniciar o pagamento online (HTTP ${response.status}).`,
+          [data?.error, data?.detail].filter(Boolean).join(" — ") ||
+            "Não foi possível iniciar o pagamento online.",
         );
       }
 

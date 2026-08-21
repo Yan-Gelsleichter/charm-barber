@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { mpPlatformCredentials, mpEnvGuardError } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { resolvePayerEmail } from "@/lib/mp-payer.server";
 import { PUBLIC_APP_URL } from "@/lib/app-url";
+import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
 /**
  * Checkout Pro: cria uma Preferência de Pagamento e devolve a init_point
@@ -17,8 +17,18 @@ const requestSchema = z.object({
   appointment_id: z.string().uuid(),
 });
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
+};
+
 function json(body: unknown, status = 200) {
-  return Response.json(body, { status, headers: { "cache-control": "no-store" } });
+  return Response.json(body, {
+    status,
+    headers: { "cache-control": "no-store", ...CORS_HEADERS },
+  });
 }
 
 const INTERNAL_HOST_PATTERNS = [
@@ -58,6 +68,7 @@ function publicOrigin(requestUrl: string): string {
 export const Route = createFileRoute("/api/public/mercadopago-preference")({
   server: {
     handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
       POST: async ({ request }) => {
         try {
           // A sessão é opcional: clientes anônimos também podem pagar o agendamento.
@@ -76,35 +87,18 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             process.env["SB_URL"] ||
             process.env["VITE_SUPABASE_URL"] ||
             (import.meta.env.VITE_SUPABASE_URL as string | undefined);
-          const publishableKey =
-            process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-            process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-            (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined);
-          const serviceKey =
-            process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
-            process.env["SB_SERVICE_ROLE_KEY"] ||
-            process.env["SERVICE_ROLE_KEY"];
-
-          if (!supabaseUrl || !publishableKey || !serviceKey) {
+          const admin = createSupabaseAdmin();
+          if (!supabaseUrl || !admin) {
             console.error("Checkout Pro: credenciais do banco ausentes no servidor");
             return json({ error: "O pagamento está temporariamente indisponível." }, 503);
           }
 
           let sessionEmail: string | null = null;
           if (hasSession) {
-            const asUser = createClient(supabaseUrl, publishableKey, {
-              global: { headers: { Authorization: authorization } },
-              auth: { persistSession: false, autoRefreshToken: false },
-            });
-            const { data: userData } = await asUser.auth.getUser();
+            const bearer = authorization.slice("Bearer ".length).trim();
+            const { data: userData } = await admin.auth.getUser(bearer);
             sessionEmail = userData.user?.email?.trim().toLowerCase() ?? null;
           }
-
-
-          const admin = createClient(supabaseUrl, serviceKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
 
           const BASE_COLUMNS = "id, service_id, barber_id, barbershop_id, customer_name, email";
           let appointmentQuery = await admin

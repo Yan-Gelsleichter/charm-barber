@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
+import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
 /**
  * Criação pública e autoritativa de agendamento com service role.
@@ -16,8 +17,18 @@ const requestSchema = z.object({
   appointment_time: z.string().min(8),
 });
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
+};
+
 function json(body: unknown, status = 200) {
-  return Response.json(body, { status, headers: { "cache-control": "no-store" } });
+  return Response.json(body, {
+    status,
+    headers: { "cache-control": "no-store", ...CORS_HEADERS },
+  });
 }
 
 function databaseError(error: {
@@ -35,6 +46,7 @@ function databaseError(error: {
 export const Route = createFileRoute("/api/public/appointment-create")({
   server: {
     handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
       POST: async ({ request }) => {
         try {
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
@@ -43,44 +55,10 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             return json({ error: `Erro ao salvar agendamento: dados inválidos (${reason}).` }, 400);
           }
 
-          const supabaseUrl =
-            process.env["SUPABASE_URL"] ||
-            process.env["SB_URL"] ||
-            process.env["VITE_SUPABASE_URL"] ||
-            (import.meta.env.VITE_SUPABASE_URL as string | undefined);
-          const serviceKey =
-            process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
-            process.env["SB_SERVICE_ROLE_KEY"] ||
-            process.env["SERVICE_ROLE_KEY"];
-
-          if (!supabaseUrl || !serviceKey) {
+          const admin = createSupabaseAdmin();
+          if (!admin) {
             return json({ error: "Erro ao salvar agendamento: serviço temporariamente indisponível." }, 503);
           }
-
-          // Chaves sb_secret_* são opacas, não JWT. Elas devem ir em `apikey`,
-          // sem `Authorization: Bearer <chave>`, para o PostgREST reconhecer a
-          // identidade de serviço e ignorar RLS corretamente.
-          const admin = createClient(supabaseUrl, serviceKey, {
-            auth: {
-              storage: undefined,
-              persistSession: false,
-              autoRefreshToken: false,
-              detectSessionInUrl: false,
-            },
-            global: {
-              fetch: (input, init) => {
-                const headers = new Headers(init?.headers);
-                if (
-                  serviceKey.startsWith("sb_") &&
-                  headers.get("Authorization") === `Bearer ${serviceKey}`
-                ) {
-                  headers.delete("Authorization");
-                }
-                headers.set("apikey", serviceKey);
-                return fetch(input, { ...init, headers });
-              },
-            },
-          });
 
           const d = parsed.data;
           const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
