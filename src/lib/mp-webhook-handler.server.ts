@@ -149,6 +149,7 @@ async function resolveAppointmentId(
   paymentId: string,
   preferenceId?: string | null,
 ): Promise<string | null> {
+  // 1. Tenta achar pelo ID direto (caso venha no external_reference ou metadata)
   const direct =
     payment.external_reference?.split(":")[0]?.trim() ||
     payment.metadata?.appointment_id ||
@@ -162,6 +163,7 @@ async function resolveAppointmentId(
     if (data?.id) return data.id as string;
   }
 
+  // 2. Tenta achar se o mp_payment_id já é o ID numérico do pagamento
   const { data: byPayment } = await admin
     .from("appointments")
     .select("id")
@@ -169,6 +171,7 @@ async function resolveAppointmentId(
     .maybeSingle();
   if (byPayment?.id) return byPayment.id as string;
 
+  // 3. NOVO: Tenta achar se o mp_payment_id contém a preferência gravada (ex: pref:1110192221-...)
   const rawPref = preferenceId || payment.preference_id || payment.metadata?.preference_id || null;
   const prefId = rawPref ? String(rawPref).split("/").filter(Boolean).pop() : null;
   if (prefId) {
@@ -180,10 +183,19 @@ async function resolveAppointmentId(
     if (byPref?.id) return byPref.id as string;
   }
 
+  // 4. NOVO FALLBACK PARA CHECKOUT PRO: Procura pela preferência dentro do external_reference se houver
+  if (payment.external_reference) {
+    const { data: byExt } = await admin
+      .from("appointments")
+      .select("id")
+      .ilike("mp_payment_id", `%${payment.external_reference}%`)
+      .maybeSingle();
+    if (byExt?.id) return byExt.id as string;
+  }
+
   return null;
 }
 
-/** Função applyPayment corrigida para atualizar status, paid_at e ID real */
 async function applyPayment(
   admin: Admin,
   payment: PaymentPayload,
@@ -194,7 +206,7 @@ async function applyPayment(
   const appointmentId = await resolveAppointmentId(admin, payment, paymentId, preferenceId);
   
   if (!appointmentId) {
-    console.warn("Webhook MP: agendamento não localizado", { paymentId, preferenceId });
+    console.warn("Webhook MP: agendamento não localizado para o pagamento", { paymentId, preferenceId });
     await admin.from("mp_webhook_events").insert({
       event_id: eventId,
       payment_id: paymentId,
@@ -220,10 +232,12 @@ async function applyPayment(
 
   const isApproved = paymentStatus === "pago" || payment.status === "approved";
 
+  // Aqui está o pulo do gato: quando for aprovado, ele substitui o "pref:..." 
+  // pelo ID numérico real do pagamento (igualzinho funcionava no Transparent Checkout!)
   const values: Record<string, unknown> = {
     payment_status: isApproved ? "pago" : paymentStatus,
     payment_method: methodLabel(payment),
-    mp_payment_id: paymentId,
+    mp_payment_id: paymentId, // Atualiza para o ID numérico real do Mercado Pago
     paid_at: isApproved ? new Date().toISOString() : null,
   };
 
@@ -240,7 +254,7 @@ async function applyPayment(
       .update({ status: "confirmado" })
       .eq("id", appointmentId);
       
-    console.log(`✅ SUCESSO! Agendamento ${appointmentId} atualizado para PAGO.`);
+    console.log(`✅ SUCESSO! Checkout Pro processado: Agendamento ${appointmentId} atualizado para PAGO (mp_payment_id: ${paymentId}).`);
   }
 
   return new Response("ok", { status: 200 });
