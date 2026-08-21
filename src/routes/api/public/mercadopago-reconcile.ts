@@ -30,8 +30,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
       POST: async ({ request }) => {
         try {
           // Sessão é opcional: clientes anônimos também precisam reconciliar.
-          const authorization = request.headers.get("authorization") ?? "";
-          const hasSession = authorization.startsWith("Bearer ");
+
 
 
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
@@ -46,27 +45,14 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             process.env["SUPABASE_URL"] ||
             process.env["SB_URL"] ||
             process.env["VITE_SUPABASE_URL"];
-          const publishableKey =
-            process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-            process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
           const serviceKey =
             process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
             process.env["SB_SERVICE_ROLE_KEY"] ||
             process.env["SERVICE_ROLE_KEY"];
-          if (!supabaseUrl || !publishableKey || !serviceKey) {
+          if (!supabaseUrl || !serviceKey) {
             return json({ error: "Serviço indisponível." }, 503);
           }
 
-          let userEmail: string | null = null;
-          if (hasSession) {
-            const asUser = createClient(supabaseUrl, publishableKey, {
-              global: { headers: { Authorization: authorization } },
-              auth: { persistSession: false, autoRefreshToken: false },
-            });
-            const { data: userData } = await asUser.auth.getUser();
-            userEmail = userData?.user?.email?.trim().toLowerCase() ?? null;
-          }
 
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,13 +78,9 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
-          // Se houver sessão, ela precisa ser do dono do agendamento.
-          const apptEmail = String(appointment.email ?? "")
-            .trim()
-            .toLowerCase();
-          if (userEmail && apptEmail && userEmail !== apptEmail) {
-            return json({ error: "Acesso negado." }, 403);
-          }
+          // Endpoint público: apenas sincroniza o status real do pagamento no
+          // Mercado Pago para este agendamento (nenhum dado sensível é devolvido).
+
 
           if (appointment.payment_status === "pago") {
             // Já está pago: garante que paid_at nunca fique vazio.
