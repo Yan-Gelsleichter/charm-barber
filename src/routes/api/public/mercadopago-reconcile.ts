@@ -30,8 +30,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
       POST: async ({ request }) => {
         try {
           // Sessão é opcional: clientes anônimos também precisam reconciliar.
-          const authorization = request.headers.get("authorization") ?? "";
-          const hasSession = authorization.startsWith("Bearer ");
+
 
 
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
