@@ -102,10 +102,11 @@ export const Route = createFileRoute("/api/public/mercadopago-sync")({
           if (!barber) return json({ error: "Acesso restrito." }, 403);
 
           const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
+          // Inclui agendamentos sem mp_payment_id: o pagamento também pode ser
+          // encontrado pelo external_reference (o próprio id do agendamento).
           let query = admin
             .from("appointments")
-            .select("id, barber_id, barbershop_id, mp_payment_id, payment_status")
-            .not("mp_payment_id", "is", null)
+            .select("id, barber_id, barbershop_id, mp_payment_id, payment_status, paid_at")
             .in("payment_status", ["pendente", "em_analise", "processando"])
             .gte("appointment_time", since)
             .limit(MAX_APPOINTMENTS);
@@ -126,31 +127,37 @@ export const Route = createFileRoute("/api/public/mercadopago-sync")({
             barber_id: string | null;
             barbershop_id: string | null;
             mp_payment_id: string | null;
+            paid_at: string | null;
           }>;
 
           const cache = new Map<string, string | null>();
           let updated = 0;
 
           for (const row of pending) {
-            if (!row.mp_payment_id) continue;
             const token = await resolveToken(admin, cache, row.barber_id, row.barbershop_id);
             if (!token) continue;
 
-            const res = await fetch(
-              `https://api.mercadopago.com/v1/payments/${encodeURIComponent(row.mp_payment_id)}`,
-              { headers: { Authorization: `Bearer ${token}` } },
-            );
-            if (!res.ok) continue;
-            const payment = (await res.json().catch(() => ({}))) as { status?: string };
+            const payment = await findMercadoPagoPayment({
+              token,
+              appointmentId: row.id,
+              storedRef: row.mp_payment_id,
+            });
+            if (!payment) continue;
+
             const paymentStatus = mapPaymentStatus(payment.status);
             if (paymentStatus === "pendente") continue;
 
+            const patch: Record<string, unknown> = {
+              payment_status: paymentStatus,
+              payment_method: "online",
+              paid_at:
+                paymentStatus === "pago" ? (row.paid_at ?? new Date().toISOString()) : null,
+            };
+            if (payment.id) patch["mp_payment_id"] = String(payment.id);
+
             const { error: updateError } = await admin
               .from("appointments")
-              .update({
-                payment_status: paymentStatus,
-                paid_at: paymentStatus === "pago" ? new Date().toISOString() : null,
-              })
+              .update(patch)
               .eq("id", row.id);
             if (updateError) {
               console.error("Sync MP: falha ao atualizar agendamento", updateError);
@@ -163,6 +170,7 @@ export const Route = createFileRoute("/api/public/mercadopago-sync")({
           }
 
           return json({ checked: pending.length, updated });
+
         } catch (error) {
           console.error("Sync MP: erro inesperado", error);
           return json({ error: "Não foi possível verificar os pagamentos." }, 500);
