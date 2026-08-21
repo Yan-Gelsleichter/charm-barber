@@ -71,122 +71,42 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             userId = authData.user?.id ?? null;
           }
 
-          // Não confia no vínculo enviado pelo navegador: serviço, barbeiro e
-          // barbearia são confirmados diretamente no banco antes do INSERT.
-          const [barberResult, serviceResult] = await Promise.all([
-            admin.from("barbers").select("id, barbershop_id").eq("id", d.barber_id).maybeSingle(),
-            admin
-              .from("services")
-              .select("id, barber_id, barbershop_id")
-              .eq("id", d.service_id)
-              .maybeSingle(),
-          ]);
-          if (barberResult.error) {
-            return json({ error: databaseError(barberResult.error) }, 500);
-          }
-          if (serviceResult.error) {
-            return json({ error: databaseError(serviceResult.error) }, 500);
-          }
-          const barber = barberResult.data as { id: string; barbershop_id: string | null } | null;
-          const service = serviceResult.data as {
-            id: string;
-            barber_id: string | null;
-            barbershop_id: string | null;
-          } | null;
-         if (!barber || !service) {
-  return json(
-    { error: "Erro ao salvar agendamento: serviço ou barbeiro inválido." },
-    400,
-  );
-}
-// Permite o serviço caso o barber_id bata ou caso o serviço seja global (null)
-if (service.barber_id && service.barber_id !== barber.id) {
-  return json(
-    { error: "Erro ao salvar agendamento: este serviço não pertence ao barbeiro selecionado." },
-    400,
-  );
-}
-          const barbershopId = barber.barbershop_id ?? service.barbershop_id;
-          if (!barbershopId) {
-            return json(
-              { error: "Erro ao salvar agendamento: barbeiro sem barbearia vinculada." },
-              400,
-            );
-          }
-          const full = {
-            barber_id: d.barber_id,
-            service_id: d.service_id,
-            customer_name: d.customer_name,
-            customer_phone: d.customer_phone,
-            email: d.email ?? null,
-            appointment_time: d.appointment_time,
-            status: "confirmado",
-            payment_status: "pendente",
-            barbershop_id: barbershopId,
-          };
-
-          const inserted = await admin.from("appointments").insert(full).select("id").single();
-          if (inserted.error || !inserted.data) {
-            console.error("[appointment-create] insert falhou", inserted.error);
+          // Uma única função SQL cria o agendamento e o cliente na mesma
+          // transação. Qualquer falha desfaz ambos antes de devolver a resposta.
+          const created = await admin.rpc("create_appointment_with_client", {
+            p_barber_id: d.barber_id,
+            p_service_id: d.service_id,
+            p_customer_name: d.customer_name,
+            p_customer_phone: d.customer_phone,
+            p_email: d.email ?? "",
+            p_appointment_time: d.appointment_time,
+            p_user_id: userId,
+          });
+          if (created.error || !created.data) {
+            console.error("[appointment-create] transação falhou", created.error);
             return json(
               {
-                error: inserted.error
-                  ? databaseError(inserted.error)
-                  : "Erro ao salvar agendamento: o banco não retornou o registro criado.",
+                error: created.error
+                  ? databaseError(created.error)
+                  : "Erro ao salvar agendamento: a transação não retornou o registro criado.",
               },
               500,
             );
           }
 
-          const appointmentId = (inserted.data as { id: string }).id;
-          const email = d.email?.trim().toLowerCase() ?? null;
-          const identityFilters = [`whatsapp.eq.${d.customer_phone}`];
-          if (userId) identityFilters.unshift(`user_id.eq.${userId}`);
-          if (email) identityFilters.push(`email.eq.${email}`);
-
-          const existingClient = await admin
-            .from("clients")
-            .select("id")
-            .eq("barber_id", d.barber_id)
-            .or(identityFilters.join(","))
-            .limit(1)
+          const appointmentId = String(created.data);
+          // Confirma a persistência antes de autorizar qualquer navegação.
+          const persisted = await admin
+            .from("appointments")
+            .select("id, payment_status")
+            .eq("id", appointmentId)
             .maybeSingle();
-
-          let clientError = existingClient.error;
-          if (!clientError && existingClient.data) {
-            const clientUpdate = {
-              name: d.customer_name,
-              email,
-              whatsapp: d.customer_phone,
-              barbershop_id: barbershopId,
-              ...(userId ? { user_id: userId } : {}),
-            };
-            const updatedClient = await admin
-              .from("clients")
-              .update(clientUpdate)
-              .eq("id", (existingClient.data as { id: string }).id);
-            clientError = updatedClient.error;
-          } else if (!clientError) {
-            const createdClient = await admin.from("clients").insert({
-              barber_id: d.barber_id,
-              name: d.customer_name,
-              email,
-              whatsapp: d.customer_phone,
-              user_id: userId,
-              barbershop_id: barbershopId,
-            });
-            clientError = createdClient.error;
+          if (persisted.error || !persisted.data) {
+            console.error("[appointment-create] confirmação de persistência falhou", persisted.error);
+            return json({ error: "Erro ao salvar agendamento: o banco não confirmou a gravação." }, 500);
           }
 
-          // O agendamento já está gravado: uma falha no cadastro do cliente
-          // não pode apagar o horário confirmado.
-          if (clientError) {
-            console.error("[appointment-create] cadastro do cliente falhou", clientError);
-            return json({ id: appointmentId, client_warning: databaseError(clientError) });
-          }
-
-
-          return json({ id: appointmentId });
+          return json({ id: appointmentId, persisted: true });
         } catch (error) {
           console.error("[appointment-create] erro inesperado", error);
           const message = error instanceof Error ? error.message : String(error);

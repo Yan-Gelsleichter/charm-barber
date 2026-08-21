@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/public/mercadopago-webhook")({
           return await handleNotification(request);
         } catch (error) {
           console.error("Webhook MP: erro inesperado", error);
-          return new Response("error", { status: 200 });
+          return new Response("error", { status: 500 });
         }
       },
       // O Mercado Pago valida a URL com GET em algumas configurações.

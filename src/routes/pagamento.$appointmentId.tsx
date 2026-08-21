@@ -112,12 +112,13 @@ function PagamentoPage() {
         detail?: string;
         init_point?: string;
         preference_id?: string;
+        reference_saved?: boolean;
       }>(
         "/api/public/mercadopago-preference",
         { appointment_id: appointmentId },
         accessToken,
       );
-      if (!data?.init_point) {
+      if (!data?.init_point || data.reference_saved !== true) {
         console.error("Checkout Pro: falha ao criar preferência", data);
         throw new Error(
           [data?.error, data?.detail].filter(Boolean).join(" — ") ||

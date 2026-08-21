@@ -492,11 +492,15 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
               if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
             }
 
-            if (shouldSaveReference && !referenceSaved) {
+            if (!referenceSaved) {
               console.error("Checkout Pro: referência da preferência não persistida", {
                 appointment_id: appointment.id,
                 preference_id: preference.id,
               });
+              return json(
+                { error: "Não foi possível vincular o pagamento ao agendamento. Tente novamente." },
+                500,
+              );
             }
           }
 

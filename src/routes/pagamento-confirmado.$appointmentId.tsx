@@ -122,7 +122,7 @@ function ConfirmacaoPage() {
   const service = q.data?.service ?? null;
   const storedPreferenceId = readCheckoutRef(appointmentId);
 
-  // Status vindo da consulta em tempo real no Mercado Pago (mais rápido que o banco).
+  // O estado visual vem exclusivamente da linha persistida em appointments.
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
@@ -230,9 +230,10 @@ function ConfirmacaoPage() {
             token,
           )) ?? {};
         if (!stop && body.payment_status) {
-          setLiveStatus(body.payment_status);
-          void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
-          return body.payment_status === "pago";
+          // A reconciliação apenas provoca uma nova leitura. Nunca transforma a
+          // resposta HTTP em sucesso visual; isso só ocorre pelo banco/Realtime.
+          await qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
+          return false;
         }
       } catch {
         /* silencioso */
