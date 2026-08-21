@@ -10,5 +10,20 @@ alter table public.appointments
 create index if not exists appointments_mp_payment_id_idx
   on public.appointments (mp_payment_id);
 
+-- Entrega mudanças de pagamento instantaneamente para a tela de confirmação.
+-- O bloco é idempotente e pode ser executado mais de uma vez.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'appointments'
+  ) then
+    alter publication supabase_realtime add table public.appointments;
+  end if;
+end $$;
+
 -- Valores usados pelo app em payment_status:
 --   pendente | pago | expirado | cancelado | falhou
