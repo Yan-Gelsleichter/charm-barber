@@ -217,6 +217,20 @@ async function applyPayment(
 
   const paymentStatus = mapPaymentStatus(payment.status);
 
+  // Notificações podem chegar fora de ordem. Depois de aprovado, somente um
+  // estorno/chargeback pode substituir o estado pago; eventos pendentes ou
+  // atrasados nunca apagam paid_at nem rebaixam o pagamento.
+  const { data: current } = await admin
+    .from("appointments")
+    .select("payment_status")
+    .eq("id", appointmentId)
+    .maybeSingle();
+  const alreadyPaid =
+    (current as { payment_status?: string | null } | null)?.payment_status === "pago";
+  if (alreadyPaid && paymentStatus !== "pago" && paymentStatus !== "estornado") {
+    return new Response("already paid", { status: 200 });
+  }
+
   let claimed = false;
   const { error: claimError } = await admin.from("mp_webhook_events").insert({
     event_id: eventId,

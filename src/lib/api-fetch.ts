@@ -27,14 +27,9 @@ export async function postPublicApi<T>(
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const payload = JSON.stringify(body);
 
-  try {
-    const res = await fetch(path, { method: "POST", headers, body: payload });
-    const parsed = await readJson<T>(res);
-    if (parsed) return parsed;
-  } catch {
-    /* tenta o domínio público abaixo */
-  }
-
+  // Em preview/desenvolvimento, executa primeiro no domínio publicado. Assim,
+  // criação, preferência e reconciliação usam sempre as mesmas credenciais do
+  // Mercado Pago e o webhook consulta a mesma conta que recebeu o pagamento.
   if (typeof window !== "undefined" && window.location.origin !== PUBLIC_APP_URL) {
     try {
       const res = await fetch(`${PUBLIC_APP_URL}${path}`, {
@@ -42,10 +37,19 @@ export async function postPublicApi<T>(
         headers,
         body: payload,
       });
-      return await readJson<T>(res);
+      const parsed = await readJson<T>(res);
+      if (parsed) return parsed;
     } catch {
-      /* silencioso */
+      /* tenta a origem atual abaixo */
     }
+  }
+
+  try {
+    const res = await fetch(path, { method: "POST", headers, body: payload });
+    const parsed = await readJson<T>(res);
+    if (parsed) return parsed;
+  } catch {
+    /* tenta o domínio público abaixo */
   }
 
   return null;
