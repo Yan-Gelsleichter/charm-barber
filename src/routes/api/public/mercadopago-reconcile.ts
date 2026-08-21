@@ -125,18 +125,28 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           const stored = String(appointment.mp_payment_id ?? "");
           const storedPreferenceId = stored.startsWith("pref:") ? stored.slice(5) : null;
           const preferenceId = parsed.data.preference_id ?? storedPreferenceId;
-          let payment: { id?: number | string; status?: string } | null = null;
-          for (const token of tokens) {
-            payment = await findMercadoPagoPayment({
-              token,
-              appointmentId: appointment.id,
-              storedRef: appointment.mp_payment_id,
-              preferenceId,
-              paymentId: parsed.data.payment_id,
-              merchantOrderId: parsed.data.merchant_order_id,
-            });
-            if (payment?.status) break;
-          }
+          // As contas são consultadas em paralelo. Além de reduzir bastante o
+          // tempo de retorno, isso evita aceitar um estado pendente de uma conta
+          // antes de encontrar o pagamento aprovado na conta que criou o checkout.
+          const paymentResults = await Promise.allSettled(
+            tokens.map((token) =>
+              findMercadoPagoPayment({
+                token,
+                appointmentId: appointment.id,
+                storedRef: appointment.mp_payment_id,
+                preferenceId,
+                paymentId: parsed.data.payment_id,
+                merchantOrderId: parsed.data.merchant_order_id,
+              }),
+            ),
+          );
+          const payments = paymentResults.flatMap((result) =>
+            result.status === "fulfilled" && result.value?.status ? [result.value] : [],
+          );
+          const payment =
+            payments.find((candidate) => mapPaymentStatus(candidate.status) === "pago") ??
+            payments[0] ??
+            null;
 
           if (!payment?.status) {
             return json({ payment_status: appointment.payment_status, updated: false });
@@ -168,25 +178,43 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           };
           if (mpPaymentId) patch["mp_payment_id"] = mpPaymentId;
 
-          // Escrita condicional: só grava se o status ainda for o mesmo que lemos.
-          // Se outra requisição já reconciliou, esta não sobrescreve nem duplica.
-          let query = admin.from("appointments").update(patch).eq("id", appointment.id);
-          query =
-            appointment.payment_status === null
-              ? query.is("payment_status", null)
-              : query.eq("payment_status", appointment.payment_status);
-          const { data: updatedRows } = await query.select("id");
-          const didUpdate = Array.isArray(updatedRows) && updatedRows.length > 0;
+          // Um pagamento aprovado é gravado de forma autoritativa e a resposta
+          // só informa "pago" depois que o banco devolve a linha atualizada.
+          // Antes, um erro de UPDATE era ignorado e a tela podia mostrar pago sem
+          // que appointments tivesse sido persistida.
+          if (paymentStatus === "pago") patch["status"] = "confirmado";
 
-          if (didUpdate && paymentStatus === "pago") {
-            await admin
-              .from("appointments")
-              .update({ status: "confirmado" })
-              .eq("id", appointment.id)
-              .neq("status", "confirmado");
+          let updateQuery = admin.from("appointments").update(patch).eq("id", appointment.id);
+          // Eventos não aprovados não podem rebaixar um pagamento já confirmado.
+          if (paymentStatus !== "pago") updateQuery = updateQuery.neq("payment_status", "pago");
+
+          const { data: updatedRows, error: updateError } = await updateQuery.select(
+            "id, payment_status, payment_method, paid_at, mp_payment_id",
+          );
+          if (updateError) {
+            console.error("Reconcile MP: falha ao persistir pagamento", updateError);
+            return json({ error: "Não foi possível registrar o pagamento.", payment_status: appointment.payment_status }, 500);
           }
 
-          return json({ payment_status: paymentStatus, updated: didUpdate });
+          const persisted = Array.isArray(updatedRows) ? updatedRows[0] : null;
+          if (!persisted) {
+            const { data: currentRow, error: currentError } = await admin
+              .from("appointments")
+              .select("payment_status")
+              .eq("id", appointment.id)
+              .maybeSingle();
+            if (currentError) {
+              console.error("Reconcile MP: falha ao confirmar persistência", currentError);
+              return json({ error: "Não foi possível confirmar o pagamento." }, 500);
+            }
+            const persistedStatus = (currentRow as { payment_status?: string | null } | null)?.payment_status ?? null;
+            return json({ payment_status: persistedStatus, updated: false });
+          }
+
+          return json({
+            payment_status: (persisted as { payment_status?: string }).payment_status ?? paymentStatus,
+            updated: true,
+          });
           };
 
           const result = await withReconcileLock(parsed.data.appointment_id, core);
