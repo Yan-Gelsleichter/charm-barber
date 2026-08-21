@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { mpPlatformCredentials, mpEnvGuardError } from "@/lib/mp-platform.server";
@@ -88,24 +87,16 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             process.env["SB_URL"] ||
             process.env["VITE_SUPABASE_URL"] ||
             (import.meta.env.VITE_SUPABASE_URL as string | undefined);
-          const publishableKey =
-            process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-            process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-            (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined);
           const admin = createSupabaseAdmin();
-          if (!supabaseUrl || !publishableKey || !admin) {
+          if (!supabaseUrl || !admin) {
             console.error("Checkout Pro: credenciais do banco ausentes no servidor");
             return json({ error: "O pagamento está temporariamente indisponível." }, 503);
           }
 
           let sessionEmail: string | null = null;
           if (hasSession) {
-            const asUser = createClient(supabaseUrl, publishableKey, {
-              global: { headers: { Authorization: authorization } },
-              auth: { persistSession: false, autoRefreshToken: false },
-            });
-            const { data: userData } = await asUser.auth.getUser();
+            const bearer = authorization.slice("Bearer ".length).trim();
+            const { data: userData } = await admin.auth.getUser(bearer);
             sessionEmail = userData.user?.email?.trim().toLowerCase() ?? null;
           }
 

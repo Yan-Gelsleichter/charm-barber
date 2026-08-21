@@ -8,11 +8,11 @@
  * atualizando o agendamento para "pago"/"confirmado" automaticamente.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
 
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mapPaymentStatus } from "@/lib/mp-status.server";
 import { findMercadoPagoPayment } from "@/lib/mp-lookup.server";
+import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,24 +63,14 @@ export const Route = createFileRoute("/api/public/mercadopago-sync")({
             return json({ error: "Faça login novamente." }, 401);
           }
 
-          const supabaseUrl =
-            process.env["SUPABASE_URL"] ||
-            process.env["SB_URL"] ||
-            process.env["VITE_SUPABASE_URL"];
-          const serviceKey =
-            process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
-            process.env["SB_SERVICE_ROLE_KEY"] ||
-            process.env["SERVICE_ROLE_KEY"];
-          if (!supabaseUrl || !serviceKey) {
+          const client = createSupabaseAdmin();
+          if (!client) {
             return json({ error: "Serviço indisponível." }, 503);
           }
 
-          const admin: Admin & {
+          const admin = client as unknown as Admin & {
             auth: { getUser: (jwt: string) => Promise<{ data: { user: { id: string } | null }; error: unknown }> };
-          } = createClient(supabaseUrl, serviceKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          }) as any;
+          };
 
           // Valida o token do usuário usando a chave de serviço (não depende
           // da publishable key estar presente no ambiente do worker).

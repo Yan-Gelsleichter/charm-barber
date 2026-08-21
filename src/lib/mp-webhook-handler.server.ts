@@ -1,7 +1,7 @@
 
-import { createClient } from "@supabase/supabase-js";
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mapPaymentStatus } from "@/lib/mp-status.server";
+import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = { from: (table: string) => any };
@@ -352,17 +352,8 @@ async function handleNotification(request: Request) {
 
   const action = raw.action ?? url.searchParams.get("action") ?? topic ?? "payment";
 
-  const supabaseUrl =
-    process.env["SUPABASE_URL"] || process.env["SB_URL"] || process.env["VITE_SUPABASE_URL"];
-  const serviceKey =
-    process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
-    process.env["SB_SERVICE_ROLE_KEY"] ||
-    process.env["SERVICE_ROLE_KEY"];
-  if (!supabaseUrl || !serviceKey) return new Response("misconfigured", { status: 500 });
-
-  const admin = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const admin = createSupabaseAdmin();
+  if (!admin) return new Response("misconfigured", { status: 500 });
 
   const collectorId = raw.user_id != null ? String(raw.user_id) : url.searchParams.get("user_id");
   const preferenceId = url.searchParams.get("preference_id");
