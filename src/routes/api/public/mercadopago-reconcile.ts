@@ -46,27 +46,14 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             process.env["SUPABASE_URL"] ||
             process.env["SB_URL"] ||
             process.env["VITE_SUPABASE_URL"];
-          const publishableKey =
-            process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-            process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
           const serviceKey =
             process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
             process.env["SB_SERVICE_ROLE_KEY"] ||
             process.env["SERVICE_ROLE_KEY"];
-          if (!supabaseUrl || !publishableKey || !serviceKey) {
+          if (!supabaseUrl || !serviceKey) {
             return json({ error: "Serviço indisponível." }, 503);
           }
 
-          let userEmail: string | null = null;
-          if (hasSession) {
-            const asUser = createClient(supabaseUrl, publishableKey, {
-              global: { headers: { Authorization: authorization } },
-              auth: { persistSession: false, autoRefreshToken: false },
-            });
-            const { data: userData } = await asUser.auth.getUser();
-            userEmail = userData?.user?.email?.trim().toLowerCase() ?? null;
-          }
 
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
