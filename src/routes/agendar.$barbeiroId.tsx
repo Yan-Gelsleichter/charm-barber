@@ -289,6 +289,9 @@ function AgendarPage() {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          ...(session?.access_token
+            ? { authorization: `Bearer ${session.access_token}` }
+            : {}),
         },
         body: JSON.stringify({
           barber_id: barbeiroId,
@@ -309,62 +312,6 @@ function AgendarPage() {
         );
       }
       const createdId = payload.id;
-
-
-
-
-
-      // Registrar cliente automaticamente na base DESTE barbeiro específico.
-      // Cada barbeiro tem sua própria lista de clientes: mesmo que o cliente
-      // já exista para outro barbeiro, precisamos inserir uma nova linha para
-      // este barber_id. Nunca fazemos busca "global".
-      if (session) try {
-        const uid = session.user.id;
-        const emailLower = (session.user.email ?? "").trim().toLowerCase() || null;
-        const whatsappDigits = phoneDigits(clientPhone) || null;
-
-        // Busca ESCOPADA a este barbeiro (identificando por user_id, email ou whatsapp).
-        const filters: string[] = [`user_id.eq.${uid}`];
-        if (emailLower) filters.push(`email.eq.${emailLower}`);
-        if (whatsappDigits) filters.push(`whatsapp.eq.${whatsappDigits}`);
-        const { data: existingList, error: lookupError } = await supabase
-          .from("clients")
-          .select("id, barbershop_id, user_id")
-          .eq("barber_id", barbeiroId)
-          .or(filters.join(","))
-          .limit(1);
-        if (lookupError) console.warn("[clients] lookup falhou:", lookupError.message);
-        const existing = (existingList ?? [])[0] as
-          | { id: string; barbershop_id?: string | null; user_id?: string | null }
-          | undefined;
-
-        if (!existing) {
-          // Sem registro para ESTE barbeiro → insert obrigatório.
-          const { error: insertClientError } = await supabase.from("clients").insert({
-            barber_id: barbeiroId,
-            name: clientName,
-            email: emailLower,
-            whatsapp: whatsappDigits,
-            user_id: uid,
-            barbershop_id: barbershopId,
-          });
-          if (insertClientError) {
-            console.warn("[clients] insert falhou:", insertClientError.message);
-            toast.warning("Agendamento criado, mas o cadastro do cliente falhou", {
-              description: insertClientError.message,
-            });
-          }
-        } else {
-          const patch: { user_id?: string; barbershop_id?: string; name?: string } = {};
-          if (!existing.user_id) patch.user_id = uid;
-          if (!existing.barbershop_id && barbershopId) patch.barbershop_id = barbershopId;
-          if (Object.keys(patch).length > 0) {
-            await supabase.from("clients").update(patch).eq("id", existing.id);
-          }
-        }
-      } catch (err) {
-        console.warn("[clients] auto-registro falhou:", err);
-      }
 
       return createdId;
     },
