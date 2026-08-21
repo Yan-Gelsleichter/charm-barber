@@ -8,7 +8,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { findMercadoPagoPayment } from "@/lib/mp-lookup.server";
+import { findMercadoPagoPayment, paymentBelongsToAppointment } from "@/lib/mp-lookup.server";
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mapPaymentStatus } from "@/lib/mp-status.server";
 import { withReconcileLock } from "@/lib/mp-reconcile-lock.server";
@@ -150,6 +150,17 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
 
           if (!payment?.status) {
             return json({ payment_status: appointment.payment_status, updated: false });
+          }
+
+          // Nunca permite que um ID de pagamento fornecido pelo navegador
+          // quite outro agendamento. A referência é confirmada no objeto
+          // autoritativo retornado pelo Mercado Pago.
+          if (!paymentBelongsToAppointment(payment, appointment.id)) {
+            console.warn("Reconcile MP: pagamento não pertence ao agendamento", {
+              appointmentId: appointment.id,
+              paymentId: payment.id,
+            });
+            return json({ payment_status: appointment.payment_status, updated: false }, 409);
           }
 
           const paymentStatus = mapPaymentStatus(payment.status);

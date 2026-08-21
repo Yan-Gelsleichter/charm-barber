@@ -8,6 +8,11 @@
  */
 export type MpPayment = { id?: number | string; status?: string; external_reference?: string };
 
+export function paymentBelongsToAppointment(payment: MpPayment, appointmentId: string) {
+  const reference = String(payment.external_reference ?? "").trim();
+  return reference === appointmentId || reference.startsWith(`${appointmentId}:`);
+}
+
 export async function findMercadoPagoPayment(params: {
   token: string;
   appointmentId: string;
@@ -78,8 +83,9 @@ export async function findMercadoPagoPayment(params: {
     }
   }
 
-  // Pagamento vindo da merchant_order traz só um resumo: busca o detalhe.
-  if (payment?.id && payment.status !== "approved") {
+  // Resultados de busca/merchant_order podem ser resumos sem external_reference.
+  // Sempre busca o detalhe para validar o vínculo financeiro antes de devolver.
+  if (payment?.id) {
     const res = await fetch(
       `https://api.mercadopago.com/v1/payments/${encodeURIComponent(String(payment.id))}`,
       { headers: auth },
@@ -87,5 +93,6 @@ export async function findMercadoPagoPayment(params: {
     if (res.ok) payment = ((await res.json().catch(() => payment)) as MpPayment) ?? payment;
   }
 
-  return payment?.status ? payment : null;
+  if (!payment?.status || !paymentBelongsToAppointment(payment, params.appointmentId)) return null;
+  return payment;
 }
