@@ -187,24 +187,21 @@ function ConfirmacaoPage() {
       try {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        const res = await fetch("/api/public/mercadopago-reconcile", {
-          method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            appointment_id: appointmentId,
-            ...(search.payment_id || search.collection_id
-              ? { payment_id: search.payment_id ?? search.collection_id }
-              : {}),
-            ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
-            ...(search.preference_id || storedPreferenceId || dbPreferenceId
-              ? { preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId }
-              : {}),
-          }),
-        });
-        const body = (await res.json().catch(() => ({}))) as { payment_status?: string };
+        const body =
+          (await postPublicApi<{ payment_status?: string }>(
+            "/api/public/mercadopago-reconcile",
+            {
+              appointment_id: appointmentId,
+              ...(search.payment_id || search.collection_id
+                ? { payment_id: search.payment_id ?? search.collection_id }
+                : {}),
+              ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
+              ...(search.preference_id || storedPreferenceId || dbPreferenceId
+                ? { preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId }
+                : {}),
+            },
+            token,
+          )) ?? {};
         if (!stop && body.payment_status) {
           setLiveStatus(body.payment_status);
           void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
