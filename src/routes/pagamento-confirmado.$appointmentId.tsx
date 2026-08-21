@@ -261,8 +261,10 @@ function ConfirmacaoPage() {
 
   // Pagamento confirmado: a referência da preferência não é mais necessária.
   useEffect(() => {
-    if (paid) clearCheckoutRef(appointmentId);
-  }, [paid, appointmentId]);
+    if (!paid) return;
+    clearCheckoutRef(appointmentId);
+    void qc.invalidateQueries({ queryKey: ["my-appointments"] });
+  }, [paid, appointmentId, qc]);
 
   // Aprovado no Mercado Pago: leva o cliente para "Meus agendamentos".
   const navigate = useNavigate();
