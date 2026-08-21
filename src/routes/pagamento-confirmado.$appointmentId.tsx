@@ -164,12 +164,14 @@ function ConfirmacaoPage() {
   // URL e sem localStorage), tentamos reconciliar assim que o agendamento carrega.
   // O servidor procura o pagamento pelo external_reference (id do agendamento),
   // então a tela nunca trava esperando um id que pode nunca ter sido salvo.
+  // Também reconcilia quando a leitura do agendamento falha (RLS/anônimo):
+  // o servidor encontra o pagamento pelo external_reference do agendamento.
   const shouldReconcile =
-    appointment != null &&
     !paid &&
     !failedOnline &&
     !isPresencial &&
     (isOnline || method == null || status == null || status === "pendente");
+
 
   // Ao voltar do Mercado Pago ("Voltar para a loja"), consulta o pagamento na API
   // oficial a cada 2s (por até 30s) até virar "pago" — sem esperar o webhook.
