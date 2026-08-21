@@ -286,7 +286,7 @@ function AgendarPage() {
       }
       // Novos agendamentos são gravados exclusivamente no servidor com a
       // identidade de serviço. Assim, o INSERT nunca depende da RLS do cliente.
-      const payload = await postPublicApi<{ id?: string; error?: string }>(
+      const payload = await postPublicApi<{ id?: string; persisted?: boolean; error?: string }>(
         "/api/public/appointment-create",
         {
           barber_id: barbeiroId,
@@ -298,7 +298,7 @@ function AgendarPage() {
         },
         session?.access_token,
       );
-      if (!payload?.id) {
+      if (!payload?.id || payload.persisted !== true) {
         throw new Error(
           payload?.error ?? "Erro ao salvar agendamento: o servidor não confirmou a gravação.",
         );
@@ -310,7 +310,7 @@ function AgendarPage() {
     onSuccess: (appointmentId) => {
       qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
       qc.invalidateQueries({ queryKey: ["my-appointments"] });
-      toast.success("Agendamento confirmado!", {
+      toast.success("Horário reservado!", {
         description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });
       if (appointmentId) {

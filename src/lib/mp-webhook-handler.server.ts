@@ -207,17 +207,29 @@ async function applyPayment(
   
   if (!appointmentId) {
     console.warn("Webhook MP: agendamento não localizado para o pagamento", { paymentId, preferenceId });
-    await admin.from("mp_webhook_events").insert({
-      event_id: eventId,
-      payment_id: paymentId,
-      status: payment.status,
-    }).maybeSingle();
-    return new Response("no appointment found", { status: 200 });
+    // Não registra como processado: a referência pode estar sendo persistida
+    // concorrentemente e o retry do Mercado Pago deve tentar novamente.
+    return new Response("no appointment found", { status: 500 });
   }
 
   const paymentStatus = mapPaymentStatus(payment.status);
 
   const isApproved = paymentStatus === "pago" || payment.status === "approved";
+
+  // Reserva o evento antes de alterar o agendamento. A PK de event_id funciona
+  // como lock entre notificações simultâneas do Mercado Pago.
+  const { error: claimError } = await admin.from("mp_webhook_events").insert({
+    event_id: eventId,
+    payment_id: paymentId,
+    appointment_id: appointmentId,
+    status: isApproved ? "pago" : paymentStatus,
+  });
+  const eventTableAvailable = !isMissingTable(claimError);
+  if (isDuplicate(claimError)) return new Response("already processed", { status: 200 });
+  if (claimError && eventTableAvailable) {
+    console.error("Webhook MP: falha ao reservar evento", claimError);
+    return new Response("event claim failed", { status: 500 });
+  }
 
   // Aqui está o pulo do gato: quando for aprovado, ele substitui o "pref:..." 
   // pelo ID numérico real do pagamento (igualzinho funcionava no Transparent Checkout!)
@@ -240,19 +252,15 @@ async function applyPayment(
 
   if (error) {
     console.error("Webhook MP: falha ao atualizar agendamento", error);
-    return new Response("update failed", { status: 500 });
-  }
-
-  if (Array.isArray(updatedRows) && updatedRows.length > 0) {
-    const { error: claimError } = await admin.from("mp_webhook_events").insert({
-      event_id: eventId,
-      payment_id: paymentId,
-      appointment_id: appointmentId,
-      status: isApproved ? "pago" : paymentStatus,
-    });
-    if (claimError && !isDuplicate(claimError) && !isMissingTable(claimError)) {
-      console.error("Webhook MP: falha ao registrar evento", claimError);
+    // Libera a reserva para que uma nova entrega possa repetir o UPDATE.
+    if (eventTableAvailable) {
+      const { error: releaseError } = await admin
+        .from("mp_webhook_events")
+        .delete()
+        .eq("event_id", eventId);
+      if (releaseError) console.error("Webhook MP: falha ao liberar evento", releaseError);
     }
+    return new Response("update failed", { status: 500 });
   }
 
   if (isApproved) {

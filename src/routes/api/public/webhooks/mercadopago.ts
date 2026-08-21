@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/public/webhooks/mercadopago")({
           return await handleNotification(request);
         } catch (error) {
           console.error("Webhook MP: erro inesperado", error);
-          return new Response("error", { status: 200 });
+          return new Response("error", { status: 500 });
         }
       },
       GET: async ({ request }) => {
