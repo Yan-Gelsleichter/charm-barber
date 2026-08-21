@@ -176,15 +176,16 @@ if (service.barber_id && service.barber_id !== barber.id) {
 
           let clientError = existingClient.error;
           if (!clientError && existingClient.data) {
+            const clientUpdate = {
+              name: d.customer_name,
+              email,
+              whatsapp: d.customer_phone,
+              barbershop_id: barbershopId,
+              ...(userId ? { user_id: userId } : {}),
+            };
             const updatedClient = await admin
               .from("clients")
-              .update({
-                name: d.customer_name,
-                email,
-                whatsapp: d.customer_phone,
-                user_id: userId,
-                barbershop_id: barbershopId,
-              })
+              .update(clientUpdate)
               .eq("id", (existingClient.data as { id: string }).id);
             clientError = updatedClient.error;
           } else if (!clientError) {
