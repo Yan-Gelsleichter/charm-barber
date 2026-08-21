@@ -79,15 +79,6 @@ function ConfirmacaoPage() {
 
   const q = useQuery({
     queryKey: ["appointment-confirmation", appointmentId],
-    // A confirmação do gateway e a atualização do banco podem chegar com poucos
-    // segundos de diferença. Continua consultando até refletir o pagamento.
-    refetchInterval: (query) => {
-      const row = query.state.data as
-        | { appointment?: { payment_status?: string | null } }
-        | undefined;
-      return row?.appointment?.payment_status === "pago" ? false : 2000;
-    },
-
     refetchOnMount: "always",
     queryFn: async () => {
       let res = await supabase
@@ -173,15 +164,50 @@ function ConfirmacaoPage() {
     !isPresencial &&
     (isOnline || method == null || status == null || status === "pendente");
 
+  // O webhook atualiza appointments e o Realtime entrega essa alteração à
+  // tela imediatamente, sem esperar o próximo ciclo de polling.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`payment-confirmation:${appointmentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "appointments",
+          filter: `id=eq.${appointmentId}`,
+        },
+        (payload) => {
+          const changed = payload.new as {
+            payment_status?: string | null;
+            payment_method?: string | null;
+            paid_at?: string | null;
+            mp_payment_id?: string | null;
+          };
+          if (changed.payment_status) setLiveStatus(changed.payment_status);
+          qc.setQueryData(
+            ["appointment-confirmation", appointmentId],
+            (current: typeof q.data) =>
+              current?.appointment
+                ? { ...current, appointment: { ...current.appointment, ...changed } }
+                : current,
+          );
+        },
+      )
+      .subscribe();
 
-  // Ao voltar do Mercado Pago ("Voltar para a loja"), consulta o pagamento na API
-  // oficial a cada 2s (por até 30s) até virar "pago" — sem esperar o webhook.
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [appointmentId, qc]);
+
+  // Faz uma única reconciliação imediata ao voltar do Mercado Pago. Ela cobre o
+  // caso raro em que o webhook ainda não chegou; depois disso o Realtime assume.
   const running = useRef(false);
   useEffect(() => {
     if (paid || !shouldReconcile) return;
 
     let stop = false;
-    const started = Date.now();
     const check = async () => {
       if (running.current || stop) return false;
       running.current = true;
@@ -216,19 +242,9 @@ function ConfirmacaoPage() {
       return false;
     };
     void check();
-    // Consulta o Mercado Pago a cada 2s até o pagamento ser aprovado. A rota
-    // consulta as possíveis contas em paralelo e só responde "pago" após a
-    // atualização ter sido confirmada no banco.
-    const id = window.setInterval(() => {
-      void check().then((ok) => {
-        if (ok) {
-          window.clearInterval(id);
-          return;
-        }
-        // Após 30s apenas troca a mensagem — o polling continua.
-        if (!stop && Date.now() - started > 30_000) setTimedOut(true);
-      });
-    }, 2000);
+    const timeout = window.setTimeout(() => {
+      if (!stop) setTimedOut(true);
+    }, 30_000);
 
     // Volta do Mercado Pago / troca de aba: força checagem imediata.
     const onWake = () => {
@@ -240,7 +256,7 @@ function ConfirmacaoPage() {
 
     return () => {
       stop = true;
-      window.clearInterval(id);
+      window.clearTimeout(timeout);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("pageshow", onWake);
       document.removeEventListener("visibilitychange", onWake);
@@ -266,12 +282,11 @@ function ConfirmacaoPage() {
     void qc.invalidateQueries({ queryKey: ["my-appointments"] });
   }, [paid, appointmentId, qc]);
 
-  // Aprovado no Mercado Pago: leva o cliente para "Meus agendamentos".
+  // Aprovado no Mercado Pago: leva o cliente imediatamente para seus horários.
   const navigate = useNavigate();
   useEffect(() => {
     if (!paid || isPresencial) return;
-    const t = window.setTimeout(() => navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } }), 500);
-    return () => window.clearTimeout(t);
+    void navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } });
   }, [paid, isPresencial, navigate]);
 
 

@@ -217,33 +217,6 @@ async function applyPayment(
 
   const paymentStatus = mapPaymentStatus(payment.status);
 
-  // Notificações podem chegar fora de ordem. Depois de aprovado, somente um
-  // estorno/chargeback pode substituir o estado pago; eventos pendentes ou
-  // atrasados nunca apagam paid_at nem rebaixam o pagamento.
-  const { data: current } = await admin
-    .from("appointments")
-    .select("payment_status")
-    .eq("id", appointmentId)
-    .maybeSingle();
-  const alreadyPaid =
-    (current as { payment_status?: string | null } | null)?.payment_status === "pago";
-  if (alreadyPaid && paymentStatus !== "pago" && paymentStatus !== "estornado") {
-    return new Response("already paid", { status: 200 });
-  }
-
-  let claimed = false;
-  const { error: claimError } = await admin.from("mp_webhook_events").insert({
-    event_id: eventId,
-    payment_id: paymentId,
-    appointment_id: appointmentId,
-    status: paymentStatus,
-  });
-  if (claimError && !isDuplicate(claimError)) {
-    console.error("Webhook MP: falha ao registrar evento", claimError);
-  } else {
-    claimed = true;
-  }
-
   const isApproved = paymentStatus === "pago" || payment.status === "approved";
 
   // Aqui está o pulo do gato: quando for aprovado, ele substitui o "pref:..." 
@@ -253,22 +226,37 @@ async function applyPayment(
     payment_method: methodLabel(payment),
     mp_payment_id: paymentId, // Atualiza para o ID numérico real do Mercado Pago
     paid_at: isApproved ? new Date().toISOString() : null,
+    ...(isApproved ? { status: "confirmado" } : {}),
   };
 
-  const { error } = await admin.from("appointments").update(values).eq("id", appointmentId);
+  // A atualização do agendamento é o primeiro write do caminho crítico. O
+  // registro de auditoria acontece depois, para não atrasar a confirmação que
+  // será entregue ao cliente pelo Realtime.
+  let updateQuery = admin.from("appointments").update(values).eq("id", appointmentId);
+  if (!isApproved && paymentStatus !== "estornado") {
+    updateQuery = updateQuery.neq("payment_status", "pago");
+  }
+  const { data: updatedRows, error } = await updateQuery.select("id");
 
   if (error) {
     console.error("Webhook MP: falha ao atualizar agendamento", error);
-    if (claimed) {
-      await admin.from("mp_webhook_events").delete().eq("event_id", eventId);
+    return new Response("update failed", { status: 500 });
+  }
+
+  if (Array.isArray(updatedRows) && updatedRows.length > 0) {
+    const { error: claimError } = await admin.from("mp_webhook_events").insert({
+      event_id: eventId,
+      payment_id: paymentId,
+      appointment_id: appointmentId,
+      status: isApproved ? "pago" : paymentStatus,
+    });
+    if (claimError && !isDuplicate(claimError) && !isMissingTable(claimError)) {
+      console.error("Webhook MP: falha ao registrar evento", claimError);
     }
-  } else if (isApproved) {
-    await admin
-      .from("appointments")
-      .update({ status: "confirmado" })
-      .eq("id", appointmentId);
-      
-    console.log(`✅ SUCESSO! Checkout Pro processado: Agendamento ${appointmentId} atualizado para PAGO (mp_payment_id: ${paymentId}).`);
+  }
+
+  if (isApproved) {
+    console.log(`Pagamento MP confirmado: agendamento ${appointmentId}, transação ${paymentId}.`);
   }
 
   return new Response("ok", { status: 200 });
