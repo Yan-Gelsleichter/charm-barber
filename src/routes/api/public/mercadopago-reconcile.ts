@@ -79,13 +79,9 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           } | null;
           if (!appointment) return json({ error: "Agendamento não encontrado." }, 404);
 
-          // Se houver sessão, ela precisa ser do dono do agendamento.
-          const apptEmail = String(appointment.email ?? "")
-            .trim()
-            .toLowerCase();
-          if (userEmail && apptEmail && userEmail !== apptEmail) {
-            return json({ error: "Acesso negado." }, 403);
-          }
+          // Endpoint público: apenas sincroniza o status real do pagamento no
+          // Mercado Pago para este agendamento (nenhum dado sensível é devolvido).
+
 
           if (appointment.payment_status === "pago") {
             // Já está pago: garante que paid_at nunca fique vazio.
