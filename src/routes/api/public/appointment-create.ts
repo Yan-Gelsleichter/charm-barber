@@ -17,8 +17,18 @@ const requestSchema = z.object({
   appointment_time: z.string().min(8),
 });
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
+};
+
 function json(body: unknown, status = 200) {
-  return Response.json(body, { status, headers: { "cache-control": "no-store" } });
+  return Response.json(body, {
+    status,
+    headers: { "cache-control": "no-store", ...CORS_HEADERS },
+  });
 }
 
 function databaseError(error: {
@@ -36,6 +46,7 @@ function databaseError(error: {
 export const Route = createFileRoute("/api/public/appointment-create")({
   server: {
     handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
       POST: async ({ request }) => {
         try {
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));

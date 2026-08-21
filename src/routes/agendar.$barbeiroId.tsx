@@ -13,6 +13,7 @@ import { PhoneInput } from "@/components/PhoneInput";
 import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
 import { buildSlots, cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
+import { postPublicApi } from "@/lib/api-fetch";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/agendar/$barbeiroId")({
@@ -285,30 +286,21 @@ function AgendarPage() {
       }
       // Novos agendamentos são gravados exclusivamente no servidor com a
       // identidade de serviço. Assim, o INSERT nunca depende da RLS do cliente.
-      const response = await fetch("/api/public/appointment-create", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(session?.access_token
-            ? { authorization: `Bearer ${session.access_token}` }
-            : {}),
-        },
-        body: JSON.stringify({
+      const payload = await postPublicApi<{ id?: string; error?: string }>(
+        "/api/public/appointment-create",
+        {
           barber_id: barbeiroId,
           service_id: service.id,
           customer_name: customerName,
           customer_phone: customerPhone,
           email: clientEmail,
           appointment_time: slotIso,
-        }),
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        id?: string;
-        error?: string;
-      } | null;
-      if (!response.ok || !payload?.id) {
+        },
+        session?.access_token,
+      );
+      if (!payload?.id) {
         throw new Error(
-          payload?.error ?? `Erro ao salvar agendamento: servidor retornou HTTP ${response.status}.`,
+          payload?.error ?? "Erro ao salvar agendamento: o servidor não confirmou a gravação.",
         );
       }
       const createdId = payload.id;
