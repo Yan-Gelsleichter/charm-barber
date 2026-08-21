@@ -6,12 +6,13 @@
  * agendamento, sem depender do webhook chegar primeiro.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
+import { findMercadoPagoPayment } from "@/lib/mp-lookup.server";
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { mapPaymentStatus } from "@/lib/mp-status.server";
 import { withReconcileLock } from "@/lib/mp-reconcile-lock.server";
+import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
 const requestSchema = z.object({
   appointment_id: z.string().uuid(),
@@ -52,24 +53,10 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           const core = async (): Promise<Response> => {
 
 
-          const supabaseUrl =
-            process.env["SUPABASE_URL"] ||
-            process.env["SB_URL"] ||
-            process.env["VITE_SUPABASE_URL"];
-          const serviceKey =
-            process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
-            process.env["SB_SERVICE_ROLE_KEY"] ||
-            process.env["SERVICE_ROLE_KEY"];
-          if (!supabaseUrl || !serviceKey) {
+          const admin = createSupabaseAdmin();
+          if (!admin) {
             return json({ error: "Serviço indisponível." }, 503);
           }
-
-
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const admin: any = createClient(supabaseUrl, serviceKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
 
           const { data, error } = await admin
             .from("appointments")
@@ -105,104 +92,50 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             return json({ payment_status: "pago", updated: false });
           }
 
-          // Token da conta que recebeu: barbeiro (split) → barbearia → plataforma.
-          let token: string | null = null;
+          // Tenta todas as contas que podem ter criado a preferência. Usar só o
+          // primeiro token deixava pagamentos invisíveis quando o checkout havia
+          // usado o fallback da barbearia/plataforma.
+          const tokens: string[] = [];
+          const addToken = (value?: string | null) => {
+            const token = String(value ?? "").trim();
+            if (token && !tokens.includes(token)) tokens.push(token);
+          };
           if (appointment.barber_id) {
             const { data: barber } = await admin
               .from("barbers")
               .select("mp_access_token")
               .eq("id", appointment.barber_id)
               .maybeSingle();
-            token = (barber as { mp_access_token?: string | null } | null)?.mp_access_token ?? null;
+            addToken((barber as { mp_access_token?: string | null } | null)?.mp_access_token);
           }
-          if (!token && appointment.barbershop_id) {
+          if (appointment.barbershop_id) {
             const { data: shop } = await admin
               .from("barbershops")
               .select("mp_access_token")
               .eq("id", appointment.barbershop_id)
               .maybeSingle();
-            token = (shop as { mp_access_token?: string | null } | null)?.mp_access_token ?? null;
+            addToken((shop as { mp_access_token?: string | null } | null)?.mp_access_token);
           }
-          if (!token) token = mpPlatformCredentials()?.accessToken ?? null;
-          if (!token) return json({ payment_status: appointment.payment_status, updated: false });
-
-          const auth = { Authorization: `Bearer ${token}` };
-          let payment: { id?: number | string; status?: string } | null = null;
+          addToken(mpPlatformCredentials()?.accessToken);
+          if (tokens.length === 0) {
+            return json({ payment_status: appointment.payment_status, updated: false });
+          }
 
           // mp_payment_id pode guardar "pref:<preference_id>" (salvo ao criar o Checkout Pro).
           const stored = String(appointment.mp_payment_id ?? "");
           const storedPreferenceId = stored.startsWith("pref:") ? stored.slice(5) : null;
           const preferenceId = parsed.data.preference_id ?? storedPreferenceId;
-          const paymentId = parsed.data.payment_id ?? (storedPreferenceId ? null : stored || null);
-          if (paymentId) {
-            const res = await fetch(
-              `https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`,
-              { headers: auth },
-            );
-            if (res.ok) payment = await res.json().catch(() => null);
-          }
-
-          // merchant_order (Checkout Pro devolve esse id no retorno)
-          if (!payment?.status && parsed.data.merchant_order_id) {
-            const res = await fetch(
-              `https://api.mercadopago.com/merchant_orders/${encodeURIComponent(parsed.data.merchant_order_id)}`,
-              { headers: auth },
-            );
-            if (res.ok) {
-              const body = (await res.json().catch(() => ({}))) as {
-                payments?: Array<{ id?: number; status?: string }>;
-              };
-              const list = body.payments ?? [];
-              payment = list.find((p) => p.status === "approved") ?? list[0] ?? null;
-            }
-          }
-
-          // Checkout Pro: a preferência não é pesquisável em /v1/payments/search.
-          // Buscamos as merchant_orders da preferência e pegamos os pagamentos delas.
-          if (!payment?.status && preferenceId) {
-            const res = await fetch(
-              `https://api.mercadopago.com/merchant_orders/search?preference_id=${encodeURIComponent(preferenceId)}`,
-              { headers: auth },
-            );
-            if (res.ok) {
-              const body = (await res.json().catch(() => ({}))) as {
-                elements?: Array<{ payments?: Array<{ id?: number; status?: string }> }>;
-                results?: Array<{ payments?: Array<{ id?: number; status?: string }> }>;
-              };
-              const orders = body.elements ?? body.results ?? [];
-              const all = orders.flatMap((o) => o.payments ?? []);
-              payment = all.find((p) => p.status === "approved") ?? all[0] ?? null;
-            }
-          }
-
-          // Último recurso: procura pelo external_reference do agendamento.
-          if (!payment?.status) {
-            const res = await fetch(
-              `https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&external_reference=${encodeURIComponent(appointment.id)}`,
-              { headers: auth },
-            );
-            if (res.ok) {
-              const body = (await res.json().catch(() => ({}))) as {
-                results?: Array<{ id?: number; status?: string; external_reference?: string }>;
-              };
-              const results = body.results ?? [];
-              payment =
-                results.find((p) => p.status === "approved") ??
-                results.find((p) =>
-                  String(p.external_reference ?? "").startsWith(appointment.id),
-                ) ??
-                results[0] ??
-                null;
-            }
-          }
-
-          // O pagamento vindo da merchant_order traz só um resumo: busca o detalhe.
-          if (payment?.id && payment.status !== "approved") {
-            const res = await fetch(
-              `https://api.mercadopago.com/v1/payments/${encodeURIComponent(String(payment.id))}`,
-              { headers: auth },
-            );
-            if (res.ok) payment = (await res.json().catch(() => payment)) ?? payment;
+          let payment: { id?: number | string; status?: string } | null = null;
+          for (const token of tokens) {
+            payment = await findMercadoPagoPayment({
+              token,
+              appointmentId: appointment.id,
+              storedRef: appointment.mp_payment_id,
+              preferenceId,
+              paymentId: parsed.data.payment_id,
+              merchantOrderId: parsed.data.merchant_order_id,
+            });
+            if (payment?.status) break;
           }
 
           if (!payment?.status) {
