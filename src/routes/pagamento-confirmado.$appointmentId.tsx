@@ -216,7 +216,9 @@ function ConfirmacaoPage() {
       return false;
     };
     void check();
-    // Consulta o Mercado Pago a cada 4s até o pagamento ser aprovado.
+    // Consulta o Mercado Pago a cada 2s até o pagamento ser aprovado. A rota
+    // consulta as possíveis contas em paralelo e só responde "pago" após a
+    // atualização ter sido confirmada no banco.
     const id = window.setInterval(() => {
       void check().then((ok) => {
         if (ok) {
@@ -226,7 +228,7 @@ function ConfirmacaoPage() {
         // Após 30s apenas troca a mensagem — o polling continua.
         if (!stop && Date.now() - started > 30_000) setTimedOut(true);
       });
-    }, 4000);
+    }, 2000);
 
     // Volta do Mercado Pago / troca de aba: força checagem imediata.
     const onWake = () => {
@@ -259,14 +261,16 @@ function ConfirmacaoPage() {
 
   // Pagamento confirmado: a referência da preferência não é mais necessária.
   useEffect(() => {
-    if (paid) clearCheckoutRef(appointmentId);
-  }, [paid, appointmentId]);
+    if (!paid) return;
+    clearCheckoutRef(appointmentId);
+    void qc.invalidateQueries({ queryKey: ["my-appointments"] });
+  }, [paid, appointmentId, qc]);
 
   // Aprovado no Mercado Pago: leva o cliente para "Meus agendamentos".
   const navigate = useNavigate();
   useEffect(() => {
     if (!paid || isPresencial) return;
-    const t = window.setTimeout(() => navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } }), 1500);
+    const t = window.setTimeout(() => navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } }), 500);
     return () => window.clearTimeout(t);
   }, [paid, isPresencial, navigate]);
 
