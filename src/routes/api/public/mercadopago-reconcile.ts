@@ -20,13 +20,24 @@ const requestSchema = z.object({
   preference_id: z.string().trim().max(128).optional(),
 });
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
+};
+
 function json(body: unknown, status = 200) {
-  return Response.json(body, { status, headers: { "cache-control": "no-store" } });
+  return Response.json(body, {
+    status,
+    headers: { "cache-control": "no-store", ...CORS_HEADERS },
+  });
 }
 
 export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
   server: {
     handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
       POST: async ({ request }) => {
         try {
           // Sessão é opcional: clientes anônimos também precisam reconciliar.
