@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, CalendarDays, ArrowLeft } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { readCheckoutRef, clearCheckoutRef } from "@/lib/checkout-ref";
+import { postPublicApi } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
 import { brl, fmtDate, fmtTime } from "@/lib/format";
 
