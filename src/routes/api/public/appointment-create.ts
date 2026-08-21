@@ -200,14 +200,13 @@ if (service.barber_id && service.barber_id !== barber.id) {
             clientError = createdClient.error;
           }
 
+          // O agendamento já está gravado: uma falha no cadastro do cliente
+          // não pode apagar o horário confirmado.
           if (clientError) {
             console.error("[appointment-create] cadastro do cliente falhou", clientError);
-            const rollback = await admin.from("appointments").delete().eq("id", appointmentId);
-            if (rollback.error) {
-              console.error("[appointment-create] rollback do agendamento falhou", rollback.error);
-            }
-            return json({ error: databaseError(clientError) }, 500);
+            return json({ id: appointmentId, client_warning: databaseError(clientError) });
           }
+
 
           return json({ id: appointmentId });
         } catch (error) {
