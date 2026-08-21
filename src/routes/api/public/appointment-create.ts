@@ -11,7 +11,7 @@ const requestSchema = z.object({
   barber_id: z.string().uuid(),
   service_id: z.string().uuid(),
   customer_name: z.string().min(2),
-  customer_phone: z.string().min(8),
+  customer_phone: z.string().regex(/^\d{8,15}$/),
   email: z.string().email().nullable().optional(),
   appointment_time: z.string().min(8),
 });
@@ -83,6 +83,16 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           });
 
           const d = parsed.data;
+          const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+          let userId: string | null = null;
+          if (bearer) {
+            const { data: authData, error: authError } = await admin.auth.getUser(bearer);
+            if (authError) {
+              return json({ error: "Erro ao salvar agendamento: sessão do cliente inválida." }, 401);
+            }
+            userId = authData.user?.id ?? null;
+          }
+
           // Não confia no vínculo enviado pelo navegador: serviço, barbeiro e
           // barbearia são confirmados diretamente no banco antes do INSERT.
           const [barberResult, serviceResult] = await Promise.all([
@@ -150,7 +160,55 @@ if (service.barber_id && service.barber_id !== barber.id) {
             );
           }
 
-          return json({ id: (inserted.data as { id: string }).id });
+          const appointmentId = (inserted.data as { id: string }).id;
+          const email = d.email?.trim().toLowerCase() ?? null;
+          const identityFilters = [`whatsapp.eq.${d.customer_phone}`];
+          if (userId) identityFilters.unshift(`user_id.eq.${userId}`);
+          if (email) identityFilters.push(`email.eq.${email}`);
+
+          const existingClient = await admin
+            .from("clients")
+            .select("id")
+            .eq("barber_id", d.barber_id)
+            .or(identityFilters.join(","))
+            .limit(1)
+            .maybeSingle();
+
+          let clientError = existingClient.error;
+          if (!clientError && existingClient.data) {
+            const updatedClient = await admin
+              .from("clients")
+              .update({
+                name: d.customer_name,
+                email,
+                whatsapp: d.customer_phone,
+                user_id: userId,
+                barbershop_id: barbershopId,
+              })
+              .eq("id", (existingClient.data as { id: string }).id);
+            clientError = updatedClient.error;
+          } else if (!clientError) {
+            const createdClient = await admin.from("clients").insert({
+              barber_id: d.barber_id,
+              name: d.customer_name,
+              email,
+              whatsapp: d.customer_phone,
+              user_id: userId,
+              barbershop_id: barbershopId,
+            });
+            clientError = createdClient.error;
+          }
+
+          if (clientError) {
+            console.error("[appointment-create] cadastro do cliente falhou", clientError);
+            const rollback = await admin.from("appointments").delete().eq("id", appointmentId);
+            if (rollback.error) {
+              console.error("[appointment-create] rollback do agendamento falhou", rollback.error);
+            }
+            return json({ error: databaseError(clientError) }, 500);
+          }
+
+          return json({ id: appointmentId });
         } catch (error) {
           console.error("[appointment-create] erro inesperado", error);
           const message = error instanceof Error ? error.message : String(error);
