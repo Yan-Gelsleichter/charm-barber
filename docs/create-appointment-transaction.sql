@@ -22,6 +22,16 @@ declare
   v_appointment_id uuid;
   v_client_id uuid;
 begin
+  p_customer_phone := regexp_replace(coalesce(p_customer_phone, ''), '\D', '', 'g');
+
+  if length(trim(p_customer_name)) < 2 then
+    raise exception 'Nome do cliente inválido.';
+  end if;
+
+  if length(p_customer_phone) < 8 or length(p_customer_phone) > 15 then
+    raise exception 'Telefone do cliente inválido.';
+  end if;
+
   select b.barbershop_id
     into v_barbershop_id
     from public.barbers b
