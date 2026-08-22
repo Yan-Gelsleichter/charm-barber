@@ -286,19 +286,47 @@ function AgendarPage() {
       }
       // Novos agendamentos são gravados exclusivamente no servidor com a
       // identidade de serviço. Assim, o INSERT nunca depende da RLS do cliente.
-      const payload = await postPublicApi<{ id?: string; persisted?: boolean; error?: string }>(
-        "/api/public/appointment-create",
-        {
-          barber_id: barbeiroId,
-          service_id: service.id,
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          email: clientEmail,
-          appointment_time: slotIso,
-        },
-        session?.access_token,
-      );
-      if (!payload?.id || payload.persisted !== true) {
+      const appointmentBody = {
+        barber_id: barbeiroId,
+        service_id: service.id,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        email: clientEmail,
+        appointment_time: slotIso,
+      };
+      type CreateResult = {
+        id?: string;
+        client_id?: string;
+        persisted?: boolean;
+        error?: string;
+      };
+
+      // Usa primeiro o servidor da versão que o cliente está vendo. Isso evita
+      // chamar uma publicação antiga durante testes no preview. O domínio
+      // publicado fica apenas como fallback quando a rota local é bloqueada.
+      let payload: CreateResult | null = null;
+      try {
+        const headers: Record<string, string> = { "content-type": "application/json" };
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+        const response = await fetch("/api/public/appointment-create", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(appointmentBody),
+        });
+        if (response.headers.get("content-type")?.includes("application/json")) {
+          payload = (await response.json()) as CreateResult;
+        }
+      } catch {
+        payload = null;
+      }
+      if (!payload) {
+        payload = await postPublicApi<CreateResult>(
+          "/api/public/appointment-create",
+          appointmentBody,
+          session?.access_token,
+        );
+      }
+      if (!payload?.id || !payload.client_id || payload.persisted !== true) {
         throw new Error(
           payload?.error ?? "Erro ao salvar agendamento: o servidor não confirmou a gravação.",
         );

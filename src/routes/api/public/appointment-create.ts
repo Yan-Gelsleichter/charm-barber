@@ -95,18 +95,44 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           }
 
           const appointmentId = String(created.data);
-          // Confirma a persistência antes de autorizar qualquer navegação.
-          const persisted = await admin
-            .from("appointments")
-            .select("id, payment_status")
-            .eq("id", appointmentId)
-            .maybeSingle();
-          if (persisted.error || !persisted.data) {
-            console.error("[appointment-create] confirmação de persistência falhou", persisted.error);
+          // Confirma os dois lados da transação antes de autorizar qualquer
+          // navegação. A função SQL sempre normaliza o telefone do cliente para
+          // o mesmo valor recebido aqui, inclusive quando atualiza um cadastro.
+          const [persistedAppointment, persistedClient] = await Promise.all([
+            admin
+              .from("appointments")
+              .select("id, payment_status, barber_id, customer_phone")
+              .eq("id", appointmentId)
+              .eq("barber_id", d.barber_id)
+              .eq("customer_phone", d.customer_phone)
+              .maybeSingle(),
+            admin
+              .from("clients")
+              .select("id, barber_id, whatsapp")
+              .eq("barber_id", d.barber_id)
+              .eq("whatsapp", d.customer_phone)
+              .maybeSingle(),
+          ]);
+          if (persistedAppointment.error || !persistedAppointment.data) {
+            console.error(
+              "[appointment-create] confirmação do agendamento falhou",
+              persistedAppointment.error,
+            );
             return json({ error: "Erro ao salvar agendamento: o banco não confirmou a gravação." }, 500);
           }
+          if (persistedClient.error || !persistedClient.data) {
+            console.error(
+              "[appointment-create] confirmação do cliente falhou",
+              persistedClient.error,
+            );
+            return json({ error: "Erro ao salvar agendamento: o banco não confirmou o cadastro do cliente." }, 500);
+          }
 
-          return json({ id: appointmentId, persisted: true });
+          return json({
+            id: appointmentId,
+            client_id: persistedClient.data.id,
+            persisted: true,
+          });
         } catch (error) {
           console.error("[appointment-create] erro inesperado", error);
           const message = error instanceof Error ? error.message : String(error);
