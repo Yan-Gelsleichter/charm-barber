@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 
-const INTERVAL_MS = 60_000;
+const INTERVAL_MS = 3000; // Verifica a cada 3 segundos
 
 /**
  * Reconcilia pagamentos pendentes enquanto o painel do barbeiro está aberto.
