@@ -111,6 +111,8 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               .select("id, barber_id, whatsapp")
               .eq("barber_id", d.barber_id)
               .eq("whatsapp", d.customer_phone)
+              .order("created_at", { ascending: true })
+              .limit(1)
               .maybeSingle(),
           ]);
           if (persistedAppointment.error || !persistedAppointment.data) {
