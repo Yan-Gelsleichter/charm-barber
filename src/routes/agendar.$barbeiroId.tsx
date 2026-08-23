@@ -219,73 +219,8 @@ function AgendarPage() {
           /* ignore */
         }
       }
-      // Base do agendamento (sem colunas de pagamento, que podem não existir).
-      const baseAppointment = {
-        barber_id: barbeiroId,
-        service_id: service.id,
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        email: clientEmail,
-        appointment_time: slotIso,
-        status: "confirmado",
-        barbershop_id: barbershopId,
-      };
-      // O agendamento nasce como pagamento pendente, antes de qualquer chamada
-      // ao Mercado Pago.
-      const newAppointment = { ...baseAppointment, payment_status: "pendente" };
-
-
-      if (remarcar) {
-        const { data: updated, error: updateError } = await supabase
-          .from("appointments")
-          .update({
-            barber_id: barbeiroId,
-            service_id: service.id,
-            appointment_time: slotIso,
-            status: "confirmado",
-            barbershop_id: barbershopId,
-          })
-          .eq("id", remarcar)
-          .eq("customer_phone", phoneDigits(clientPhone))
-          .select("id")
-          .maybeSingle();
-        if (updateError) throw updateError;
-        if (updated) return updated.id as string;
-
-        const { data: previous, error: previousError } = await supabase
-          .from("appointments")
-          .select("*")
-          .eq("id", remarcar)
-          .eq("customer_phone", phoneDigits(clientPhone))
-          .maybeSingle();
-        if (previousError) throw previousError;
-        if (!previous) {
-          throw new Error("Não foi possível remarcar este agendamento. Cancele o horário anterior e tente novamente.");
-        }
-        const { data: replaced, error: replaceError } = await supabase
-          .from("appointments")
-          .insert([
-            {
-              barber_id: previous.barber_id,
-              service_id: previous.service_id,
-              customer_name: cancellationMarkerName(previous.id, previous.customer_name),
-              customer_phone: previous.customer_phone,
-              appointment_time: cancellationMarkerTime(previous.appointment_time),
-              status: "remarcado",
-              barbershop_id: previous.barbershop_id ?? barbershopId,
-            },
-            newAppointment,
-          ])
-          .select("id, status");
-        if (replaceError) throw replaceError;
-        return (
-          ((replaced ?? []) as Array<{ id: string; status: string }>).find(
-            (r) => r.status === "confirmado",
-          )?.id ?? null
-        );
-      }
-      // Novos agendamentos são gravados exclusivamente no servidor com a
-      // identidade de serviço. Assim, o INSERT nunca depende da RLS do cliente.
+      // Todo agendamento (novo ou remarcado) nasce na API central, que grava
+      // appointments + clients na mesma transação do banco.
       const appointmentBody = {
         barber_id: barbeiroId,
         service_id: service.id,
@@ -333,7 +268,21 @@ function AgendarPage() {
       }
       const createdId = payload.id;
 
+      // Remarcação: o horário anterior é liberado somente depois que o novo
+      // agendamento já está confirmado no banco.
+      if (remarcar) {
+        const { error: releaseError } = await supabase
+          .from("appointments")
+          .update({ status: "remarcado" })
+          .eq("id", remarcar)
+          .eq("customer_phone", phoneDigits(clientPhone));
+        if (releaseError) {
+          console.warn("[agendar] não foi possível liberar o horário anterior", releaseError);
+        }
+      }
+
       return createdId;
+
     },
     onSuccess: (appointmentId) => {
       qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
