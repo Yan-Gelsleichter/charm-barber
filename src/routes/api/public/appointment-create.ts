@@ -12,7 +12,7 @@ const requestSchema = z.object({
   barber_id: z.string().uuid(),
   service_id: z.string().uuid(),
   customer_name: z.string().min(2),
-  customer_phone: z.string().regex(/^\d{8,15}$/),
+  customer_phone: z.string().transform(val => val.replace(/\D/g, "")).pipe(z.string().regex(/^\d{8,15}$/)),
   email: z.string().email().nullable().optional(),
   appointment_time: z.string().min(8),
 });
