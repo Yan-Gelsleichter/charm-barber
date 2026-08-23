@@ -8,6 +8,8 @@ import type { Appointment, Barber, WorkingHour, Service, ScheduleBlock } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getBarbershopIdByBarberId } from "@/lib/barbershop";
+import { postPublicApi } from "@/lib/api-fetch";
+
 import {
   buildSlots,
   cancelledAppointmentIds,
