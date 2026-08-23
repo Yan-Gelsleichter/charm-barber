@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
-import { buildSlots, cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
+import { buildSlots, filterActiveAppointments } from "@/lib/availability";
 import { postPublicApi } from "@/lib/api-fetch";
 import { cn } from "@/lib/utils";
 
