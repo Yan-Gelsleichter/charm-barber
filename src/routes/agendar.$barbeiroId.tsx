@@ -197,9 +197,13 @@ function AgendarPage() {
     mutationFn: async () => {
       if (!service || !slotIso) throw new Error("Selecione serviço e horário");
       const customerName = clientName.trim();
+      // Limpeza obrigatória do telefone: remove parênteses, espaços, traços
+      // e qualquer outro caractere não numérico antes de enviar para a API.
+      // O backend valida com /^\d{8,15}$/ — enviar com máscara faz o agendamento
+      // falhar (sobretudo no celular, por autofill/autocomplete mascarado).
       const customerPhone = phoneDigits(clientPhone);
       if (customerName.length < 2) throw new Error("Informe seu nome");
-      if (customerPhone.length < 10) throw new Error("Informe um telefone válido");
+      if (customerPhone.length < 8) throw new Error("Informe um telefone válido");
       // O barbershop_id é resolvido no servidor pela função transacional.
 
       // Todo agendamento (novo ou remarcado) nasce na API central, que grava
@@ -208,7 +212,9 @@ function AgendarPage() {
         barber_id: barbeiroId,
         service_id: service.id,
         customer_name: customerName,
-        customer_phone: customerPhone,
+        // Segunda barreira de segurança: garante dígitos puros mesmo se a
+        // fonte do valor vier mascarada por autofill do navegador.
+        customer_phone: phoneDigits(customerPhone),
         email: clientEmail,
         appointment_time: slotIso,
       };
