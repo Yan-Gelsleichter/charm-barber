@@ -8,6 +8,8 @@ import type { Appointment, Barber, WorkingHour, Service, ScheduleBlock } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getBarbershopIdByBarberId } from "@/lib/barbershop";
+import { postPublicApi } from "@/lib/api-fetch";
+
 import {
   buildSlots,
   cancelledAppointmentIds,
@@ -138,34 +140,29 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       const telefone = novoTelefone.trim();
       if (telefone.replace(/\D/g, "").length < 10) throw new Error("Informe um telefone válido.");
       if (!novoServico) throw new Error("Selecione um serviço.");
-      const barbershopId = await getBarbershopIdByBarberId(barber.id);
-      const { error } = await supabase.from("appointments").insert({
-        barber_id: barber.id,
-        barbershop_id: barbershopId,
-        service_id: novoServico,
-        customer_name: nome,
-        customer_phone: telefone,
-        email: novoEmail.trim() || null,
-        appointment_time: inicio.toISOString(),
-        status: "confirmado",
-      });
-      if (error) throw error;
-
-      const { data: existentes } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("barber_id", barber.id)
-        .eq("whatsapp", telefone)
-        .limit(1);
-      if (!existentes?.length) {
-        await supabase.from("clients").insert({
+      // Usa a API central: agendamento + cliente na mesma transação.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const payload = await postPublicApi<{
+        id?: string;
+        client_id?: string;
+        persisted?: boolean;
+        error?: string;
+      }>(
+        "/api/public/appointment-create",
+        {
           barber_id: barber.id,
-          barbershop_id: barbershopId,
-          name: nome,
-          whatsapp: telefone,
+          service_id: novoServico,
+          customer_name: nome,
+          customer_phone: telefone.replace(/\D/g, ""),
           email: novoEmail.trim() || null,
-        });
+          appointment_time: inicio.toISOString(),
+        },
+        sessionData.session?.access_token,
+      );
+      if (!payload?.id || !payload.client_id || payload.persisted !== true) {
+        throw new Error(payload?.error ?? "Não foi possível salvar o agendamento.");
       }
+
     },
     onSuccess: () => {
       toast.success("Agendamento criado");
