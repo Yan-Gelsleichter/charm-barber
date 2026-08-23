@@ -200,25 +200,8 @@ function AgendarPage() {
       const customerPhone = phoneDigits(clientPhone);
       if (customerName.length < 2) throw new Error("Informe seu nome");
       if (customerPhone.length < 10) throw new Error("Informe um telefone válido");
-      // Resolver barbershop_id NUNCA pode impedir a criação do agendamento.
-      let barbershopId: string | null = barberQ.data?.barbershop_id ?? null;
-      if (!barbershopId) {
-        try {
-          const { getBarbershopIdByBarberId, getMyBarbershopId } = await import("@/lib/barbershop");
-          barbershopId =
-            (await getBarbershopIdByBarberId(barbeiroId).catch(() => null)) ??
-            (await getMyBarbershopId().catch(() => null));
-        } catch (err) {
-          console.warn("[agendar] barbershop_id não resolvido:", err);
-        }
-      }
-      if (!barbershopId) {
-        try {
-          barbershopId = sessionStorage.getItem("invite_barbershop_id");
-        } catch {
-          /* ignore */
-        }
-      }
+      // O barbershop_id é resolvido no servidor pela função transacional.
+
       // Todo agendamento (novo ou remarcado) nasce na API central, que grava
       // appointments + clients na mesma transação do banco.
       const appointmentBody = {
