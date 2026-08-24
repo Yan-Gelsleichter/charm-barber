@@ -69,20 +69,31 @@ export const Route = createFileRoute("/api/public/appointment-create")({
 
           const appointmentId = String(created.data);
 
-          // Confirmação segura utilizando o ID gerado
+          // Confirma apenas pelo ID para evitar erros de colunas inexistentes
           const persisted = await admin
             .from("appointments")
-            .select("id, client_id")
+            .select("id")
             .eq("id", appointmentId)
             .maybeSingle();
 
           if (persisted.error || !persisted.data) {
-            return json({ error: "Erro ao salvar agendamento: o banco não confirmou a gravação." }, 500);
+            console.error("[appointment-create] erro na confirmação", persisted.error);
+            return json({ error: `Erro de confirmação: ${persisted.error?.message ?? "Registro não encontrado"}` }, 500);
           }
+
+          // Busca o ID do cliente recém-criado ou atualizado para retornar ao front
+          const clientQuery = await admin
+            .from("clients")
+            .select("id")
+            .eq("barber_id", d.barber_id)
+            .eq("whatsapp", d.customer_phone)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
           return json({
             id: appointmentId,
-            client_id: persisted.data.client_id ?? appointmentId,
+            client_id: clientQuery.data?.id ?? appointmentId,
             persisted: true,
           });
         } catch (error) {
