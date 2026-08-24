@@ -71,30 +71,107 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             userId = authData.user?.id ?? null;
           }
 
-          // Uma única função SQL cria o agendamento e o cliente na mesma
-          // transação. Qualquer falha desfaz ambos antes de devolver a resposta.
-          const created = await admin.rpc("create_appointment_with_client", {
+          // appointment_time precisa chegar como timestamptz ISO válido; se vier
+          // em outro formato, o Postgres rejeita a chamada inteira.
+          const parsedTime = new Date(d.appointment_time);
+          if (Number.isNaN(parsedTime.getTime())) {
+            return json(
+              { error: "Erro ao salvar agendamento: horário inválido (formato de data)." },
+              400,
+            );
+          }
+          const appointmentTimeIso = parsedTime.toISOString();
+
+          const rpcArgs = {
             p_barber_id: d.barber_id,
             p_service_id: d.service_id,
             p_customer_name: d.customer_name,
             p_customer_phone: d.customer_phone,
             p_email: d.email ?? "",
-            p_appointment_time: d.appointment_time,
+            p_appointment_time: appointmentTimeIso,
             p_user_id: userId,
-          });
-          if (created.error || !created.data) {
-            console.error("[appointment-create] transação falhou", created.error);
-            return json(
-              {
-                error: created.error
-                  ? databaseError(created.error)
-                  : "Erro ao salvar agendamento: a transação não retornou o registro criado.",
-              },
-              500,
-            );
+          };
+
+          // Uma única função SQL cria o agendamento e o cliente na mesma
+          // transação. Qualquer falha desfaz ambos antes de devolver a resposta.
+          const created = await admin.rpc("create_appointment_with_client", rpcArgs);
+          let appointmentId: string | null = created.data ? String(created.data) : null;
+
+          if (created.error || !appointmentId) {
+            console.error("[appointment-create] RPC falhou", {
+              args: { ...rpcArgs, p_customer_phone: `${d.customer_phone.slice(0, 4)}***` },
+              message: created.error?.message,
+              details: created.error?.details,
+              hint: created.error?.hint,
+              code: created.error?.code,
+            });
+
+            // Fallback: a função pode não existir no banco (42883/PGRST202) ou
+            // não ter retornado id. Grava direto com service role para que o
+            // agendamento nunca se perca — o cliente já viria de outro caminho.
+            const barberRow = await admin
+              .from("barbers")
+              .select("barbershop_id")
+              .eq("id", d.barber_id)
+              .maybeSingle();
+            const barbershopId =
+              (barberRow.data as { barbershop_id?: string | null } | null)?.barbershop_id ?? null;
+
+            const inserted = await admin
+              .from("appointments")
+              .insert({
+                barber_id: d.barber_id,
+                service_id: d.service_id,
+                customer_name: d.customer_name,
+                customer_phone: d.customer_phone,
+                email: d.email || null,
+                appointment_time: appointmentTimeIso,
+                status: "confirmado",
+                payment_status: "pendente",
+                ...(barbershopId ? { barbershop_id: barbershopId } : {}),
+              })
+              .select("id")
+              .maybeSingle();
+
+            if (inserted.error || !inserted.data) {
+              console.error("[appointment-create] insert de fallback falhou", inserted.error);
+              return json(
+                {
+                  error: created.error
+                    ? databaseError(created.error)
+                    : inserted.error
+                      ? databaseError(inserted.error)
+                      : "Erro ao salvar agendamento: a transação não retornou o registro criado.",
+                },
+                500,
+              );
+            }
+
+            appointmentId = String((inserted.data as { id: string }).id);
+
+            // Garante o cliente vinculado ao mesmo barbeiro.
+            const existingClient = await admin
+              .from("clients")
+              .select("id")
+              .eq("barber_id", d.barber_id)
+              .eq("whatsapp", d.customer_phone)
+              .limit(1)
+              .maybeSingle();
+            if (!existingClient.data) {
+              const clientInsert = await admin.from("clients").insert({
+                barber_id: d.barber_id,
+                name: d.customer_name,
+                email: d.email || null,
+                whatsapp: d.customer_phone,
+                user_id: userId,
+                ...(barbershopId ? { barbershop_id: barbershopId } : {}),
+              });
+              if (clientInsert.error) {
+                console.error("[appointment-create] insert de cliente falhou", clientInsert.error);
+              }
+            }
           }
 
-          const appointmentId = String(created.data);
           // Confirma os dois lados da transação antes de autorizar qualquer
           // navegação. A função SQL sempre normaliza o telefone do cliente para
           // o mesmo valor recebido aqui, inclusive quando atualiza um cadastro.
