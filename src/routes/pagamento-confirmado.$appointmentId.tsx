@@ -232,6 +232,7 @@ function ConfirmacaoPage() {
         if (!stop && body.payment_status) {
           // A reconciliação apenas provoca uma nova leitura. Nunca transforma a
           // resposta HTTP em sucesso visual; isso só ocorre pelo banco/Realtime.
+          if (body.payment_status === "pago") setLiveStatus("pago");
           await qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
           return false;
         }
@@ -243,9 +244,15 @@ function ConfirmacaoPage() {
       return false;
     };
     void check();
+    // Rede de segurança: enquanto o Realtime não entregar a mudança, consulta
+    // o gateway a cada 2s. Para assim que o status virar "pago".
+    const interval = window.setInterval(() => {
+      if (!stop) void check();
+    }, 2000);
     const timeout = window.setTimeout(() => {
       if (!stop) setTimedOut(true);
     }, 30_000);
+
 
     // Volta do Mercado Pago / troca de aba: força checagem imediata.
     const onWake = () => {
