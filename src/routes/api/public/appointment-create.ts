@@ -90,25 +90,22 @@ export const Route = createFileRoute("/api/public/appointment-create")({
 
           const appointmentId = String(created.data);
 
-      // Confirma apenas pela existência do ID gerado na transação, 
-      // evitando falsos negativos por divergência de formatação de telefone.
       const persistedAppointment = await admin
         .from("appointments")
-        .select("id, client_id")
+        .select("id")
         .eq("id", appointmentId)
         .maybeSingle();
 
-      if (persistedAppointment.error || !persistedAppointment.data) {
-        console.error(
-          "[appointment-create] confirmação do agendamento falhou",
-          persistedAppointment.error,
-        );
-        return json({ error: "Erro ao salvar agendamento: o banco não confirmou a gravação." }, 500);
+      if (persistedAppointment.error) {
+        return json({ error: `Erro no Select: ${JSON.stringify(persistedAppointment.error)}` }, 500);
+      }
+      if (!persistedAppointment.data) {
+        return json({ error: "Erro: O ID retornado pela função não foi encontrado na tabela appointments." }, 500);
       }
 
       return json({
         id: appointmentId,
-        client_id: persistedAppointment.data.client_id ?? appointmentId,
+        client_id: appointmentId,
         persisted: true,
       });
         } catch (error) {
