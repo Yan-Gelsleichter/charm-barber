@@ -280,6 +280,7 @@ function ConfirmacaoPage() {
     dbPreferenceId,
     qc,
   ]);
+  
     void check();
     const timeout = window.setTimeout(() => {
       if (!stop) setTimedOut(true);
