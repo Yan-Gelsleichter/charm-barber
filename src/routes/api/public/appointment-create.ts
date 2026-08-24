@@ -71,8 +71,6 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             userId = authData.user?.id ?? null;
           }
 
-          // Uma única função SQL cria o agendamento e o cliente na mesma
-          // transação. Qualquer falha desfaz ambos antes de devolver a resposta.
           const created = await admin.rpc("create_appointment_with_client", {
             p_barber_id: d.barber_id,
             p_service_id: d.service_id,
@@ -82,16 +80,12 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             p_appointment_time: d.appointment_time,
             p_user_id: userId,
           });
-          if (created.error || !created.data) {
-            console.error("[appointment-create] transação falhou", created.error);
-            return json(
-              {
-                error: created.error
-                  ? databaseError(created.error)
-                  : "Erro ao salvar agendamento: a transação não retornou o registro criado.",
-              },
-              500,
-            );
+          
+          if (created.error) {
+            return json({ error: `Erro do Banco: ${JSON.stringify(created.error)}` }, 500);
+          }
+          if (!created.data) {
+            return json({ error: "Erro: A função retornou vazio." }, 500);
           }
 
           const appointmentId = String(created.data);
