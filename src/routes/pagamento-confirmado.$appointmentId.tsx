@@ -21,6 +21,8 @@ const METHOD_LABEL: Record<string, string> = {
   presencial: "Presencial na barbearia",
 };
 
+
+
 export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
   validateSearch: (
     search: Record<string, unknown>,
@@ -94,18 +96,24 @@ function ConfirmacaoPage() {
           .maybeSingle();
       }
       if (res.error) throw res.error;
-      const data = res.data as {
-        id: string;
-        appointment_time: string;
-        service_id: string;
-        customer_name: string | null;
-        payment_status?: string | null;
-        payment_method?: string | null;
-        paid_at?: string | null;
-        mp_payment_id?: string | null;
-      } | null;
+      const data = res.data as
+        | {
+            id: string;
+            appointment_time: string;
+            service_id: string;
+            customer_name: string | null;
+            payment_status?: string | null;
+            payment_method?: string | null;
+            paid_at?: string | null;
+            mp_payment_id?: string | null;
+          }
+        | null;
       if (!data) return null;
-      const svc = await supabase.from("services").select("name, price").eq("id", data.service_id).maybeSingle();
+      const svc = await supabase
+        .from("services")
+        .select("name, price")
+        .eq("id", data.service_id)
+        .maybeSingle();
       return { appointment: data, service: svc.data as { name: string; price: number } | null };
     },
   });
@@ -114,33 +122,50 @@ function ConfirmacaoPage() {
   const service = q.data?.service ?? null;
   const storedPreferenceId = readCheckoutRef(appointmentId);
 
+  // O estado visual vem exclusivamente da linha persistida em appointments.
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
+  // Referência salva no próprio agendamento ("pref:<id>" ou id do pagamento).
+  // Garante reconciliação mesmo se o usuário recarregar sem parâmetros na URL
+  // ou abrir a tela em outro dispositivo (sem localStorage).
   const dbRef = appointment?.mp_payment_id ?? null;
   const dbPreferenceId = dbRef?.startsWith("pref:") ? dbRef.slice(5) : null;
 
   const returnedFromMp = Boolean(
     search.payment_id ||
-    search.collection_id ||
-    search.merchant_order_id ||
-    search.preference_id ||
-    search.status ||
-    search.collection_status ||
-    storedPreferenceId ||
-    dbRef,
+      search.collection_id ||
+      search.merchant_order_id ||
+      search.preference_id ||
+      search.status ||
+      search.collection_status ||
+      storedPreferenceId ||
+      dbRef,
   );
 
   const status = liveStatus ?? appointment?.payment_status ?? null;
   const paid = status === "pago";
   const method = appointment?.payment_method ?? null;
+  // Pagamento presencial: nunca consulta o gateway nem mostra "confirmando pagamento".
   const isPresencial = search.metodo === "presencial" || method === "presencial";
   const isOnline = !isPresencial && (returnedFromMp || (method != null && method !== "presencial"));
-  const failedOnline = isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
+  const failedOnline =
+    isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
 
+  // Fallback: mesmo sem nenhuma referência (mp_payment_id NULL, sem parâmetros na
+  // URL e sem localStorage), tentamos reconciliar assim que o agendamento carrega.
+  // O servidor procura o pagamento pelo external_reference (id do agendamento),
+  // então a tela nunca trava esperando um id que pode nunca ter sido salvo.
+  // Também reconcilia quando a leitura do agendamento falha (RLS/anônimo):
+  // o servidor encontra o pagamento pelo external_reference do agendamento.
   const shouldReconcile =
-    !paid && !failedOnline && !isPresencial && (isOnline || method == null || status == null || status === "pendente");
+    !paid &&
+    !failedOnline &&
+    !isPresencial &&
+    (isOnline || method == null || status == null || status === "pendente");
 
+  // O webhook atualiza appointments e o Realtime entrega essa alteração à
+  // tela imediatamente, sem esperar o próximo ciclo de polling.
   useEffect(() => {
     const channel = supabase
       .channel(`payment-confirmation:${appointmentId}`)
@@ -160,8 +185,12 @@ function ConfirmacaoPage() {
             mp_payment_id?: string | null;
           };
           if (changed.payment_status) setLiveStatus(changed.payment_status);
-          qc.setQueryData(["appointment-confirmation", appointmentId], (current: typeof q.data) =>
-            current?.appointment ? { ...current, appointment: { ...current.appointment, ...changed } } : current,
+          qc.setQueryData(
+            ["appointment-confirmation", appointmentId],
+            (current: typeof q.data) =>
+              current?.appointment
+                ? { ...current, appointment: { ...current.appointment, ...changed } }
+                : current,
           );
         },
       )
@@ -172,6 +201,7 @@ function ConfirmacaoPage() {
     };
   }, [appointmentId, qc]);
 
+ // Faz polling de reconciliação a cada 4 segundos até o pagamento ser aprovado ou expirar o tempo limite.
   const running = useRef(false);
   useEffect(() => {
     if (paid || !shouldReconcile) return;
@@ -198,6 +228,7 @@ function ConfirmacaoPage() {
             },
             token,
           )) ?? {};
+        
         if (!stop && body.payment_status) {
           await qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
           if (body.payment_status === "pago") {
@@ -212,6 +243,7 @@ function ConfirmacaoPage() {
       }
     };
 
+    // Executa imediatamente e depois a cada 4 segundos
     void check();
     const interval = window.setInterval(() => {
       void check();
@@ -248,19 +280,60 @@ function ConfirmacaoPage() {
     dbPreferenceId,
     qc,
   ]);
+  
+    void check();
+    const timeout = window.setTimeout(() => {
+      if (!stop) setTimedOut(true);
+    }, 30_000);
 
+    // Volta do Mercado Pago / troca de aba: força checagem imediata.
+    const onWake = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    window.addEventListener("focus", onWake);
+    window.addEventListener("pageshow", onWake);
+    document.addEventListener("visibilitychange", onWake);
+
+    return () => {
+      stop = true;
+      window.clearTimeout(timeout);
+      window.removeEventListener("focus", onWake);
+      window.removeEventListener("pageshow", onWake);
+      document.removeEventListener("visibilitychange", onWake);
+    };
+  }, [
+    paid,
+    shouldReconcile,
+    appointmentId,
+    search.payment_id,
+    search.collection_id,
+    search.merchant_order_id,
+    search.preference_id,
+    storedPreferenceId,
+    dbPreferenceId,
+    qc,
+  ]);
+
+
+  // Pagamento confirmado: a referência da preferência não é mais necessária.
   useEffect(() => {
     if (!paid) return;
     clearCheckoutRef(appointmentId);
     void qc.invalidateQueries({ queryKey: ["my-appointments"] });
   }, [paid, appointmentId, qc]);
 
+  // Aprovado no Mercado Pago: leva o cliente imediatamente para seus horários.
   const navigate = useNavigate();
   useEffect(() => {
     if (!paid || isPresencial) return;
     void navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } });
-  }, [paid, isPresencial, navigate, appointmentId]);
+  }, [paid, isPresencial, navigate]);
 
+
+
+  // Estado de reconciliação persistente: aparece ao voltar do Mercado Pago e
+  // permanece visível enquanto o polling consulta o status, sem travar a
+  // navegação (os botões continuam clicáveis o tempo todo).
   const reconciling =
     !!appointment &&
     !paid &&
@@ -280,13 +353,12 @@ function ConfirmacaoPage() {
         <section className="surface p-5 text-center text-sm">
           <p className="font-medium">Agendamento não encontrado</p>
           <Button asChild variant="outline" className="mt-4 w-full">
-            <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>
-              Ver meus agendamentos
-            </Link>
+            <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>Ver meus agendamentos</Link>
           </Button>
         </section>
       ) : reconciling ? (
         <>
+          {/* Carregamento elegante e persistente */}
           <div className="flex flex-col items-center text-center">
             <span className="relative flex size-20 items-center justify-center">
               <span
@@ -300,13 +372,18 @@ function ConfirmacaoPage() {
                 <Loader2 className="size-8 animate-spin text-[color:var(--primary)]" />
               </span>
             </span>
-            <h1 className="mt-5 text-xl font-semibold">{waitingTooLong ? "Quase lá…" : "Confirmando seu pagamento"}</h1>
+            <h1 className="mt-5 text-xl font-semibold">
+              {waitingTooLong
+                ? "Quase lá…"
+                : "Confirmando seu pagamento"}
+            </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {waitingTooLong
                 ? "A confirmação do Mercado Pago demorou um pouco mais. Já estamos verificando — você pode continuar navegando."
                 : "Estamos validando seu pagamento com o Mercado Pago. Não saia da tela, isso leva apenas alguns segundos."}
             </p>
 
+            {/* Barra de progresso com shimmer */}
             <div className="pay-shimmer-bar mt-5 h-2 w-full max-w-xs rounded-full bg-[color:var(--primary)]/12" />
 
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
@@ -315,6 +392,7 @@ function ConfirmacaoPage() {
             </p>
           </div>
 
+          {/* Resumo já visível durante o carregamento */}
           <section className="surface mt-6 space-y-2 p-4 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Serviço</span>
@@ -325,7 +403,7 @@ function ConfirmacaoPage() {
               <span className="font-medium">{appointment.customer_name ?? "—"}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Hor horário</span>
+              <span className="text-muted-foreground">Horário</span>
               <span className="font-medium">
                 {fmtDate(appointment.appointment_time)} · {fmtTime(appointment.appointment_time)}
               </span>
@@ -343,6 +421,7 @@ function ConfirmacaoPage() {
             </div>
           </section>
 
+          {/* Botões sempre disponíveis — a navegação nunca trava */}
           <div className="mt-6 grid gap-3">
             <Button asChild variant="hero" size="xl" className="w-full">
               <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>
@@ -365,18 +444,27 @@ function ConfirmacaoPage() {
             <span className="flex size-16 items-center justify-center rounded-full bg-[color:var(--success)]/12">
               <CheckCircle2 className="size-9 text-[color:var(--success)]" />
             </span>
-            <h1 className="mt-4 text-xl font-semibold">Agendamento confirmado!</h1>
-            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <h1 className="mt-4 text-xl font-semibold">
               {paid
-                ? "Pagamento realizado online com sucesso."
+                ? "Pagamento confirmado!"
                 : isPresencial
-                  ? "Tudo certo! Você vai pagar presencialmente na barbearia."
-                  : failedOnline
-                    ? "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
-                    : isOnline && timedOut
-                      ? "Ainda não recebemos a confirmação do Mercado Pago. Atualize a página em instantes."
-                      : "O pagamento será feito presencialmente na barbearia."}
+                  ? "Agendamento confirmado!"
+                  : "Agendamento confirmado!"}
+            </h1>
+            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              {paid ? (
+                "Pagamento realizado online com sucesso."
+              ) : isPresencial ? (
+                "Tudo certo! Você vai pagar presencialmente na barbearia."
+              ) : failedOnline ? (
+                "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
+              ) : isOnline && timedOut ? (
+                "Ainda não recebemos a confirmação do Mercado Pago. Atualize a página em instantes."
+              ) : (
+                "O pagamento será feito presencialmente na barbearia."
+              )}
             </p>
+
           </div>
 
           <section className="surface mt-6 space-y-2 p-4 text-sm">
@@ -408,7 +496,13 @@ function ConfirmacaoPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
-              <span className={paid || isPresencial ? "font-semibold text-[color:var(--success)]" : "font-medium"}>
+              <span
+                className={
+                  paid || isPresencial
+                    ? "font-semibold text-[color:var(--success)]"
+                    : "font-medium"
+                }
+              >
                 {paid
                   ? "Pago"
                   : isPresencial
