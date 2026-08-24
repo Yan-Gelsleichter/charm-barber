@@ -144,9 +144,11 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             result.status === "fulfilled" && result.value?.status ? [result.value] : [],
           );
           const payment =
-            payments.find((candidate) => mapPaymentStatus(candidate.status) === "pago") ??
-            payments[0] ??
-            null;
+    payments.find((candidate) => candidate.status === "approved" || candidate.status === "authorized") ??
+    payments.find((candidate) => mapPaymentStatus(candidate.status) === "pago") ??
+    payments.find((candidate) => candidate.status && candidate.status !== "pending") ??
+    payments[0] ??
+    null;
 
           if (!payment?.status) {
             return json({ payment_status: appointment.payment_status, updated: false });
