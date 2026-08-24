@@ -97,6 +97,16 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           const created = await admin.rpc("create_appointment_with_client", rpcArgs);
           let appointmentId: string | null = created.data ? String(created.data) : null;
 
+          // barbershop_id do barbeiro: usado tanto no fallback do agendamento
+          // quanto na gravação do cliente (isolamento multi-tenant).
+          const barberRow = await admin
+            .from("barbers")
+            .select("barbershop_id")
+            .eq("id", d.barber_id)
+            .maybeSingle();
+          const barbershopId =
+            (barberRow.data as { barbershop_id?: string | null } | null)?.barbershop_id ?? null;
+
           if (created.error || !appointmentId) {
             console.error("[appointment-create] RPC falhou", {
               args: { ...rpcArgs, p_customer_phone: `${d.customer_phone.slice(0, 4)}***` },
@@ -108,15 +118,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
 
             // Fallback: a função pode não existir no banco (42883/PGRST202) ou
             // não ter retornado id. Grava direto com service role para que o
-            // agendamento nunca se perca — o cliente já viria de outro caminho.
-            const barberRow = await admin
-              .from("barbers")
-              .select("barbershop_id")
-              .eq("id", d.barber_id)
-              .maybeSingle();
-            const barbershopId =
-              (barberRow.data as { barbershop_id?: string | null } | null)?.barbershop_id ?? null;
-
+            // agendamento nunca se perca.
             const inserted = await admin
               .from("appointments")
               .insert({
@@ -148,50 +150,61 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             }
 
             appointmentId = String((inserted.data as { id: string }).id);
+          }
 
-            // Garante o cliente vinculado ao mesmo barbeiro.
+          // Cliente sempre garantido — independente de a RPC ter funcionado.
+          // Se já existe (mesmo barbeiro + WhatsApp), atualiza nome/e-mail/vínculos.
+          let clientId: string | null = null;
+          try {
             const existingClient = await admin
               .from("clients")
               .select("id")
               .eq("barber_id", d.barber_id)
               .eq("whatsapp", d.customer_phone)
+              .order("created_at", { ascending: true })
               .limit(1)
               .maybeSingle();
-            if (!existingClient.data) {
-              const clientInsert = await admin.from("clients").insert({
-                barber_id: d.barber_id,
+
+            if (existingClient.data?.id) {
+              clientId = String(existingClient.data.id);
+              const patch: Record<string, unknown> = {
                 name: d.customer_name,
-                email: d.email || null,
-                whatsapp: d.customer_phone,
-                user_id: userId,
+                ...(d.email ? { email: d.email } : {}),
+                ...(userId ? { user_id: userId } : {}),
                 ...(barbershopId ? { barbershop_id: barbershopId } : {}),
-              });
+              };
+              const updated = await admin.from("clients").update(patch).eq("id", clientId);
+              if (updated.error) {
+                console.error("[appointment-create] update de cliente falhou", updated.error);
+              }
+            } else {
+              const clientInsert = await admin
+                .from("clients")
+                .insert({
+                  barber_id: d.barber_id,
+                  name: d.customer_name,
+                  email: d.email || null,
+                  whatsapp: d.customer_phone,
+                  user_id: userId,
+                  ...(barbershopId ? { barbershop_id: barbershopId } : {}),
+                })
+                .select("id")
+                .maybeSingle();
               if (clientInsert.error) {
                 console.error("[appointment-create] insert de cliente falhou", clientInsert.error);
               }
+              clientId = clientInsert.data?.id ? String(clientInsert.data.id) : null;
             }
+          } catch (clientError) {
+            console.error("[appointment-create] erro ao gravar cliente", clientError);
           }
 
-          // Confirma os dois lados da transação antes de autorizar qualquer
-          // navegação. A função SQL sempre normaliza o telefone do cliente para
-          // o mesmo valor recebido aqui, inclusive quando atualiza um cadastro.
-          const [persistedAppointment, persistedClient] = await Promise.all([
-            admin
-              .from("appointments")
-              .select("id, payment_status, barber_id, customer_phone")
-              .eq("id", appointmentId)
-              .eq("barber_id", d.barber_id)
-              .eq("customer_phone", d.customer_phone)
-              .maybeSingle(),
-            admin
-              .from("clients")
-              .select("id, barber_id, whatsapp")
-              .eq("barber_id", d.barber_id)
-              .eq("whatsapp", d.customer_phone)
-              .order("created_at", { ascending: true })
-              .limit(1)
-              .maybeSingle(),
-          ]);
+          // Confirma o agendamento antes de autorizar qualquer navegação.
+          const persistedAppointment = await admin
+            .from("appointments")
+            .select("id, payment_status, barber_id, customer_phone")
+            .eq("id", appointmentId)
+            .maybeSingle();
           if (persistedAppointment.error || !persistedAppointment.data) {
             console.error(
               "[appointment-create] confirmação do agendamento falhou",
@@ -199,19 +212,24 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             );
             return json({ error: "Erro ao salvar agendamento: o banco não confirmou a gravação." }, 500);
           }
-          if (persistedClient.error || !persistedClient.data) {
-            console.error(
-              "[appointment-create] confirmação do cliente falhou",
-              persistedClient.error,
-            );
-            return json({ error: "Erro ao salvar agendamento: o banco não confirmou o cadastro do cliente." }, 500);
+
+          if (!clientId) {
+            const recheck = await admin
+              .from("clients")
+              .select("id")
+              .eq("barber_id", d.barber_id)
+              .eq("whatsapp", d.customer_phone)
+              .limit(1)
+              .maybeSingle();
+            clientId = recheck.data?.id ? String(recheck.data.id) : null;
           }
 
           return json({
             id: appointmentId,
-            client_id: persistedClient.data.id,
+            client_id: clientId,
             persisted: true,
           });
+
         } catch (error) {
           console.error("[appointment-create] erro inesperado", error);
           const message = error instanceof Error ? error.message : String(error);
