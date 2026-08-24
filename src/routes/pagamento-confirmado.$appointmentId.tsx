@@ -201,14 +201,15 @@ function ConfirmacaoPage() {
     };
   }, [appointmentId, qc]);
 
- // Faz polling de reconciliação a cada 4 segundos até o pagamento ser aprovado ou expirar o tempo limite.
+  // Faz uma única reconciliação imediata ao voltar do Mercado Pago. Ela cobre o
+  // caso raro em que o webhook ainda não chegou; depois disso o Realtime assume.
   const running = useRef(false);
   useEffect(() => {
     if (paid || !shouldReconcile) return;
 
     let stop = false;
     const check = async () => {
-      if (running.current || stop) return;
+      if (running.current || stop) return false;
       running.current = true;
       try {
         const { data } = await supabase.auth.getSession();
@@ -228,31 +229,25 @@ function ConfirmacaoPage() {
             },
             token,
           )) ?? {};
-        
         if (!stop && body.payment_status) {
+          // A reconciliação apenas provoca uma nova leitura. Nunca transforma a
+          // resposta HTTP em sucesso visual; isso só ocorre pelo banco/Realtime.
           await qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
-          if (body.payment_status === "pago") {
-            setLiveStatus("pago");
-            stop = true;
-          }
+          return false;
         }
       } catch {
         /* silencioso */
       } finally {
         running.current = false;
       }
+      return false;
     };
-
-    // Executa imediatamente e depois a cada 4 segundos
     void check();
-    const interval = window.setInterval(() => {
-      void check();
-    }, 4_000);
-
     const timeout = window.setTimeout(() => {
       if (!stop) setTimedOut(true);
     }, 30_000);
 
+    // Volta do Mercado Pago / troca de aba: força checagem imediata.
     const onWake = () => {
       if (document.visibilityState === "visible") void check();
     };
@@ -262,7 +257,6 @@ function ConfirmacaoPage() {
 
     return () => {
       stop = true;
-      window.clearInterval(interval);
       window.clearTimeout(timeout);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("pageshow", onWake);
