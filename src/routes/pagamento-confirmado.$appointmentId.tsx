@@ -201,15 +201,14 @@ function ConfirmacaoPage() {
     };
   }, [appointmentId, qc]);
 
-  // Faz uma única reconciliação imediata ao voltar do Mercado Pago. Ela cobre o
-  // caso raro em que o webhook ainda não chegou; depois disso o Realtime assume.
+ // Faz polling de reconciliação a cada 4 segundos até o pagamento ser aprovado ou expirar o tempo limite.
   const running = useRef(false);
   useEffect(() => {
     if (paid || !shouldReconcile) return;
 
     let stop = false;
     const check = async () => {
-      if (running.current || stop) return false;
+      if (running.current || stop) return;
       running.current = true;
       try {
         const { data } = await supabase.auth.getSession();
@@ -229,19 +228,58 @@ function ConfirmacaoPage() {
             },
             token,
           )) ?? {};
+        
         if (!stop && body.payment_status) {
-          // A reconciliação apenas provoca uma nova leitura. Nunca transforma a
-          // resposta HTTP em sucesso visual; isso só ocorre pelo banco/Realtime.
           await qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
-          return false;
+          if (body.payment_status === "pago") {
+            setLiveStatus("pago");
+            stop = true;
+          }
         }
       } catch {
         /* silencioso */
       } finally {
         running.current = false;
       }
-      return false;
     };
+
+    // Executa imediatamente e depois a cada 4 segundos
+    void check();
+    const interval = window.setInterval(() => {
+      void check();
+    }, 4_000);
+
+    const timeout = window.setTimeout(() => {
+      if (!stop) setTimedOut(true);
+    }, 30_000);
+
+    const onWake = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    window.addEventListener("focus", onWake);
+    window.addEventListener("pageshow", onWake);
+    document.addEventListener("visibilitychange", onWake);
+
+    return () => {
+      stop = true;
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+      window.removeEventListener("focus", onWake);
+      window.removeEventListener("pageshow", onWake);
+      document.removeEventListener("visibilitychange", onWake);
+    };
+  }, [
+    paid,
+    shouldReconcile,
+    appointmentId,
+    search.payment_id,
+    search.collection_id,
+    search.merchant_order_id,
+    search.preference_id,
+    storedPreferenceId,
+    dbPreferenceId,
+    qc,
+  ]);
     void check();
     const timeout = window.setTimeout(() => {
       if (!stop) setTimedOut(true);
