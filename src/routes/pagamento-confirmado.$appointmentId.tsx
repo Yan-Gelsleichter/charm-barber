@@ -280,38 +280,6 @@ function ConfirmacaoPage() {
     dbPreferenceId,
     qc,
   ]);
-    void check();
-    const timeout = window.setTimeout(() => {
-      if (!stop) setTimedOut(true);
-    }, 30_000);
-
-    // Volta do Mercado Pago / troca de aba: força checagem imediata.
-    const onWake = () => {
-      if (document.visibilityState === "visible") void check();
-    };
-    window.addEventListener("focus", onWake);
-    window.addEventListener("pageshow", onWake);
-    document.addEventListener("visibilitychange", onWake);
-
-    return () => {
-      stop = true;
-      window.clearTimeout(timeout);
-      window.removeEventListener("focus", onWake);
-      window.removeEventListener("pageshow", onWake);
-      document.removeEventListener("visibilitychange", onWake);
-    };
-  }, [
-    paid,
-    shouldReconcile,
-    appointmentId,
-    search.payment_id,
-    search.collection_id,
-    search.merchant_order_id,
-    search.preference_id,
-    storedPreferenceId,
-    dbPreferenceId,
-    qc,
-  ]);
 
 
   // Pagamento confirmado: a referência da preferência não é mais necessária.
