@@ -78,7 +78,11 @@ function ConfirmacaoPage() {
 
   const q = useQuery({
     queryKey: ["appointment-confirmation", appointmentId],
+    staleTime: 0,
+    gcTime: 0,
     refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    structuralSharing: false,
     queryFn: async () => {
       let res = await supabase
         .from("appointments")
@@ -117,8 +121,11 @@ function ConfirmacaoPage() {
     },
   });
 
-  const appointment = q.data?.appointment ?? null;
-  const service = q.data?.service ?? null;
+  // Uma confirmação em cache nunca pode reaparecer enquanto o SELECT atual
+  // ainda não terminou.
+  const confirmedData = q.isFetching ? undefined : q.data;
+  const appointment = confirmedData?.appointment ?? null;
+  const service = confirmedData?.service ?? null;
   // O estado visual vem exclusivamente da linha persistida em appointments.
   const [timedOut, setTimedOut] = useState(false);
 
@@ -301,7 +308,7 @@ function ConfirmacaoPage() {
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
-      {q.isLoading ? (
+      {q.isLoading || q.isFetching ? (
         <div className="flex justify-center py-16">
           <Loader2 className="animate-spin" />
         </div>

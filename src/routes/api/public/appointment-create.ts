@@ -121,7 +121,9 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           const [persistedAppointment, persistedClient] = await Promise.all([
             admin
               .from("appointments")
-              .select("id, payment_status, barber_id, customer_phone")
+              .select(
+                "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status",
+              )
               .eq("id", appointmentId)
               .eq("barber_id", d.barber_id)
               .eq("service_id", d.service_id)
@@ -154,10 +156,31 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             );
           }
 
+          const savedAppointment = persistedAppointment.data;
+          const savedTime = new Date(savedAppointment.appointment_time).getTime();
+          if (
+            savedAppointment.customer_phone !== d.customer_phone ||
+            savedAppointment.customer_name.trim() !== d.customer_name.trim() ||
+            savedTime !== parsedTime.getTime()
+          ) {
+            console.error("[appointment-create] linha confirmada diverge da solicitação", {
+              appointmentId,
+              expectedTime: appointmentTimeIso,
+              savedTime: savedAppointment.appointment_time,
+              phoneMatches: savedAppointment.customer_phone === d.customer_phone,
+              nameMatches: savedAppointment.customer_name.trim() === d.customer_name.trim(),
+            });
+            return json(
+              { error: "Erro ao salvar agendamento: os dados gravados não foram confirmados." },
+              500,
+            );
+          }
+
           return json({
             id: appointmentId,
             client_id: String(persistedClient.data.id),
             persisted: true,
+            appointment: savedAppointment,
           });
 
         } catch (error) {

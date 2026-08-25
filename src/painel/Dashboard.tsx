@@ -11,6 +11,11 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const q = useQuery({
     queryKey: ["dash", barber.id],
     refetchInterval: 20_000,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    structuralSharing: false,
     queryFn: async () => {
 
       const monthAgo = new Date();
@@ -40,9 +45,11 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   startWeek.setDate(startWeek.getDate() - startWeek.getDay());
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const priceMap = new Map((q.data?.services ?? []).map((s) => [s.id, Number(s.price)]));
+  // Nunca mistura um SELECT em andamento com dados antigos mantidos em memória.
+  const freshData = q.isFetching ? undefined : q.data;
+  const priceMap = new Map((freshData?.services ?? []).map((s) => [s.id, Number(s.price)]));
   const appointments = hideRejectedPayments(
-    filterActiveAppointments(q.data?.appointments ?? []),
+    filterActiveAppointments(freshData?.appointments ?? []),
   );
 
   const sum = (from: Date) =>
@@ -92,7 +99,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid gap-2">
             {hoje.map((a) => {
-              const sv = q.data?.services.find((s) => s.id === a.service_id);
+              const sv = freshData?.services.find((s) => s.id === a.service_id);
               const fim =
                 new Date(a.appointment_time).getTime() +
                 (sv?.duration_minutes ?? 30) * 60_000;
@@ -139,7 +146,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid gap-2">
             {proximos.map((a) => {
-              const sv = q.data?.services.find((s) => s.id === a.service_id);
+              const sv = freshData?.services.find((s) => s.id === a.service_id);
               return (
                 <div key={a.id} className="surface flex flex-col gap-2 p-4">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">

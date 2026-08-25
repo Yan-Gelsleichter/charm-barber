@@ -39,6 +39,11 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   const q = useQuery({
     queryKey: ["agenda-painel", barber.id, dayKey],
     refetchInterval: 20_000,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    structuralSharing: false,
     queryFn: async () => {
 
       const end = new Date(date);
@@ -170,7 +175,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       setNovoTelefone("");
       setNovoEmail("");
       setNovoOpen(false);
-      qc.invalidateQueries({ queryKey: ["agenda-painel", barber.id] });
+      void qc.resetQueries({ queryKey: ["agenda-painel", barber.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -279,10 +284,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     setDate(d);
   }
 
-  const allAppts = q.data?.appointments ?? [];
+  // Enquanto um SELECT está em andamento, não renderiza a cópia anterior do
+  // cache. Os cards só reaparecem com a resposta mais recente do banco.
+  const freshData = q.isFetching ? undefined : q.data;
+  const allAppts = freshData?.appointments ?? [];
   const ativosAll = filterActiveAppointments(allAppts);
   const ativos = hideRejectedPayments(ativosAll.filter((a) => !isBlock(a)));
-  const bloqueios = q.data?.blocks ?? [];
+  const bloqueios = freshData?.blocks ?? [];
   const cancelMarkerTargets = cancelledAppointmentIds(
     allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
   );
@@ -491,7 +499,15 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Agendamentos
         </h2>
-        {ativos.length === 0 ? (
+        {q.isFetching ? (
+          <div className="surface flex items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
+            <RefreshCw className="size-4 animate-spin" /> Consultando agendamentos no banco...
+          </div>
+        ) : q.isError ? (
+          <div role="alert" className="surface border-destructive/40 p-6 text-center text-sm text-destructive">
+            Não foi possível consultar os agendamentos no banco. Atualize a tela e tente novamente.
+          </div>
+        ) : ativos.length === 0 ? (
           <div className="surface p-6 text-center text-sm text-muted-foreground">
             Nenhum agendamento neste dia.
           </div>
