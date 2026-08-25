@@ -220,7 +220,8 @@ function AgendarPage() {
       };
       type CreateResult = {
         id?: string;
-        client_id?: string;
+        client_id?: string | null;
+        client_synced?: boolean;
         persisted?: boolean;
         appointment?: {
           id: string;
@@ -228,12 +229,6 @@ function AgendarPage() {
           service_id: string;
           customer_phone: string;
           appointment_time: string;
-        };
-        client?: {
-          id: string;
-          barber_id: string;
-          name: string;
-          whatsapp: string | null;
         };
         error?: string;
       };
@@ -245,71 +240,21 @@ function AgendarPage() {
         session?.access_token,
       );
       const confirmed = payload?.appointment;
-      const confirmedClient = payload?.client;
       if (
         !payload?.id ||
-        !payload.client_id ||
         payload.persisted !== true ||
         !confirmed ||
-        !confirmedClient ||
         confirmed.id !== payload.id ||
         confirmed.barber_id !== barbeiroId ||
         confirmed.service_id !== service.id ||
         confirmed.customer_phone !== customerPhone ||
-        new Date(confirmed.appointment_time).getTime() !== new Date(slotIso).getTime() ||
-        confirmedClient.id !== payload.client_id ||
-        confirmedClient.barber_id !== barbeiroId ||
-        confirmedClient.whatsapp !== customerPhone ||
-        confirmedClient.name.trim() !== customerName
+        new Date(confirmed.appointment_time).getTime() !== new Date(slotIso).getTime()
       ) {
         throw new Error(
           payload?.error ?? "Erro ao salvar agendamento: o servidor não confirmou a gravação.",
         );
       }
       const createdId = payload.id;
-
-      // Segunda confirmação, agora pelo mesmo cliente de banco usado pelo painel.
-      // Isso impede avançar caso a API e o navegador estejam apontando para
-      // instâncias diferentes ou se as linhas não estiverem realmente visíveis.
-      const [browserAppointment, browserClient] = await Promise.all([
-        supabase
-          .from("appointments")
-          .select("id, barber_id, service_id, customer_name, customer_phone, appointment_time")
-          .eq("id", createdId)
-          .eq("barber_id", barbeiroId)
-          .eq("service_id", service.id)
-          .maybeSingle(),
-        supabase
-          .from("clients")
-          .select("id, barber_id, name, whatsapp")
-          .eq("id", payload.client_id)
-          .eq("barber_id", barbeiroId)
-          .maybeSingle(),
-      ]);
-      const verifiedAppointment = browserAppointment.data;
-      const verifiedClient = browserClient.data;
-      if (
-        browserAppointment.error ||
-        browserClient.error ||
-        !verifiedAppointment ||
-        !verifiedClient ||
-        verifiedAppointment.customer_phone !== customerPhone ||
-        verifiedAppointment.customer_name.trim() !== customerName ||
-        new Date(verifiedAppointment.appointment_time).getTime() !== new Date(slotIso).getTime() ||
-        verifiedClient.whatsapp !== customerPhone ||
-        verifiedClient.name.trim() !== customerName
-      ) {
-        console.error("[agendar] confirmação direta no banco falhou", {
-          appointmentId: createdId,
-          appointmentError: browserAppointment.error?.message,
-          clientError: browserClient.error?.message,
-          appointmentFound: Boolean(verifiedAppointment),
-          clientFound: Boolean(verifiedClient),
-        });
-        throw new Error(
-          "Erro ao salvar agendamento: o banco não confirmou o agendamento e o cliente. Tente novamente.",
-        );
-      }
 
       // Remarcação: o horário anterior é liberado somente depois que o novo
       // agendamento já está confirmado no banco.
