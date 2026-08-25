@@ -144,12 +144,34 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           }
 
           const savedAppointment = created.data;
-          const savedTime = new Date(savedAppointment.appointment_time).getTime();
+          const persistedResult = await admin
+            .from("appointments")
+            .select(
+              "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status",
+            )
+            .eq("id", savedAppointment.id)
+            .maybeSingle();
+          if (persistedResult.error || !persistedResult.data) {
+            console.error("[appointment-create] releitura de appointments falhou", {
+              appointmentId: savedAppointment.id,
+              message: persistedResult.error?.message,
+              details: persistedResult.error?.details,
+              hint: persistedResult.error?.hint,
+              code: persistedResult.error?.code,
+            });
+            return json(
+              { error: "Erro ao salvar agendamento: o banco não confirmou o registro inserido." },
+              500,
+            );
+          }
+
+          const confirmedAppointment = persistedResult.data;
+          const savedTime = new Date(confirmedAppointment.appointment_time).getTime();
           if (
-            savedAppointment.customer_phone !== d.customer_phone ||
-            savedAppointment.customer_name.trim() !== d.customer_name.trim() ||
-            savedAppointment.barber_id !== d.barber_id ||
-            savedAppointment.service_id !== d.service_id ||
+            confirmedAppointment.customer_phone !== d.customer_phone ||
+            confirmedAppointment.customer_name.trim() !== d.customer_name.trim() ||
+            confirmedAppointment.barber_id !== d.barber_id ||
+            confirmedAppointment.service_id !== d.service_id ||
             savedTime !== parsedTime.getTime()
           ) {
             console.error("[appointment-create] appointment confirmado diverge da solicitação", {
@@ -201,7 +223,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             client_id: savedClientId,
             client_synced: Boolean(savedClientId),
             persisted: true,
-            appointment: savedAppointment,
+            appointment: confirmedAppointment,
           });
 
         } catch (error) {
