@@ -256,6 +256,32 @@ function AgendarPage() {
       }
       const createdId = payload.id;
 
+      // Uma segunda leitura ativa pelo mesmo cliente usado pelo painel impede
+      // navegar com uma resposta de API que não esteja fisicamente consultável.
+      const persisted = await supabase
+        .from("appointments")
+        .select("id, barber_id, service_id, customer_name, customer_phone, appointment_time")
+        .eq("id", createdId)
+        .maybeSingle();
+      if (
+        persisted.error ||
+        !persisted.data ||
+        persisted.data.barber_id !== barbeiroId ||
+        persisted.data.service_id !== service.id ||
+        persisted.data.customer_name.trim() !== customerName ||
+        persisted.data.customer_phone !== customerPhone ||
+        new Date(persisted.data.appointment_time).getTime() !== new Date(slotIso).getTime()
+      ) {
+        console.error("[agendar] releitura final de appointments falhou", {
+          appointmentId: createdId,
+          message: persisted.error?.message,
+          found: Boolean(persisted.data),
+        });
+        throw new Error(
+          "Erro ao salvar agendamento: o banco não confirmou o registro. Tente novamente.",
+        );
+      }
+
       // Remarcação: o horário anterior é liberado somente depois que o novo
       // agendamento já está confirmado no banco.
       if (remarcar) {

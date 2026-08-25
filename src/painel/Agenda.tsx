@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, X, Lock, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { PhoneInput } from "@/components/PhoneInput";
 import { EmailInput } from "@/components/EmailInput";
+import { useDirectAppointments } from "@/hooks/use-direct-appointments";
 
 
 
@@ -35,9 +36,19 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   });
 
   const dayKey = date.toISOString().slice(0, 10);
+  const dayEnd = useMemo(() => {
+    const end = new Date(date);
+    end.setDate(end.getDate() + 1);
+    return end.toISOString();
+  }, [date]);
+  const directAppointments = useDirectAppointments({
+    barberId: barber.id,
+    from: date.toISOString(),
+    to: dayEnd,
+  });
 
   const q = useQuery({
-    queryKey: ["agenda-painel", barber.id, dayKey],
+    queryKey: ["agenda-apoio", barber.id, dayKey],
     refetchInterval: 20_000,
     staleTime: 0,
     gcTime: 0,
@@ -46,16 +57,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     structuralSharing: false,
     queryFn: async () => {
 
-      const end = new Date(date);
-      end.setDate(end.getDate() + 1);
-      const [a, h, s, b] = await Promise.all([
-        supabase
-          .from("appointments")
-          .select("*")
-          .eq("barber_id", barber.id)
-          .gte("appointment_time", date.toISOString())
-          .lt("appointment_time", end.toISOString())
-          .order("appointment_time"),
+      const [h, s, b] = await Promise.all([
         supabase.from("working_hours").select("*").eq("barber_id", barber.id),
         supabase.from("services").select("*").eq("barber_id", barber.id),
         supabase
@@ -63,15 +65,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           .select("*")
           .eq("barber_id", barber.id)
           .gte("start_time", date.toISOString())
-          .lt("start_time", end.toISOString())
+          .lt("start_time", dayEnd)
           .order("start_time"),
       ]);
-      if (a.error) throw a.error;
       if (h.error) throw h.error;
       if (s.error) throw s.error;
       if (b.error) throw b.error;
       return {
-        appointments: a.data as Appointment[],
         hours: h.data as WorkingHour[],
         services: s.data as Service[],
         blocks: b.data as ScheduleBlock[],
@@ -79,19 +79,11 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     },
   });
 
-  // Ao abrir ou trocar o dia, descarte qualquer resposta anterior antes do
-  // novo SELECT. Assim nenhum card sobrevive na memória entre consultas.
-  useEffect(() => {
-    qc.removeQueries({ queryKey: ["agenda-painel", barber.id], exact: false });
-    void q.refetch();
-  }, [barber.id, dayKey]);
-
-
   // ---- Reagendamento (barbeiro) ----
   const [reschedId, setReschedId] = useState<string | null>(null);
   const [reschedDate, setReschedDate] = useState(() => new Date().toISOString().slice(0, 10));
 
-  const reschedTarget = (q.data?.appointments ?? []).find((a) => a.id === reschedId) ?? null;
+  const reschedTarget = (directAppointments.appointments ?? []).find((a) => a.id === reschedId) ?? null;
 
   const reschedQ = useQuery({
     enabled: !!reschedId,
@@ -197,7 +189,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
     },
     onSuccess: async () => {
-      await qc.resetQueries({ queryKey: ["agenda-painel", barber.id] });
+      await directAppointments.refresh();
       toast.success("Agendamento criado");
       setNovoNome("");
       setNovoTelefone("");
@@ -264,29 +256,29 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   const refService = q.data?.services.slice().sort((a, b) => a.duration_minutes - b.duration_minutes)[0];
 
   const slots = useMemo(() => {
-    if (!refService || !q.data) return [];
+    if (!refService || !q.data || !directAppointments.appointments) return [];
     return buildSlots({
       date,
       service: refService,
       hours: q.data.hours,
-      appointments: q.data.appointments,
+      appointments: directAppointments.appointments,
       servicesMap,
       blocks: q.data.blocks,
     });
-  }, [date, refService, q.data, servicesMap]);
+  }, [date, refService, q.data, servicesMap, directAppointments.appointments]);
 
   const novoSlots = useMemo(() => {
     const sv = servicesMap.get(novoServico);
-    if (!sv || !q.data) return [];
+    if (!sv || !q.data || !directAppointments.appointments) return [];
     return buildSlots({
       date,
       service: sv,
       hours: q.data.hours,
-      appointments: q.data.appointments,
+      appointments: directAppointments.appointments,
       servicesMap,
       blocks: q.data.blocks,
     });
-  }, [date, novoServico, q.data, servicesMap]);
+  }, [date, novoServico, q.data, servicesMap, directAppointments.appointments]);
 
 
 
@@ -311,13 +303,11 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     setDate(d);
   }
 
-  // Enquanto um SELECT está em andamento, não renderiza a cópia anterior do
-  // cache. Os cards só reaparecem com a resposta mais recente do banco.
-  const freshData = q.isFetching ? undefined : q.data;
-  const allAppts = freshData?.appointments ?? [];
+  // Sem cache: null significa que o SELECT direto ainda está em andamento.
+  const allAppts = directAppointments.appointments ?? [];
   const ativosAll = filterActiveAppointments(allAppts);
   const ativos = hideRejectedPayments(ativosAll.filter((a) => !isBlock(a)));
-  const bloqueios = freshData?.blocks ?? [];
+  const bloqueios = q.data?.blocks ?? [];
   const cancelMarkerTargets = cancelledAppointmentIds(
     allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
   );
@@ -526,11 +516,11 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Agendamentos
         </h2>
-        {q.isFetching ? (
+        {directAppointments.loading ? (
           <div className="surface flex items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
             <RefreshCw className="size-4 animate-spin" /> Consultando agendamentos no banco...
           </div>
-        ) : q.isError ? (
+        ) : directAppointments.error ? (
           <div role="alert" className="surface border-destructive/40 p-6 text-center text-sm text-destructive">
             Não foi possível consultar os agendamentos no banco. Atualize a tela e tente novamente.
           </div>

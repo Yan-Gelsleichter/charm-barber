@@ -6,10 +6,17 @@ import type { Appointment, Barber, Service } from "@/integrations/supabase/db-ty
 import { brl, fmtTime } from "@/lib/format";
 import { filterActiveAppointments, hideRejectedPayments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
+import { useDirectAppointments } from "@/hooks/use-direct-appointments";
 
 export function DashboardTab({ barber }: { barber: Barber }) {
+  const monthAgo = new Date();
+  monthAgo.setDate(monthAgo.getDate() - 31);
+  const directAppointments = useDirectAppointments({
+    barberId: barber.id,
+    from: monthAgo.toISOString(),
+  });
   const q = useQuery({
-    queryKey: ["dash", barber.id],
+    queryKey: ["dash-services", barber.id],
     refetchInterval: 20_000,
     staleTime: 0,
     gcTime: 0,
@@ -18,23 +25,9 @@ export function DashboardTab({ barber }: { barber: Barber }) {
     structuralSharing: false,
     queryFn: async () => {
 
-      const monthAgo = new Date();
-      monthAgo.setDate(monthAgo.getDate() - 31);
-      const [agRes, svRes] = await Promise.all([
-        supabase
-          .from("appointments")
-          .select("*")
-          .eq("barber_id", barber.id)
-          .gte("appointment_time", monthAgo.toISOString())
-          .order("appointment_time"),
-        supabase.from("services").select("*").eq("barber_id", barber.id),
-      ]);
-      if (agRes.error) throw agRes.error;
+      const svRes = await supabase.from("services").select("*").eq("barber_id", barber.id);
       if (svRes.error) throw svRes.error;
-      return {
-        appointments: agRes.data as Appointment[],
-        services: svRes.data as Service[],
-      };
+      return svRes.data as Service[];
     },
   });
 
@@ -46,10 +39,10 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   // Nunca mistura um SELECT em andamento com dados antigos mantidos em memória.
-  const freshData = q.isFetching ? undefined : q.data;
-  const priceMap = new Map((freshData?.services ?? []).map((s) => [s.id, Number(s.price)]));
+  const freshServices = q.isFetching ? [] : (q.data ?? []);
+  const priceMap = new Map(freshServices.map((s) => [s.id, Number(s.price)]));
   const appointments = hideRejectedPayments(
-    filterActiveAppointments(freshData?.appointments ?? []),
+    filterActiveAppointments(directAppointments.appointments ?? []),
   );
 
   const sum = (from: Date) =>
@@ -99,7 +92,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid gap-2">
             {hoje.map((a) => {
-              const sv = freshData?.services.find((s) => s.id === a.service_id);
+              const sv = freshServices.find((s) => s.id === a.service_id);
               const fim =
                 new Date(a.appointment_time).getTime() +
                 (sv?.duration_minutes ?? 30) * 60_000;
@@ -146,7 +139,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid gap-2">
             {proximos.map((a) => {
-              const sv = freshData?.services.find((s) => s.id === a.service_id);
+              const sv = freshServices.find((s) => s.id === a.service_id);
               return (
                 <div key={a.id} className="surface flex flex-col gap-2 p-4">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
