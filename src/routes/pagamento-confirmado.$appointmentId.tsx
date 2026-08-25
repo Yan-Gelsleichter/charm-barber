@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, CalendarDays, ArrowLeft } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { readCheckoutRef, clearCheckoutRef } from "@/lib/checkout-ref";
 import { postPublicApi } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";

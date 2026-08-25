@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtTime } from "@/lib/format";
 import { filterActiveAppointments, hideRejectedPayments } from "@/lib/availability";
