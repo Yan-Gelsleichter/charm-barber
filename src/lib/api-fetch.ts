@@ -18,7 +18,12 @@ export async function postPublicApi<T>(
   const payload = JSON.stringify(body);
 
   try {
-    const res = await fetch(path, { method: "POST", headers, body: payload });
+    const res = await fetch(path, {
+      method: "POST",
+      headers,
+      body: payload,
+      cache: "no-store",
+    });
     return await readJson<T>(res);
   } catch {
     return null;
