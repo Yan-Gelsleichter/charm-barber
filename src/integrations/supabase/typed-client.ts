@@ -8,8 +8,8 @@ import type { Database } from "./db-types";
  * while this application still stores its users and business data in the
  * original backend exposed through the SB_* compatibility binding.
  */
-const url = import.meta.env.VITE_SB_URL as string | undefined;
-const publishableKey = import.meta.env.VITE_SB_ANON_KEY as string | undefined;
+const url = "__APP_DATABASE_URL__";
+const publishableKey = "__APP_DATABASE_PUBLIC_KEY__";
 
 if (!url || !publishableKey) {
   throw new Error("A conexão com o banco de dados do aplicativo não está configurada.");
