@@ -5,15 +5,17 @@ import { createClient } from "@supabase/supabase-js";
  * as novas chaves opacas sb_secret_*. Deve ser criado dentro de cada request.
  */
 export function createSupabaseAdmin() {
+  // SB_* tem prioridade: são as credenciais do projeto Supabase próprio do app.
   const url =
-    process.env["SUPABASE_URL"] ||
     process.env["SB_URL"] ||
+    process.env["SUPABASE_URL"] ||
     process.env["VITE_SUPABASE_URL"] ||
     (import.meta.env.VITE_SUPABASE_URL as string | undefined);
   const key =
-    process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
     process.env["SB_SERVICE_ROLE_KEY"] ||
+    process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
     process.env["SERVICE_ROLE_KEY"];
+
 
   if (!url || !key) return null;
 
