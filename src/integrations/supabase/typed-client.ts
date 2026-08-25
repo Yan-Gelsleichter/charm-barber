@@ -1,13 +1,24 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-import { supabase as generatedSupabase } from "./client";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./db-types";
 
 /**
- * Typed facade for the generated browser client.
+ * Typed client for the application's existing database.
  *
- * The generated schema currently contains no public tables, while db-types
- * mirrors the application's existing database schema. Keeping this adapter
- * separate avoids editing generated integration files.
+ * The generated Lovable Cloud client points to the newly provisioned backend,
+ * while this application still stores its users and business data in the
+ * original backend exposed through the SB_* compatibility binding.
  */
-export const supabase = generatedSupabase as unknown as SupabaseClient<Database>;
+const url = "https://axuvfztbyfmswpcveujo.supabase.co";
+const publishableKey = "sb_publishable_pdUbjMiCu-ZXE6K2kh_umA_AjwtS9Oa";
+
+if (!url || !publishableKey) {
+  throw new Error("A conexão com o banco de dados do aplicativo não está configurada.");
+}
+
+export const supabase: SupabaseClient<Database> = createClient<Database>(url, publishableKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
