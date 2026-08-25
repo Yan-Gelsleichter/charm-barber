@@ -222,6 +222,13 @@ function AgendarPage() {
         id?: string;
         client_id?: string;
         persisted?: boolean;
+        appointment?: {
+          id: string;
+          barber_id: string;
+          service_id: string;
+          customer_phone: string;
+          appointment_time: string;
+        };
         error?: string;
       };
 
@@ -231,7 +238,18 @@ function AgendarPage() {
         appointmentBody,
         session?.access_token,
       );
-      if (!payload?.id || !payload.client_id || payload.persisted !== true) {
+      const confirmed = payload?.appointment;
+      if (
+        !payload?.id ||
+        !payload.client_id ||
+        payload.persisted !== true ||
+        !confirmed ||
+        confirmed.id !== payload.id ||
+        confirmed.barber_id !== barbeiroId ||
+        confirmed.service_id !== service.id ||
+        confirmed.customer_phone !== customerPhone ||
+        new Date(confirmed.appointment_time).getTime() !== new Date(slotIso).getTime()
+      ) {
         throw new Error(
           payload?.error ?? "Erro ao salvar agendamento: o servidor não confirmou a gravação.",
         );
@@ -254,9 +272,11 @@ function AgendarPage() {
       return createdId;
 
     },
-    onSuccess: (appointmentId) => {
-      qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] });
-      qc.invalidateQueries({ queryKey: ["my-appointments"] });
+    onSuccess: async (appointmentId) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] }),
+        qc.invalidateQueries({ queryKey: ["my-appointments"] }),
+      ]);
       toast.success("Horário reservado!", {
         description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });
