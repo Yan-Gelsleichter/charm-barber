@@ -151,6 +151,20 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         id?: string;
         client_id?: string;
         persisted?: boolean;
+        appointment?: {
+          id: string;
+          barber_id: string;
+          service_id: string;
+          customer_name: string;
+          customer_phone: string;
+          appointment_time: string;
+        };
+        client?: {
+          id: string;
+          barber_id: string;
+          name: string;
+          whatsapp: string | null;
+        };
         error?: string;
       }>(
         "/api/public/appointment-create",
@@ -164,18 +178,36 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         },
         sessionData.session?.access_token,
       );
-      if (!payload?.id || !payload.client_id || payload.persisted !== true) {
+      const savedAppointment = payload?.appointment;
+      const savedClient = payload?.client;
+      if (
+        !payload?.id ||
+        !payload.client_id ||
+        payload.persisted !== true ||
+        !savedAppointment ||
+        !savedClient ||
+        savedAppointment.id !== payload.id ||
+        savedAppointment.barber_id !== barber.id ||
+        savedAppointment.service_id !== novoServico ||
+        savedAppointment.customer_phone !== telefone.replace(/\D/g, "") ||
+        savedAppointment.customer_name.trim() !== nome ||
+        new Date(savedAppointment.appointment_time).getTime() !== inicio.getTime() ||
+        savedClient.id !== payload.client_id ||
+        savedClient.barber_id !== barber.id ||
+        savedClient.whatsapp !== telefone.replace(/\D/g, "") ||
+        savedClient.name.trim() !== nome
+      ) {
         throw new Error(payload?.error ?? "Não foi possível salvar o agendamento.");
       }
 
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await qc.resetQueries({ queryKey: ["agenda-painel", barber.id] });
       toast.success("Agendamento criado");
       setNovoNome("");
       setNovoTelefone("");
       setNovoEmail("");
       setNovoOpen(false);
-      void qc.resetQueries({ queryKey: ["agenda-painel", barber.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

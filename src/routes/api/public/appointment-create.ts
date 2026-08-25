@@ -130,7 +130,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               .maybeSingle(),
             admin
               .from("clients")
-              .select("id")
+              .select("id, barber_id, name, whatsapp, email, user_id, barbershop_id")
               .eq("barber_id", d.barber_id)
               .eq("whatsapp", d.customer_phone)
               .order("created_at", { ascending: true })
@@ -157,11 +157,15 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           }
 
           const savedAppointment = persistedAppointment.data;
+          const savedClient = persistedClient.data;
           const savedTime = new Date(savedAppointment.appointment_time).getTime();
           if (
             savedAppointment.customer_phone !== d.customer_phone ||
             savedAppointment.customer_name.trim() !== d.customer_name.trim() ||
-            savedTime !== parsedTime.getTime()
+            savedTime !== parsedTime.getTime() ||
+            savedClient.barber_id !== d.barber_id ||
+            savedClient.whatsapp !== d.customer_phone ||
+            savedClient.name.trim() !== d.customer_name.trim()
           ) {
             console.error("[appointment-create] linha confirmada diverge da solicitação", {
               appointmentId,
@@ -169,6 +173,9 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               savedTime: savedAppointment.appointment_time,
               phoneMatches: savedAppointment.customer_phone === d.customer_phone,
               nameMatches: savedAppointment.customer_name.trim() === d.customer_name.trim(),
+              clientBarberMatches: savedClient.barber_id === d.barber_id,
+              clientPhoneMatches: savedClient.whatsapp === d.customer_phone,
+              clientNameMatches: savedClient.name.trim() === d.customer_name.trim(),
             });
             return json(
               { error: "Erro ao salvar agendamento: os dados gravados não foram confirmados." },
@@ -178,9 +185,10 @@ export const Route = createFileRoute("/api/public/appointment-create")({
 
           return json({
             id: appointmentId,
-            client_id: String(persistedClient.data.id),
+            client_id: String(savedClient.id),
             persisted: true,
             appointment: savedAppointment,
+            client: savedClient,
           });
 
         } catch (error) {

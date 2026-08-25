@@ -229,6 +229,12 @@ function AgendarPage() {
           customer_phone: string;
           appointment_time: string;
         };
+        client?: {
+          id: string;
+          barber_id: string;
+          name: string;
+          whatsapp: string | null;
+        };
         error?: string;
       };
 
@@ -239,16 +245,22 @@ function AgendarPage() {
         session?.access_token,
       );
       const confirmed = payload?.appointment;
+      const confirmedClient = payload?.client;
       if (
         !payload?.id ||
         !payload.client_id ||
         payload.persisted !== true ||
         !confirmed ||
+        !confirmedClient ||
         confirmed.id !== payload.id ||
         confirmed.barber_id !== barbeiroId ||
         confirmed.service_id !== service.id ||
         confirmed.customer_phone !== customerPhone ||
-        new Date(confirmed.appointment_time).getTime() !== new Date(slotIso).getTime()
+        new Date(confirmed.appointment_time).getTime() !== new Date(slotIso).getTime() ||
+        confirmedClient.id !== payload.client_id ||
+        confirmedClient.barber_id !== barbeiroId ||
+        confirmedClient.whatsapp !== customerPhone ||
+        confirmedClient.name.trim() !== customerName
       ) {
         throw new Error(
           payload?.error ?? "Erro ao salvar agendamento: o servidor não confirmou a gravação.",
