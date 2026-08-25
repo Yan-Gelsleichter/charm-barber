@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
+import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
 /**
  * Marca um agendamento como "pagar presencialmente".
@@ -28,37 +29,16 @@ export const Route = createFileRoute("/api/public/appointment-local-payment")({
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) return json({ error: "Agendamento inválido." }, 400);
 
-          const supabaseUrl =
-            process.env["SUPABASE_URL"] ||
-            process.env["SB_URL"] ||
-            process.env["VITE_SUPABASE_URL"] ||
-            (import.meta.env.VITE_SUPABASE_URL as string | undefined);
-          const publishableKey =
-            process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-            process.env["SB_PUBLISHABLE_KEY"] ||
-            process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-            (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined);
-          const serviceKey =
-            process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
-            process.env["SB_SERVICE_ROLE_KEY"] ||
-            process.env["SERVICE_ROLE_KEY"];
-
-          if (!supabaseUrl || !publishableKey || !serviceKey) {
+          const admin = createSupabaseAdmin();
+          if (!admin) {
             return json({ error: "Serviço temporariamente indisponível." }, 503);
           }
 
-          const asUser = createClient(supabaseUrl, publishableKey, {
-            global: { headers: { Authorization: authorization } },
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
-          const { data: userData, error: userError } = await asUser.auth.getUser();
+          const bearer = authorization.slice("Bearer ".length).trim();
+          const { data: userData, error: userError } = await admin.auth.getUser(bearer);
           if (userError || !userData.user) {
             return json({ error: "Sua sessão expirou. Faça login novamente." }, 401);
           }
-
-          const admin = createClient(supabaseUrl, serviceKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
 
           const found = await admin
             .from("appointments")
@@ -69,29 +49,29 @@ export const Route = createFileRoute("/api/public/appointment-local-payment")({
             return json({ error: "Agendamento não encontrado no banco de dados." }, 404);
           }
           if ((found.data as { payment_status?: string | null }).payment_status === "pago") {
-            return json({ ok: true, already_paid: true });
+            return json({
+              ok: true,
+              already_paid: true,
+              appointment: {
+                id: found.data.id,
+                payment_method: null,
+                payment_status: "pago",
+              },
+            });
           }
 
           const updated = await admin
             .from("appointments")
             .update({ payment_method: "presencial", payment_status: "pendente" })
             .eq("id", parsed.data.appointment_id)
-            .select("id")
+            .select("id, payment_method, payment_status")
             .maybeSingle();
-          if (updated.error) {
-            const partial = await admin
-              .from("appointments")
-              .update({ payment_method: "presencial" })
-              .eq("id", parsed.data.appointment_id)
-              .select("id")
-              .maybeSingle();
-            if (partial.error) {
-              console.error("[local-payment] update falhou", partial.error);
-              return json({ error: "Não foi possível registrar o pagamento presencial." }, 500);
-            }
+          if (updated.error || !updated.data) {
+            console.error("[local-payment] update ou confirmação falhou", updated.error);
+            return json({ error: "Não foi possível registrar o pagamento presencial." }, 500);
           }
 
-          return json({ ok: true });
+          return json({ ok: true, appointment: updated.data });
         } catch (error) {
           console.error("[local-payment] erro inesperado", error);
           return json({ error: "Erro inesperado ao registrar o pagamento presencial." }, 500);

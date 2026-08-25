@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ArrowLeft, CreditCard, Store, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { brl, fmtTime } from "@/lib/format";
-import { saveCheckoutRef } from "@/lib/checkout-ref";
 import { postPublicApi } from "@/lib/api-fetch";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -43,12 +42,10 @@ export const Route = createFileRoute("/pagamento/$appointmentId")({
 function PagamentoPage() {
   const { appointmentId } = Route.useParams();
   const navigate = useNavigate();
-  const [payStatus, setPayStatus] = useState<string>("pendente");
-  const paid = payStatus === "pago";
-
   const apptQ = useQuery({
     queryKey: ["appointment-pay", appointmentId],
-    refetchInterval: paid ? false : 10_000,
+    refetchInterval: (query) =>
+      query.state.data?.appointment.payment_status === "pago" ? false : 2_000,
     queryFn: async () => {
       // As colunas de pagamento podem ainda não existir: cai para as básicas.
       let res = await supabase
@@ -83,12 +80,9 @@ function PagamentoPage() {
     },
   });
 
-  // Status vindo do banco (atualizado pelo webhook do Mercado Pago).
-  const dbStatus = apptQ.data?.appointment.payment_status ?? null;
-  useEffect(() => {
-    if (payStatus === "pago") return;
-    if (dbStatus && dbStatus !== payStatus) setPayStatus(dbStatus);
-  }, [dbStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+  // O estado visual é sempre a linha relida do banco.
+  const payStatus = apptQ.data?.appointment.payment_status ?? "pendente";
+  const paid = payStatus === "pago";
 
   const finish = useCallback(() => {
     setTimeout(
@@ -126,8 +120,6 @@ function PagamentoPage() {
         );
       }
 
-      // Vincula a preferência ao agendamento para reconciliar no retorno.
-      saveCheckoutRef(appointmentId, data.preference_id);
       return data.init_point;
     },
     onSuccess: (initPoint) => {
@@ -139,48 +131,18 @@ function PagamentoPage() {
 
   const payLocal = useMutation({
     mutationFn: async () => {
-      // 1) Caminho principal: rota do servidor (service role), imune a RLS.
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (accessToken) {
-        const response = await fetch("/api/public/appointment-local-payment", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-          body: JSON.stringify({ appointment_id: appointmentId }),
-        });
-        if (response.ok) return;
-        if (response.status === 404) {
-          throw new Error("Agendamento não encontrado no banco de dados.");
-        }
+      if (!accessToken) throw new Error("Faça login novamente para continuar.");
+      const result = await postPublicApi<{
+        ok?: boolean;
+        appointment?: { id: string; payment_method: string | null; payment_status: string | null };
+        error?: string;
+      }>("/api/public/appointment-local-payment", { appointment_id: appointmentId }, accessToken);
+      if (!result?.ok || result.appointment?.id !== appointmentId) {
+        throw new Error(result?.error ?? "O banco não confirmou o pagamento presencial.");
       }
-
-      // 2) Fallback: tenta direto pelo cliente (quando há política de UPDATE).
-      const full = await supabase
-        .from("appointments")
-        .update({ payment_method: "presencial", payment_status: "pendente" })
-        .eq("id", appointmentId)
-        .select("id")
-        .maybeSingle();
-      if (!full.error && full.data) return;
-
-      const partial = await supabase
-        .from("appointments")
-        .update({ payment_method: "presencial" })
-        .eq("id", appointmentId)
-        .select("id")
-        .maybeSingle();
-      if (!partial.error && partial.data) return;
-
-      // 3) O update pode ter sido bloqueado por RLS mesmo com a linha existindo.
-      // Se o agendamento existe, seguimos: ele já está salvo e pendente.
-      const exists = await supabase
-        .from("appointments")
-        .select("id")
-        .eq("id", appointmentId)
-        .maybeSingle();
-      if (exists.data) return;
-
-      throw new Error("Agendamento não encontrado no banco de dados.");
+      await apptQ.refetch();
     },
 
     onError: (e: Error) =>

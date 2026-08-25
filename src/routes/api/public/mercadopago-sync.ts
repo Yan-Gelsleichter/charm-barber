@@ -144,19 +144,27 @@ export const Route = createFileRoute("/api/public/mercadopago-sync")({
               payment_method: "online",
               paid_at:
                 paymentStatus === "pago" ? (row.paid_at ?? new Date().toISOString()) : null,
+              ...(paymentStatus === "pago" ? { status: "confirmado" } : {}),
             };
             if (payment.id) patch["mp_payment_id"] = String(payment.id);
 
-            const { error: updateError } = await admin
+            const { data: persisted, error: updateError } = await admin
               .from("appointments")
               .update(patch)
-              .eq("id", row.id);
-            if (updateError) {
-              console.error("Sync MP: falha ao atualizar agendamento", updateError);
+              .eq("id", row.id)
+              .select("id, payment_status, status")
+              .maybeSingle();
+            if (
+              updateError ||
+              !persisted ||
+              (paymentStatus === "pago" && persisted.payment_status !== "pago")
+            ) {
+              console.error("Sync MP: falha ao atualizar ou confirmar agendamento", {
+                appointmentId: row.id,
+                updateError,
+                persisted,
+              });
               continue;
-            }
-            if (paymentStatus === "pago") {
-              await admin.from("appointments").update({ status: "confirmado" }).eq("id", row.id);
             }
             updated += 1;
           }
