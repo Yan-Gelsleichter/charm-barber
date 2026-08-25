@@ -117,92 +117,46 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             );
           }
 
-          // Confirma primeiro a linha do agendamento e usa o barbershop_id que
-          // realmente foi persistido para garantir o vínculo correto do cliente.
-          const persistedAppointment = await admin
-            .from("appointments")
-            .select(
-              "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status, barbershop_id",
-            )
-            .eq("id", appointmentId)
-            .eq("barber_id", d.barber_id)
-            .eq("service_id", d.service_id)
-            .maybeSingle();
-
-          if (persistedAppointment.error || !persistedAppointment.data) {
-            console.error("[appointment-create] agendamento não confirmado", {
+          // A resposta positiva só existe depois de reler ambas as tabelas.
+          const [persistedAppointment, persistedClient] = await Promise.all([
+            admin
+              .from("appointments")
+              .select(
+                "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status",
+              )
+              .eq("id", appointmentId)
+              .eq("barber_id", d.barber_id)
+              .eq("service_id", d.service_id)
+              .maybeSingle(),
+            admin
+              .from("clients")
+              .select("id, barber_id, name, whatsapp, email, user_id, barbershop_id")
+              .eq("barber_id", d.barber_id)
+              .eq("whatsapp", d.customer_phone)
+              .order("created_at", { ascending: true })
+              .limit(1)
+              .maybeSingle(),
+          ]);
+          if (
+            persistedAppointment.error ||
+            !persistedAppointment.data ||
+            persistedClient.error ||
+            !persistedClient.data
+          ) {
+            console.error("[appointment-create] confirmação atômica falhou", {
               appointmentId,
-              error: persistedAppointment.error,
+              appointmentError: persistedAppointment.error,
+              clientError: persistedClient.error,
+              appointmentFound: Boolean(persistedAppointment.data),
+              clientFound: Boolean(persistedClient.data),
             });
             return json(
-              { error: "Erro ao salvar agendamento: o banco não confirmou o agendamento." },
+              { error: "Erro ao salvar agendamento: o banco não confirmou todos os registros." },
               500,
             );
           }
 
           const savedAppointment = persistedAppointment.data;
-          const clientPayload = {
-            barber_id: d.barber_id,
-            barbershop_id: savedAppointment.barbershop_id,
-            name: d.customer_name.trim(),
-            whatsapp: d.customer_phone,
-            email: d.email?.trim().toLowerCase() || null,
-            ...(userId ? { user_id: userId } : {}),
-          };
-
-          // Upsert explícito e obrigatório. Isso também cobre instalações que
-          // ainda estejam com uma versão antiga da RPC que criava só appointments.
-          let existingClient = await admin
-            .from("clients")
-            .select("id")
-            .eq("barber_id", d.barber_id)
-            .eq("whatsapp", d.customer_phone)
-            .order("created_at", { ascending: true })
-            .limit(1)
-            .maybeSingle();
-
-          if (!existingClient.data && userId) {
-            existingClient = await admin
-              .from("clients")
-              .select("id")
-              .eq("barber_id", d.barber_id)
-              .eq("user_id", userId)
-              .order("created_at", { ascending: true })
-              .limit(1)
-              .maybeSingle();
-          }
-
-          const persistedClient = existingClient.data?.id
-            ? await admin
-                .from("clients")
-                .update(clientPayload)
-                .eq("id", existingClient.data.id)
-                .select("id, barber_id, name, whatsapp, email, user_id, barbershop_id")
-                .maybeSingle()
-            : await admin
-                .from("clients")
-                .insert(clientPayload)
-                .select("id, barber_id, name, whatsapp, email, user_id, barbershop_id")
-                .maybeSingle();
-
-          if (existingClient.error || persistedClient.error || !persistedClient.data) {
-            const rollback = await admin.from("appointments").delete().eq("id", appointmentId);
-            console.error("[appointment-create] cliente não persistido; agendamento revertido", {
-              appointmentId,
-              lookupError: existingClient.error,
-              clientError: persistedClient.error,
-              rollbackError: rollback.error,
-            });
-            return json(
-              {
-                error: rollback.error
-                  ? "Erro crítico ao salvar cliente; o agendamento não pôde ser revertido. Tente novamente."
-                  : "Erro ao salvar cliente; o agendamento foi cancelado e não será exibido como confirmado.",
-              },
-              500,
-            );
-          }
-
           const savedClient = persistedClient.data;
           const savedTime = new Date(savedAppointment.appointment_time).getTime();
           if (
