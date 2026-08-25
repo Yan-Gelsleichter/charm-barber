@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { ArrowLeft, CreditCard, Store, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { Button } from "@/components/ui/button";
 import { brl, fmtTime } from "@/lib/format";
 import { saveCheckoutRef } from "@/lib/checkout-ref";

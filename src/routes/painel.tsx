@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { useMeBarber } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
 import { usePayoutMode } from "@/hooks/use-payout-mode";

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typed-client";
 import { isClientAccount } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
 import { Button } from "@/components/ui/button";
