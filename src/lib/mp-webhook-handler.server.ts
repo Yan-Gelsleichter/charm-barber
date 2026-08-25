@@ -250,8 +250,14 @@ async function applyPayment(
   }
   const { data: updatedRows, error } = await updateQuery.select("id");
 
-  if (error) {
-    console.error("Webhook MP: falha ao atualizar agendamento", error);
+  const persisted = Array.isArray(updatedRows) ? updatedRows[0] : null;
+  if (error || !persisted) {
+    console.error("Webhook MP: falha ao atualizar ou confirmar agendamento", {
+      appointmentId,
+      paymentId,
+      error,
+      updatedRows,
+    });
     // Libera a reserva para que uma nova entrega possa repetir o UPDATE.
     if (eventTableAvailable) {
       const { error: releaseError } = await admin
@@ -260,7 +266,22 @@ async function applyPayment(
         .eq("event_id", eventId);
       if (releaseError) console.error("Webhook MP: falha ao liberar evento", releaseError);
     }
-    return new Response("update failed", { status: 500 });
+    return new Response("update not persisted", { status: 500 });
+  }
+
+  const persistedStatus = String(
+    (persisted as { payment_status?: string | null }).payment_status ?? "",
+  );
+  if (isApproved && persistedStatus !== "pago") {
+    console.error("Webhook MP: banco não confirmou status pago", {
+      appointmentId,
+      paymentId,
+      persistedStatus,
+    });
+    if (eventTableAvailable) {
+      await admin.from("mp_webhook_events").delete().eq("event_id", eventId);
+    }
+    return new Response("paid status not persisted", { status: 500 });
   }
 
   if (isApproved) {

@@ -82,13 +82,8 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           const envError = mpEnvGuardError();
           if (envError) return json({ error: envError }, 503);
 
-          const supabaseUrl =
-            process.env["SUPABASE_URL"] ||
-            process.env["SB_URL"] ||
-            process.env["VITE_SUPABASE_URL"] ||
-            (import.meta.env.VITE_SUPABASE_URL as string | undefined);
           const admin = createSupabaseAdmin();
-          if (!supabaseUrl || !admin) {
+          if (!admin) {
             console.error("Checkout Pro: credenciais do banco ausentes no servidor");
             return json({ error: "O pagamento está temporariamente indisponível." }, 503);
           }

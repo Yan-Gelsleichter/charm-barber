@@ -124,7 +124,7 @@ function ConfirmacaoPage() {
 
   // Referência salva no próprio agendamento ("pref:<id>" ou id do pagamento).
   // Garante reconciliação mesmo se o usuário recarregar sem parâmetros na URL
-  // ou abrir a tela em outro dispositivo (sem localStorage).
+  // ou abrir a tela em outro dispositivo.
   const dbRef = appointment?.mp_payment_id ?? null;
   const dbPreferenceId = dbRef?.startsWith("pref:") ? dbRef.slice(5) : null;
 
@@ -147,8 +147,8 @@ function ConfirmacaoPage() {
   const failedOnline =
     isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
 
-  // Fallback: mesmo sem nenhuma referência (mp_payment_id NULL, sem parâmetros na
-  // URL e sem localStorage), tentamos reconciliar assim que o agendamento carrega.
+  // Fallback: mesmo sem nenhuma referência (mp_payment_id NULL e sem parâmetros na
+  // URL), tentamos reconciliar assim que o agendamento carrega.
   // O servidor procura o pagamento pelo external_reference (id do agendamento),
   // então a tela nunca trava esperando um id que pode nunca ter sido salvo.
   // Também reconcilia quando a leitura do agendamento falha (RLS/anônimo):
