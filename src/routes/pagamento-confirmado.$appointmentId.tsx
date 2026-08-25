@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, CalendarDays, ArrowLeft } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { readCheckoutRef, clearCheckoutRef } from "@/lib/checkout-ref";
 import { postPublicApi } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
 import { brl, fmtDate, fmtTime } from "@/lib/format";
@@ -120,10 +119,7 @@ function ConfirmacaoPage() {
 
   const appointment = q.data?.appointment ?? null;
   const service = q.data?.service ?? null;
-  const storedPreferenceId = readCheckoutRef(appointmentId);
-
   // O estado visual vem exclusivamente da linha persistida em appointments.
-  const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
   // Referência salva no próprio agendamento ("pref:<id>" ou id do pagamento).
@@ -139,11 +135,10 @@ function ConfirmacaoPage() {
       search.preference_id ||
       search.status ||
       search.collection_status ||
-      storedPreferenceId ||
       dbRef,
   );
 
-  const status = liveStatus ?? appointment?.payment_status ?? null;
+  const status = appointment?.payment_status ?? null;
   const paid = status === "pago";
   const method = appointment?.payment_method ?? null;
   // Pagamento presencial: nunca consulta o gateway nem mostra "confirmando pagamento".
@@ -184,14 +179,10 @@ function ConfirmacaoPage() {
             paid_at?: string | null;
             mp_payment_id?: string | null;
           };
-          if (changed.payment_status) setLiveStatus(changed.payment_status);
-          qc.setQueryData(
-            ["appointment-confirmation", appointmentId],
-            (current: typeof q.data) =>
-              current?.appointment
-                ? { ...current, appointment: { ...current.appointment, ...changed } }
-                : current,
-          );
+          // Realtime é somente um gatilho: o conteúdo exibido é relido do banco.
+          if (changed.payment_status || changed.mp_payment_id) {
+            void qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
+          }
         },
       )
       .subscribe();
@@ -223,8 +214,8 @@ function ConfirmacaoPage() {
                 ? { payment_id: search.payment_id ?? search.collection_id }
                 : {}),
               ...(search.merchant_order_id ? { merchant_order_id: search.merchant_order_id } : {}),
-              ...(search.preference_id || storedPreferenceId || dbPreferenceId
-                ? { preference_id: search.preference_id ?? storedPreferenceId ?? dbPreferenceId }
+               ...(search.preference_id || dbPreferenceId
+                 ? { preference_id: search.preference_id ?? dbPreferenceId }
                 : {}),
             },
             token,
@@ -232,7 +223,6 @@ function ConfirmacaoPage() {
         if (!stop && body.payment_status) {
           // A reconciliação apenas provoca uma nova leitura. Nunca transforma a
           // resposta HTTP em sucesso visual; isso só ocorre pelo banco/Realtime.
-          if (body.payment_status === "pago") setLiveStatus("pago");
           await qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
           return false;
         }
@@ -264,6 +254,7 @@ function ConfirmacaoPage() {
 
     return () => {
       stop = true;
+      window.clearInterval(interval);
       window.clearTimeout(timeout);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("pageshow", onWake);
@@ -277,16 +268,13 @@ function ConfirmacaoPage() {
     search.collection_id,
     search.merchant_order_id,
     search.preference_id,
-    storedPreferenceId,
     dbPreferenceId,
     qc,
   ]);
 
 
-  // Pagamento confirmado: a referência da preferência não é mais necessária.
   useEffect(() => {
     if (!paid) return;
-    clearCheckoutRef(appointmentId);
     void qc.invalidateQueries({ queryKey: ["my-appointments"] });
   }, [paid, appointmentId, qc]);
 
