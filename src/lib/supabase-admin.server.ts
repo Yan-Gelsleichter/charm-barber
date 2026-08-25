@@ -6,13 +6,13 @@ import { createClient } from "@supabase/supabase-js";
  */
 export function createSupabaseAdmin() {
   const url =
-    process.env["SB_URL"] ||
     process.env["SUPABASE_URL"] ||
+    process.env["SB_URL"] ||
     process.env["VITE_SUPABASE_URL"] ||
     (import.meta.env.VITE_SUPABASE_URL as string | undefined);
   const key =
-    process.env["SB_SERVICE_ROLE_KEY"] ||
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
+    process.env["SB_SERVICE_ROLE_KEY"] ||
     process.env["SERVICE_ROLE_KEY"];
 
   if (!url || !key) return null;

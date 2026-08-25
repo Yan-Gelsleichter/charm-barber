@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Scissors, Calendar, LogOut, CalendarDays, LayoutDashboard, Loader2 } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 import type { Barber } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { BrandTitle, BrandMark } from "@/components/Brand";

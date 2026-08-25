@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 import type { Barber } from "@/integrations/supabase/db-types";
 
 export function isClientAccount(session: Pick<Session, "user"> | null) {

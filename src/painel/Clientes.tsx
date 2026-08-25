@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Pencil, Trash2, X, Save, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 import type { Barber, Client } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

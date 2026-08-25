@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 import type { PayoutMode } from "@/lib/mercadopago";
 
 /** Lê o modelo de repasse da barbearia (padrão: conta única). */

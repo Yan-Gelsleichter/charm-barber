@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PaymentBadge } from "@/components/PaymentBadge";
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";

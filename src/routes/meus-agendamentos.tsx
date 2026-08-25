@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, CreditCard, Loader2, LogOut, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-auth";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { BrandMark } from "@/components/Brand";

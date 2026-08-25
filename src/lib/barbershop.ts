@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 
 const cache = new Map<string, string | null>();
 

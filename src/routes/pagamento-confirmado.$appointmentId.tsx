@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, CalendarDays, ArrowLeft } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 import { readCheckoutRef, clearCheckoutRef } from "@/lib/checkout-ref";
 import { postPublicApi } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
@@ -125,7 +125,6 @@ function ConfirmacaoPage() {
   // O estado visual vem exclusivamente da linha persistida em appointments.
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
-  const realtimeSubscribed = useRef(false);
 
   // Referência salva no próprio agendamento ("pref:<id>" ou id do pagamento).
   // Garante reconciliação mesmo se o usuário recarregar sem parâmetros na URL
@@ -179,11 +178,6 @@ function ConfirmacaoPage() {
           filter: `id=eq.${appointmentId}`,
         },
         (payload) => {
-          console.info("[checkout-realtime] alteração recebida", {
-            appointment_id: appointmentId,
-            event: payload.eventType,
-            payment_status: (payload.new as { payment_status?: string | null }).payment_status ?? null,
-          });
           const changed = payload.new as {
             payment_status?: string | null;
             payment_method?: string | null;
@@ -200,37 +194,9 @@ function ConfirmacaoPage() {
           );
         },
       )
-      .subscribe((subscriptionStatus, error) => {
-        realtimeSubscribed.current = subscriptionStatus === "SUBSCRIBED";
-        if (subscriptionStatus === "SUBSCRIBED") {
-          console.info("[checkout-realtime] assinatura ativa", {
-            appointment_id: appointmentId,
-            channel: channel.topic,
-          });
-          return;
-        }
-        if (subscriptionStatus === "CHANNEL_ERROR" || subscriptionStatus === "TIMED_OUT") {
-          console.error("[checkout-realtime] falha na assinatura", {
-            appointment_id: appointmentId,
-            status: subscriptionStatus,
-            message: error?.message ?? null,
-          });
-        }
-      });
-
-    const subscriptionCheck = window.setTimeout(() => {
-      if (!realtimeSubscribed.current) {
-        console.error("[checkout-realtime] assinatura não confirmada", {
-          appointment_id: appointmentId,
-          expected_table: "public.appointments",
-          expected_event: "UPDATE",
-        });
-      }
-    }, 5000);
+      .subscribe();
 
     return () => {
-      window.clearTimeout(subscriptionCheck);
-      realtimeSubscribed.current = false;
       void supabase.removeChannel(channel);
     };
   }, [appointmentId, qc]);
@@ -298,7 +264,6 @@ function ConfirmacaoPage() {
 
     return () => {
       stop = true;
-      window.clearInterval(interval);
       window.clearTimeout(timeout);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("pageshow", onWake);

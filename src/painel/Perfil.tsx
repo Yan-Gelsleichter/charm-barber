@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
 
-import { supabase } from "@/integrations/supabase/typed-client";
+import { supabase } from "@/integrations/supabase/client";
 import type { Barber } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
