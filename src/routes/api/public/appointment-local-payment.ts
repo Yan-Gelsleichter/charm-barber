@@ -49,7 +49,15 @@ export const Route = createFileRoute("/api/public/appointment-local-payment")({
             return json({ error: "Agendamento não encontrado no banco de dados." }, 404);
           }
           if ((found.data as { payment_status?: string | null }).payment_status === "pago") {
-            return json({ ok: true, already_paid: true });
+            return json({
+              ok: true,
+              already_paid: true,
+              appointment: {
+                id: found.data.id,
+                payment_method: null,
+                payment_status: "pago",
+              },
+            });
           }
 
           const updated = await admin
