@@ -225,31 +225,12 @@ function AgendarPage() {
         error?: string;
       };
 
-      // Usa primeiro o servidor da versão que o cliente está vendo. Isso evita
-      // chamar uma publicação antiga durante testes no preview. O domínio
-      // publicado fica apenas como fallback quando a rota local é bloqueada.
-      let payload: CreateResult | null = null;
-      try {
-        const headers: Record<string, string> = { "content-type": "application/json" };
-        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-        const response = await fetch("/api/public/appointment-create", {
-          method: "POST",
-          headers,
-          body: JSON.stringify(appointmentBody),
-        });
-        if (response.headers.get("content-type")?.includes("application/json")) {
-          payload = (await response.json()) as CreateResult;
-        }
-      } catch {
-        payload = null;
-      }
-      if (!payload) {
-        payload = await postPublicApi<CreateResult>(
-          "/api/public/appointment-create",
-          appointmentBody,
-          session?.access_token,
-        );
-      }
+      // Celular e computador usam exatamente a mesma chamada autoritativa.
+      const payload = await postPublicApi<CreateResult>(
+        "/api/public/appointment-create",
+        appointmentBody,
+        session?.access_token,
+      );
       if (!payload?.id || !payload.client_id || payload.persisted !== true) {
         throw new Error(
           payload?.error ?? "Erro ao salvar agendamento: o servidor não confirmou a gravação.",
