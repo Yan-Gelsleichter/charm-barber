@@ -268,6 +268,49 @@ function AgendarPage() {
       }
       const createdId = payload.id;
 
+      // Segunda confirmação, agora pelo mesmo cliente de banco usado pelo painel.
+      // Isso impede avançar caso a API e o navegador estejam apontando para
+      // instâncias diferentes ou se as linhas não estiverem realmente visíveis.
+      const [browserAppointment, browserClient] = await Promise.all([
+        supabase
+          .from("appointments")
+          .select("id, barber_id, service_id, customer_name, customer_phone, appointment_time")
+          .eq("id", createdId)
+          .eq("barber_id", barbeiroId)
+          .eq("service_id", service.id)
+          .maybeSingle(),
+        supabase
+          .from("clients")
+          .select("id, barber_id, name, whatsapp")
+          .eq("id", payload.client_id)
+          .eq("barber_id", barbeiroId)
+          .maybeSingle(),
+      ]);
+      const verifiedAppointment = browserAppointment.data;
+      const verifiedClient = browserClient.data;
+      if (
+        browserAppointment.error ||
+        browserClient.error ||
+        !verifiedAppointment ||
+        !verifiedClient ||
+        verifiedAppointment.customer_phone !== customerPhone ||
+        verifiedAppointment.customer_name.trim() !== customerName ||
+        new Date(verifiedAppointment.appointment_time).getTime() !== new Date(slotIso).getTime() ||
+        verifiedClient.whatsapp !== customerPhone ||
+        verifiedClient.name.trim() !== customerName
+      ) {
+        console.error("[agendar] confirmação direta no banco falhou", {
+          appointmentId: createdId,
+          appointmentError: browserAppointment.error?.message,
+          clientError: browserClient.error?.message,
+          appointmentFound: Boolean(verifiedAppointment),
+          clientFound: Boolean(verifiedClient),
+        });
+        throw new Error(
+          "Erro ao salvar agendamento: o banco não confirmou o agendamento e o cliente. Tente novamente.",
+        );
+      }
+
       // Remarcação: o horário anterior é liberado somente depois que o novo
       // agendamento já está confirmado no banco.
       if (remarcar) {

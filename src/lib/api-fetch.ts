@@ -24,8 +24,13 @@ export async function postPublicApi<T>(
       body: payload,
       cache: "no-store",
     });
-    return await readJson<T>(res);
-  } catch {
-    return null;
+    const response = await readJson<T & { error?: string }>(res);
+    if (!res.ok) {
+      throw new Error(response?.error ?? `A operação falhou no servidor (HTTP ${res.status}).`);
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error("Não foi possível comunicar com o servidor. Tente novamente.");
   }
 }
