@@ -248,7 +248,9 @@ async function applyPayment(
   if (!isApproved && paymentStatus !== "estornado") {
     updateQuery = updateQuery.neq("payment_status", "pago");
   }
-  const { data: updatedRows, error } = await updateQuery.select("id");
+  const { data: updatedRows, error } = await updateQuery.select(
+    "id, payment_status, payment_method, paid_at, mp_payment_id",
+  );
 
   const persisted = Array.isArray(updatedRows) ? updatedRows[0] : null;
   if (error || !persisted) {
