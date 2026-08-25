@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, X, Lock, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -78,6 +78,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       };
     },
   });
+
+  // Ao abrir ou trocar o dia, descarte qualquer resposta anterior antes do
+  // novo SELECT. Assim nenhum card sobrevive na memória entre consultas.
+  useEffect(() => {
+    qc.removeQueries({ queryKey: ["agenda-painel", barber.id], exact: false });
+    void q.refetch();
+  }, [barber.id, dayKey]);
 
 
   // ---- Reagendamento (barbeiro) ----

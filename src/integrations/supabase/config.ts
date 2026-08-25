@@ -1,8 +1,9 @@
 /**
- * O navegador usa exclusivamente o banco configurado para este projeto.
- * Não mantenha URL ou chave de outro banco como fallback: isso faria o painel
- * ler linhas diferentes das confirmadas pela API de criação.
+ * Projeto Supabase oficial deste app (instância própria do cliente).
+ * As chaves abaixo são públicas (publishable/anon), podem ficar no código.
+ *
+ * A API usa a credencial SB_* desta mesma instância. Não usar o projeto vazio
+ * provisionado no ambiente como fallback, pois leitura e escrita divergiriam.
  */
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-export const SUPABASE_PUBLISHABLE_KEY = import.meta.env
-  .VITE_SUPABASE_PUBLISHABLE_KEY as string;
+export const SUPABASE_URL = "https://axuvfztbyfmswpcveujo.supabase.co";
+export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_pdUbjMiCu-ZXE6K2kh_umA_AjwtS9Oa";
