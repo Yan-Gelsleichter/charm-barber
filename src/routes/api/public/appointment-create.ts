@@ -88,9 +88,17 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           if (bearer) {
             const { data: authData, error: authError } = await admin.auth.getUser(bearer);
             if (authError) {
-              return json({ error: "Erro ao salvar agendamento: sessão do cliente inválida." }, 401);
+              // O vínculo com auth é opcional neste endpoint público. Uma sessão
+              // expirada não pode impedir a reserva nem o cadastro do cliente.
+              console.error("[appointment-create] auth.getUser falhou", {
+                request_id: requestId,
+                code: authError.code ?? null,
+                message: authError.message,
+                status: authError.status ?? null,
+              });
+            } else {
+              userId = authData.user?.id ?? null;
             }
-            userId = authData.user?.id ?? null;
           }
 
           // appointment_time precisa chegar como timestamptz ISO válido; se vier
@@ -260,7 +268,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
         } catch (error) {
           console.error("[appointment-create] erro inesperado", { request_id: requestId, error });
           const message = error instanceof Error ? error.message : String(error);
-          return json({ error: `Erro ao salvar agendamento: ${message}` }, 500);
+          return json({ error: `Erro ao salvar agendamento: ${message}`, request_id: requestId }, 500);
         }
       },
     },
