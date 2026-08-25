@@ -31,16 +31,37 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function databaseError(error: {
+type DatabaseFailure = {
   message: string;
   details?: string | null;
   hint?: string | null;
   code?: string | null;
-}) {
+};
+
+function databaseError(error: DatabaseFailure, target: "agendamento" | "cliente") {
   const extra = [error.details, error.hint, error.code ? `código ${error.code}` : null]
     .filter(Boolean)
     .join(" · ");
-  return `Erro ao salvar agendamento: ${error.message}${extra ? ` (${extra})` : ""}`;
+  return `Erro ao salvar ${target}: ${error.message}${extra ? ` (${extra})` : ""}`;
+}
+
+function logDatabaseFailure(
+  requestId: string,
+  table: "appointments" | "clients" | "barbers",
+  operation: string,
+  error: DatabaseFailure | null,
+  context: Record<string, string | null>,
+) {
+  console.error(`[appointment-create] ${table}.${operation} falhou`, {
+    request_id: requestId,
+    table,
+    operation,
+    code: error?.code ?? null,
+    message: error?.message ?? "A consulta não retornou o registro esperado.",
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+    ...context,
+  });
 }
 
 export const Route = createFileRoute("/api/public/appointment-create")({
@@ -48,6 +69,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
       POST: async ({ request }) => {
+        const requestId = crypto.randomUUID();
         try {
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) {
@@ -82,79 +104,53 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           }
           const appointmentTimeIso = parsedTime.toISOString();
 
-          const rpcArgs = {
-            p_barber_id: d.barber_id,
-            p_service_id: d.service_id,
-            p_customer_name: d.customer_name,
-            p_customer_phone: d.customer_phone,
-            p_email: d.email ?? "",
-            p_appointment_time: appointmentTimeIso,
-            p_user_id: userId,
-          };
-
-          // Uma única função SQL cria o agendamento e o cliente na mesma
-          // transação. Qualquer falha desfaz ambos antes de devolver a resposta.
-          const created = await admin.rpc("create_appointment_with_client", rpcArgs);
-          let appointmentId: string | null = created.data ? String(created.data) : null;
-
-          // barbershop_id do barbeiro: usado tanto no fallback do agendamento
-          // quanto na gravação do cliente (isolamento multi-tenant).
+          // Resolve o tenant uma vez, antes das duas gravações. Falhas nessa
+          // consulta são registradas, mas não impedem as tentativas abaixo.
           const barberRow = await admin
             .from("barbers")
             .select("barbershop_id")
             .eq("id", d.barber_id)
             .maybeSingle();
+          if (barberRow.error || !barberRow.data) {
+            logDatabaseFailure(requestId, "barbers", "select", barberRow.error, {
+              barber_id: d.barber_id,
+            });
+          }
           const barbershopId =
             (barberRow.data as { barbershop_id?: string | null } | null)?.barbershop_id ?? null;
 
-          if (created.error || !appointmentId) {
-            console.error("[appointment-create] RPC falhou", {
-              args: { ...rpcArgs, p_customer_phone: `${d.customer_phone.slice(0, 4)}***` },
-              message: created.error?.message,
-              details: created.error?.details,
-              hint: created.error?.hint,
-              code: created.error?.code,
+          // 1) O agendamento é sempre a primeira gravação e usa diretamente o
+          // cliente Admin. O resultado é aguardado e validado antes de continuar.
+          const appointmentInsert = await admin
+            .from("appointments")
+            .insert({
+              barber_id: d.barber_id,
+              service_id: d.service_id,
+              customer_name: d.customer_name.trim(),
+              customer_phone: d.customer_phone,
+              email: d.email || null,
+              appointment_time: appointmentTimeIso,
+              status: "confirmado",
+              payment_status: "pendente",
+              ...(barbershopId ? { barbershop_id: barbershopId } : {}),
+            })
+            .select("id")
+            .maybeSingle();
+          const appointmentId = appointmentInsert.data?.id
+            ? String(appointmentInsert.data.id)
+            : null;
+          if (appointmentInsert.error || !appointmentId) {
+            logDatabaseFailure(requestId, "appointments", "insert", appointmentInsert.error, {
+              barber_id: d.barber_id,
+              service_id: d.service_id,
+              appointment_time: appointmentTimeIso,
             });
-
-            // Fallback: a função pode não existir no banco (42883/PGRST202) ou
-            // não ter retornado id. Grava direto com service role para que o
-            // agendamento nunca se perca.
-            const inserted = await admin
-              .from("appointments")
-              .insert({
-                barber_id: d.barber_id,
-                service_id: d.service_id,
-                customer_name: d.customer_name,
-                customer_phone: d.customer_phone,
-                email: d.email || null,
-                appointment_time: appointmentTimeIso,
-                status: "confirmado",
-                payment_status: "pendente",
-                ...(barbershopId ? { barbershop_id: barbershopId } : {}),
-              })
-              .select("id")
-              .maybeSingle();
-
-            if (inserted.error || !inserted.data) {
-              console.error("[appointment-create] insert de fallback falhou", inserted.error);
-              return json(
-                {
-                  error: created.error
-                    ? databaseError(created.error)
-                    : inserted.error
-                      ? databaseError(inserted.error)
-                      : "Erro ao salvar agendamento: a transação não retornou o registro criado.",
-                },
-                500,
-              );
-            }
-
-            appointmentId = String((inserted.data as { id: string }).id);
           }
 
-          // Cliente sempre garantido — independente de a RPC ter funcionado.
-          // Se já existe (mesmo barbeiro + WhatsApp), atualiza nome/e-mail/vínculos.
+          // 2) A gravação do cliente sempre é tentada, mesmo se appointments
+          // falhar. Assim cada tabela tem erro e diagnóstico independentes.
           let clientId: string | null = null;
+          let clientFailure: DatabaseFailure | null = null;
           try {
             const existingClient = await admin
               .from("clients")
@@ -164,6 +160,11 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               .order("created_at", { ascending: true })
               .limit(1)
               .maybeSingle();
+            if (existingClient.error) {
+              logDatabaseFailure(requestId, "clients", "select", existingClient.error, {
+                barber_id: d.barber_id,
+              });
+            }
 
             if (existingClient.data?.id) {
               clientId = String(existingClient.data.id);
@@ -173,9 +174,21 @@ export const Route = createFileRoute("/api/public/appointment-create")({
                 ...(userId ? { user_id: userId } : {}),
                 ...(barbershopId ? { barbershop_id: barbershopId } : {}),
               };
-              const updated = await admin.from("clients").update(patch).eq("id", clientId);
-              if (updated.error) {
-                console.error("[appointment-create] update de cliente falhou", updated.error);
+              const updated = await admin
+                .from("clients")
+                .update(patch)
+                .eq("id", clientId)
+                .select("id")
+                .maybeSingle();
+              if (updated.error || !updated.data) {
+                clientFailure = updated.error ?? {
+                  message: "O banco não retornou o cliente atualizado.",
+                };
+                clientId = null;
+                logDatabaseFailure(requestId, "clients", "update", updated.error, {
+                  barber_id: d.barber_id,
+                  client_id: String(existingClient.data.id),
+                });
               }
             } else {
               const clientInsert = await admin
@@ -190,48 +203,62 @@ export const Route = createFileRoute("/api/public/appointment-create")({
                 })
                 .select("id")
                 .maybeSingle();
-              if (clientInsert.error) {
-                console.error("[appointment-create] insert de cliente falhou", clientInsert.error);
+              if (clientInsert.error || !clientInsert.data) {
+                clientFailure = clientInsert.error ?? {
+                  message: "O banco não retornou o cliente inserido.",
+                };
+                logDatabaseFailure(requestId, "clients", "insert", clientInsert.error, {
+                  barber_id: d.barber_id,
+                });
               }
               clientId = clientInsert.data?.id ? String(clientInsert.data.id) : null;
             }
           } catch (clientError) {
-            console.error("[appointment-create] erro ao gravar cliente", clientError);
+            clientFailure = {
+              message: clientError instanceof Error ? clientError.message : String(clientError),
+            };
+            logDatabaseFailure(requestId, "clients", "write", clientFailure, {
+              barber_id: d.barber_id,
+            });
           }
 
-          // Confirma o agendamento antes de autorizar qualquer navegação.
-          const persistedAppointment = await admin
-            .from("appointments")
-            .select("id, payment_status, barber_id, customer_phone")
-            .eq("id", appointmentId)
-            .maybeSingle();
-          if (persistedAppointment.error || !persistedAppointment.data) {
-            console.error(
-              "[appointment-create] confirmação do agendamento falhou",
-              persistedAppointment.error,
-            );
-            return json({ error: "Erro ao salvar agendamento: o banco não confirmou a gravação." }, 500);
+          if (!appointmentId) {
+            const failure = appointmentInsert.error ?? {
+              message: "O banco não retornou o ID do agendamento.",
+            };
+            return json({
+              error: databaseError(failure, "agendamento"),
+              appointment_persisted: false,
+              client_persisted: Boolean(clientId),
+              request_id: requestId,
+            }, 500);
           }
 
           if (!clientId) {
-            const recheck = await admin
-              .from("clients")
-              .select("id")
-              .eq("barber_id", d.barber_id)
-              .eq("whatsapp", d.customer_phone)
-              .limit(1)
-              .maybeSingle();
-            clientId = recheck.data?.id ? String(recheck.data.id) : null;
+            return json({
+              id: appointmentId,
+              error: databaseError(
+                clientFailure ?? { message: "O banco não confirmou a gravação do cliente." },
+                "cliente",
+              ),
+              appointment_persisted: true,
+              client_persisted: false,
+              persisted: false,
+              request_id: requestId,
+            }, 500);
           }
 
           return json({
             id: appointmentId,
             client_id: clientId,
             persisted: true,
+            appointment_persisted: true,
+            client_persisted: true,
+            request_id: requestId,
           });
 
         } catch (error) {
-          console.error("[appointment-create] erro inesperado", error);
+          console.error("[appointment-create] erro inesperado", { request_id: requestId, error });
           const message = error instanceof Error ? error.message : String(error);
           return json({ error: `Erro ao salvar agendamento: ${message}` }, 500);
         }

@@ -25,5 +25,13 @@ begin
   end if;
 end $$;
 
+-- Checagem pós-configuração: deve retornar exatamente uma linha para
+-- public.appointments. Se não retornar, o Realtime não publicará os UPDATEs.
+select schemaname, tablename
+from pg_publication_tables
+where pubname = 'supabase_realtime'
+  and schemaname = 'public'
+  and tablename = 'appointments';
+
 -- Valores usados pelo app em payment_status:
 --   pendente | pago | expirado | cancelado | falhou
