@@ -24,6 +24,12 @@ export function ClientesTab({ barber }: { barber: Barber }) {
 
   const q = useQuery({
     queryKey: ["clients", scopeKey],
+    // Lista sempre vinda do banco: sem cache, refaz a busca ao abrir a aba e
+    // ao voltar o foco, para clientes recém-agendados aparecerem na hora.
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       let query = supabase.from("clients").select("*").order("name");
       if (isAdmin && barber.barbershop_id) {
