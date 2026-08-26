@@ -190,41 +190,103 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           // A ficha do cliente é sincronizada depois e de forma independente.
           // Uma falha aqui é registrada para diagnóstico, mas nunca desfaz nem
           // bloqueia um horário que já foi confirmado em appointments.
-          const existingClient = await admin
-            .from("clients")
-            .select("id")
-            .eq("barber_id", d.barber_id)
-            .eq("whatsapp", d.customer_phone)
-            .order("created_at", { ascending: true })
-            .limit(1)
-            .maybeSingle();
-          const clientValues = {
+          const email = d.email?.trim().toLowerCase() || null;
+          const name = d.customer_name.trim();
+
+          // A busca precisa cobrir cadastros feitos por outros caminhos
+          // (telefone com máscara antiga, conta logada ou e-mail), senão o
+          // insert bate em índice único e o cliente nunca é gravado.
+          const findClient = async (
+            column: "whatsapp" | "user_id" | "email",
+            value: string,
+          ) => {
+            const r = await admin
+              .from("clients")
+              .select("id")
+              .eq("barber_id", d.barber_id)
+              .eq(column, value)
+              .limit(1)
+              .maybeSingle();
+            return r.data?.id ? String(r.data.id) : null;
+          };
+
+          let clientId: string | null = null;
+          try {
+            clientId =
+              (await findClient("whatsapp", d.customer_phone)) ||
+              (userId ? await findClient("user_id", userId) : null) ||
+              (email ? await findClient("email", email) : null);
+          } catch (lookupError) {
+            console.warn("[appointment-create] busca de cliente falhou", lookupError);
+          }
+
+          const baseValues: Record<string, unknown> = {
             barber_id: d.barber_id,
-            name: d.customer_name.trim(),
+            name,
             whatsapp: d.customer_phone,
-            email: d.email?.trim().toLowerCase() || null,
-            user_id: userId,
+            email,
             barbershop_id: barber.barbershop_id,
           };
-          const clientWrite = existingClient.data?.id
-            ? await admin.from("clients").update(clientValues).eq("id", existingClient.data.id).select("id").single()
-            : await admin.from("clients").insert(clientValues).select("id").single();
-          if (existingClient.error || clientWrite.error) {
-            console.warn("[appointment-create] agendamento salvo; sincronização do cliente falhou", {
+          if (userId) baseValues.user_id = userId;
+
+          let clientError: string | null = null;
+          if (clientId) {
+            const upd = await admin
+              .from("clients")
+              .update(baseValues)
+              .eq("id", clientId)
+              .select("id")
+              .maybeSingle();
+            if (upd.error) clientError = upd.error.message;
+          } else {
+            let ins = await admin.from("clients").insert(baseValues).select("id").maybeSingle();
+            if (ins.error) {
+              // Retry mínimo: só as colunas essenciais, para o cadastro nunca
+              // se perder por causa de coluna extra ou constraint auxiliar.
+              const minimal = {
+                barber_id: d.barber_id,
+                name,
+                whatsapp: d.customer_phone,
+                barbershop_id: barber.barbershop_id,
+              };
+              const retry = await admin.from("clients").insert(minimal).select("id").maybeSingle();
+              if (retry.error) {
+                clientError = `${ins.error.message} | retry: ${retry.error.message}`;
+              } else {
+                ins = retry;
+              }
+            }
+            clientId = ins.data?.id ? String(ins.data.id) : clientId;
+          }
+
+          if (clientError) {
+            console.error("[appointment-create] agendamento salvo; cliente NÃO gravado", {
               appointmentId: savedAppointment.id,
-              lookupError: existingClient.error?.message,
-              writeError: clientWrite.error?.message,
+              clientError,
             });
           }
-          const savedClientId = clientWrite.data?.id ? String(clientWrite.data.id) : null;
+
+          // Confirmação final: só declaramos o cliente sincronizado depois de
+          // relê-lo na tabela clients.
+          let confirmedClientId: string | null = null;
+          if (clientId) {
+            const check = await admin
+              .from("clients")
+              .select("id")
+              .eq("id", clientId)
+              .maybeSingle();
+            confirmedClientId = check.data?.id ? String(check.data.id) : null;
+          }
 
           return json({
             id: String(savedAppointment.id),
-            client_id: savedClientId,
-            client_synced: Boolean(savedClientId),
+            client_id: confirmedClientId,
+            client_synced: Boolean(confirmedClientId),
+            client_error: clientError,
             persisted: true,
             appointment: confirmedAppointment,
           });
+
 
         } catch (error) {
           console.error("[appointment-create] erro inesperado", error);
