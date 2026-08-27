@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 
@@ -9,11 +10,17 @@ import { PaymentBadge } from "@/components/PaymentBadge";
 import { useDirectAppointments } from "@/hooks/use-direct-appointments";
 
 export function DashboardTab({ barber }: { barber: Barber }) {
-  const monthAgo = new Date();
-  monthAgo.setDate(monthAgo.getDate() - 31);
+  // Calculado uma única vez por montagem: se recalculado a cada render (new Date()
+  // direto no corpo do componente), a string ISO muda a cada milissegundo e recria
+  // o efeito dentro de useDirectAppointments, causando um loop de refetch infinito.
+  const monthAgoIso = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 31);
+    return d.toISOString();
+  }, []);
   const directAppointments = useDirectAppointments({
     barberId: barber.id,
-    from: monthAgo.toISOString(),
+    from: monthAgoIso,
   });
   const q = useQuery({
     queryKey: ["dash-services", barber.id],

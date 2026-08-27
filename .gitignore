@@ -16,6 +16,9 @@ dist-ssr
 .nitro
 *.local
 
+# Segredos locais - nunca versionar
+.env
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
