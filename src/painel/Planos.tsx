@@ -449,7 +449,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
                     </span>
                   )}
                 </div>
-                {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
+                {p.description && <p className="break-words text-xs text-muted-foreground">{p.description}</p>}
                 <p className="truncate text-xs text-muted-foreground">
                   {(servicesByPlan.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
                 </p>

@@ -183,7 +183,7 @@ function AssinarPage() {
               <h2 className="text-lg font-semibold">{plan.name}</h2>
               <p className="brand-text text-lg font-bold">{brl(plan.price)}/mês</p>
             </div>
-            {plan.description && <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>}
+            {plan.description && <p className="mt-1 break-words text-sm text-muted-foreground">{plan.description}</p>}
             <ul className="mt-3 space-y-1">
               {(servicesByPlan.get(plan.id) ?? []).map((s) => (
                 <li key={s.id} className="flex items-center gap-2 text-sm text-muted-foreground">

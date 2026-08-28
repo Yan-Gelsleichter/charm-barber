@@ -128,6 +128,11 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Impede a página inteira de "arrastar" pro lado no celular quando algum
+       elemento interno (nome de serviço/barbeiro longo, etc.) fica mais largo
+       que a tela — sem isso o layout inteiro (inclusive cabeçalho e menu
+       fixos) parece desalinhado quando o usuário rola horizontalmente. */
+    overflow-x: hidden;
   }
 }
 
