@@ -85,11 +85,38 @@ export const Route = createFileRoute("/painel")({
   component: PainelPage,
 });
 
+/** Campos onde o teclado do celular abre — usados para detectar foco. */
+function isTypingElement(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
+}
+
 function PainelPage() {
   const navigate = useNavigate();
   const loc = useLocation();
   const { tab, mp, mp_msg } = Route.useSearch();
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  // No Android, o teclado virtual pode "empurrar" a barra de navegação fixa
+  // pro meio da tela em formulários longos (bug de viewport do Chrome/WebView
+  // com position: fixed). Como a navegação não serve pra nada com o teclado
+  // aberto mesmo, ela some enquanto um campo de texto estiver em foco.
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      if (isTypingElement(e.target)) setKeyboardOpen(true);
+    };
+    const onFocusOut = (e: FocusEvent) => {
+      if (isTypingElement(e.target)) setKeyboardOpen(false);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
   const [signingOut, setSigningOut] = useState(false);
   const { data: shop } = useShopConfig(barber?.barbershop_id ?? null);
   const shopLogo = barber?.logo_url ?? shop?.logo_url ?? null;
@@ -318,7 +345,12 @@ WHERE user_id = '${currentUid}';`;
 
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
+      <nav
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md transition-transform",
+          keyboardOpen && "pointer-events-none translate-y-full",
+        )}
+      >
         <div className="mx-auto max-w-5xl overflow-x-auto">
           <div className="flex min-w-max items-center gap-1 px-2 py-2">
             {items.map((n) => {

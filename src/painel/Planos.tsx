@@ -368,14 +368,25 @@ export function PlanosTab({ barber }: { barber: Barber }) {
           {!barbersQ.isLoading && (barbersQ.data ?? []).length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhum barbeiro cadastrado ainda.</p>
           )}
-          <div className="grid gap-2 sm:grid-cols-2">
-            {barbersQ.data?.map((b) => (
-              <label key={b.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                <input type="checkbox" checked={selectedBarberIds.has(b.id)} onChange={() => toggleBarber(b.id)} />
-                {b.name}
-              </label>
-            ))}
-          </div>
+          {(barbersQ.data ?? []).length > 0 && (
+            <div className="rounded-lg border border-border p-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {barbersQ.data?.map((b) => (
+                  <label
+                    key={b.id}
+                    className="flex cursor-pointer items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedBarberIds.has(b.id)}
+                      onChange={() => toggleBarber(b.id)}
+                    />
+                    {b.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">
             Só agendamentos com um desses barbeiros contam como inclusos na assinatura.
           </p>

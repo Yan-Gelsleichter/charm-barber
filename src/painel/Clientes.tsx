@@ -164,17 +164,15 @@ export function ClientesTab({ barber }: { barber: Barber }) {
       </section>
 
       <section>
-        <div className="mb-3 flex items-center gap-2">
-          <div className="surface flex flex-1 items-center gap-2 px-3">
-            <Search className="size-4 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nome, e-mail ou telefone"
-              className="w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
-            />
-          </div>
-          <span className="text-xs text-muted-foreground">
+        <div className="surface mb-3 flex items-center gap-2 px-3">
+          <Search className="size-4 shrink-0 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome, e-mail ou telefone"
+            className="w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <span className="shrink-0 text-xs text-muted-foreground">
             {filtered.length} de {q.data?.length ?? 0}
           </span>
         </div>
