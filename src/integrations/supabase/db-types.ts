@@ -73,6 +73,7 @@ export type Appointment = {
   payment_method?: string | null;
   mp_payment_id?: string | null;
   paid_at?: string | null;
+  covered_by_subscription_id?: string | null;
 };
 export type AppointmentInsert = {
   id?: string;
@@ -88,6 +89,7 @@ export type AppointmentInsert = {
   payment_method?: string | null;
   mp_payment_id?: string | null;
   paid_at?: string | null;
+  covered_by_subscription_id?: string | null;
 };
 
 
@@ -129,6 +131,91 @@ export type ScheduleBlockInsert = {
   reason?: string | null;
 };
 
+export type SubscriptionPlan = {
+  id: string;
+  barbershop_id: string;
+  name: string;
+  price: number;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+export type SubscriptionPlanInsert = {
+  id?: string;
+  barbershop_id: string;
+  name: string;
+  price: number;
+  active?: boolean;
+};
+
+export type SubscriptionPlanService = {
+  id: string;
+  plan_id: string;
+  service_id: string;
+};
+export type SubscriptionPlanServiceInsert = {
+  id?: string;
+  plan_id: string;
+  service_id: string;
+};
+
+export type SubscriptionStatus =
+  | "pending"
+  | "authorized"
+  | "active"
+  | "paused"
+  | "cancelled"
+  | "payment_failed";
+
+export type ClientSubscription = {
+  id: string;
+  plan_id: string;
+  client_id: string;
+  barbershop_id: string;
+  status: SubscriptionStatus;
+  mp_preapproval_id: string | null;
+  mp_payer_email: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+export type ClientSubscriptionInsert = {
+  id?: string;
+  plan_id: string;
+  client_id: string;
+  barbershop_id: string;
+  status?: SubscriptionStatus;
+  mp_preapproval_id?: string | null;
+  mp_payer_email?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end?: boolean;
+};
+
+export type SubscriptionCharge = {
+  id: string;
+  subscription_id: string;
+  mp_payment_id: string | null;
+  amount: number | null;
+  status: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  paid_at: string | null;
+  created_at?: string;
+};
+export type SubscriptionChargeInsert = {
+  id?: string;
+  subscription_id: string;
+  mp_payment_id?: string | null;
+  amount?: number | null;
+  status?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  paid_at?: string | null;
+};
+
 type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
 
 export type Database = {
@@ -140,6 +227,10 @@ export type Database = {
       appointments: Table<Appointment, AppointmentInsert>;
       clients: Table<Client, ClientInsert>;
       schedule_blocks: Table<ScheduleBlock, ScheduleBlockInsert>;
+      subscription_plans: Table<SubscriptionPlan, SubscriptionPlanInsert>;
+      subscription_plan_services: Table<SubscriptionPlanService, SubscriptionPlanServiceInsert>;
+      client_subscriptions: Table<ClientSubscription, ClientSubscriptionInsert>;
+      subscription_charges: Table<SubscriptionCharge, SubscriptionChargeInsert>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
