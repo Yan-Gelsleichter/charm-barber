@@ -45,8 +45,15 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
 
 
 
-          const parsed = requestSchema.safeParse(await request.json().catch(() => null));
-          if (!parsed.success) return json({ error: "Dados inválidos." }, 400);
+          const rawBody = await request.json().catch(() => null);
+          const parsed = requestSchema.safeParse(rawBody);
+          if (!parsed.success) {
+            console.warn("Reconcile MP: payload inválido", {
+              body: rawBody,
+              issues: parsed.error.flatten(),
+            });
+            return json({ error: "Dados inválidos." }, 400);
+          }
 
           // Idempotência: chamadas concorrentes (polling em várias abas) para o
           // mesmo agendamento compartilham uma única execução.
