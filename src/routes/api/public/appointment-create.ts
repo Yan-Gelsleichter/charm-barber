@@ -103,6 +103,25 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             return json({ error: "Erro ao salvar agendamento: barbeiro ou serviço inválido." }, 400);
           }
 
+          // Cobertura por assinatura: não depende de qual barbeiro atende, só
+          // da identidade do cliente e do serviço escolhido nesta barbearia.
+          let subscriptionCoverage: { subscriptionId: string } | null = null;
+          if (barber.barbershop_id) {
+            try {
+              const { findActiveSubscriptionCoverage } = await import("@/lib/subscription.server");
+              subscriptionCoverage = await findActiveSubscriptionCoverage(admin, {
+                barbershopId: barber.barbershop_id,
+                serviceId: d.service_id,
+                barberId: d.barber_id,
+                userId,
+                phone: d.customer_phone,
+                email: d.email?.trim().toLowerCase() || null,
+              });
+            } catch (coverageError) {
+              console.error("[appointment-create] falha ao checar cobertura de assinatura", coverageError);
+            }
+          }
+
           // O agendamento é a escrita principal. A resposta positiva depende
           // somente desta inserção retornar a linha realmente persistida.
           const created = await admin
@@ -115,11 +134,12 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               email: d.email?.trim().toLowerCase() || null,
               appointment_time: appointmentTimeIso,
               status: "confirmado",
-              payment_status: "pendente",
+              payment_status: subscriptionCoverage ? "coberto_por_assinatura" : "pendente",
+              covered_by_subscription_id: subscriptionCoverage?.subscriptionId ?? null,
               barbershop_id: barber.barbershop_id,
             })
             .select(
-              "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status",
+              "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status, covered_by_subscription_id",
             )
             .single();
 
@@ -147,7 +167,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           const persistedResult = await admin
             .from("appointments")
             .select(
-              "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status",
+              "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status, covered_by_subscription_id",
             )
             .eq("id", savedAppointment.id)
             .maybeSingle();
@@ -285,6 +305,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             client_error: clientError,
             persisted: true,
             appointment: confirmedAppointment,
+            covered_by_subscription: Boolean(subscriptionCoverage),
           });
 
 

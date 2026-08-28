@@ -14,15 +14,19 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as MeusAgendamentosRouteImport } from './routes/meus-agendamentos'
 import { Route as PainelRouteImport } from './routes/painel'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
+import { Route as AssinarBarbershopIdRouteImport } from './routes/assinar.$barbershopId'
+import { Route as AssinaturaConfirmadaSubscriptionIdRouteImport } from './routes/assinatura-confirmada.$subscriptionId'
 import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/pagamento-confirmado.$appointmentId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
 import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/public/appointment-create'
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
 import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
+import { Route as ApiPublicMercadopagoPreapprovalRouteImport } from './routes/api/public/mercadopago-preapproval'
 import { Route as ApiPublicMercadopagoPreferenceRouteImport } from './routes/api/public/mercadopago-preference'
 import { Route as ApiPublicMercadopagoReconcileRouteImport } from './routes/api/public/mercadopago-reconcile'
 import { Route as ApiPublicMercadopagoStatusRouteImport } from './routes/api/public/mercadopago-status'
+import { Route as ApiPublicMercadopagoSubscriptionCancelRouteImport } from './routes/api/public/mercadopago-subscription-cancel'
 import { Route as ApiPublicMercadopagoSyncRouteImport } from './routes/api/public/mercadopago-sync'
 import { Route as ApiPublicMercadopagoWebhookRouteImport } from './routes/api/public/mercadopago-webhook'
 import { Route as ApiWebhooksMercadopagoRouteImport } from './routes/api/webhooks/mercadopago'
@@ -53,6 +57,17 @@ const AgendarBarbeiroIdRoute = AgendarBarbeiroIdRouteImport.update({
   path: '/agendar/$barbeiroId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AssinarBarbershopIdRoute = AssinarBarbershopIdRouteImport.update({
+  id: '/assinar/$barbershopId',
+  path: '/assinar/$barbershopId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssinaturaConfirmadaSubscriptionIdRoute =
+  AssinaturaConfirmadaSubscriptionIdRouteImport.update({
+    id: '/assinatura-confirmada/$subscriptionId',
+    path: '/assinatura-confirmada/$subscriptionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PagamentoConfirmadoAppointmentIdRoute =
   PagamentoConfirmadoAppointmentIdRouteImport.update({
     id: '/pagamento-confirmado/$appointmentId',
@@ -88,6 +103,12 @@ const ApiPublicMercadopagoOauthRoute =
     path: '/api/public/mercadopago-oauth',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMercadopagoPreapprovalRoute =
+  ApiPublicMercadopagoPreapprovalRouteImport.update({
+    id: '/api/public/mercadopago-preapproval',
+    path: '/api/public/mercadopago-preapproval',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicMercadopagoPreferenceRoute =
   ApiPublicMercadopagoPreferenceRouteImport.update({
     id: '/api/public/mercadopago-preference',
@@ -104,6 +125,12 @@ const ApiPublicMercadopagoStatusRoute =
   ApiPublicMercadopagoStatusRouteImport.update({
     id: '/api/public/mercadopago-status',
     path: '/api/public/mercadopago-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicMercadopagoSubscriptionCancelRoute =
+  ApiPublicMercadopagoSubscriptionCancelRouteImport.update({
+    id: '/api/public/mercadopago-subscription-cancel',
+    path: '/api/public/mercadopago-subscription-cancel',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicMercadopagoSyncRoute =
@@ -136,15 +163,19 @@ export interface FileRoutesByFullPath {
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
+  '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
+  '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
+  '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
   '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
+  '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
@@ -156,15 +187,19 @@ export interface FileRoutesByTo {
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
+  '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
+  '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
+  '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
   '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
+  '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
@@ -177,15 +212,19 @@ export interface FileRoutesById {
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
+  '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
+  '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
+  '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
   '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
+  '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
@@ -199,15 +238,19 @@ export interface FileRouteTypes {
     | '/meus-agendamentos'
     | '/painel'
     | '/agendar/$barbeiroId'
+    | '/assinar/$barbershopId'
+    | '/assinatura-confirmada/$subscriptionId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
+    | '/api/public/mercadopago-preapproval'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
     | '/api/public/mercadopago-status'
+    | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
     | '/api/webhooks/mercadopago'
@@ -219,15 +262,19 @@ export interface FileRouteTypes {
     | '/meus-agendamentos'
     | '/painel'
     | '/agendar/$barbeiroId'
+    | '/assinar/$barbershopId'
+    | '/assinatura-confirmada/$subscriptionId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
+    | '/api/public/mercadopago-preapproval'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
     | '/api/public/mercadopago-status'
+    | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
     | '/api/webhooks/mercadopago'
@@ -239,15 +286,19 @@ export interface FileRouteTypes {
     | '/meus-agendamentos'
     | '/painel'
     | '/agendar/$barbeiroId'
+    | '/assinar/$barbershopId'
+    | '/assinatura-confirmada/$subscriptionId'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
+    | '/api/public/mercadopago-preapproval'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
     | '/api/public/mercadopago-status'
+    | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
     | '/api/webhooks/mercadopago'
@@ -260,15 +311,19 @@ export interface RootRouteChildren {
   MeusAgendamentosRoute: typeof MeusAgendamentosRoute
   PainelRoute: typeof PainelRoute
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
+  AssinarBarbershopIdRoute: typeof AssinarBarbershopIdRoute
+  AssinaturaConfirmadaSubscriptionIdRoute: typeof AssinaturaConfirmadaSubscriptionIdRoute
   PagamentoConfirmadoAppointmentIdRoute: typeof PagamentoConfirmadoAppointmentIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
   ApiPublicAppointmentCreateRoute: typeof ApiPublicAppointmentCreateRoute
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
   ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
+  ApiPublicMercadopagoPreapprovalRoute: typeof ApiPublicMercadopagoPreapprovalRoute
   ApiPublicMercadopagoPreferenceRoute: typeof ApiPublicMercadopagoPreferenceRoute
   ApiPublicMercadopagoReconcileRoute: typeof ApiPublicMercadopagoReconcileRoute
   ApiPublicMercadopagoStatusRoute: typeof ApiPublicMercadopagoStatusRoute
+  ApiPublicMercadopagoSubscriptionCancelRoute: typeof ApiPublicMercadopagoSubscriptionCancelRoute
   ApiPublicMercadopagoSyncRoute: typeof ApiPublicMercadopagoSyncRoute
   ApiPublicMercadopagoWebhookRoute: typeof ApiPublicMercadopagoWebhookRoute
   ApiWebhooksMercadopagoRoute: typeof ApiWebhooksMercadopagoRoute
@@ -310,6 +365,20 @@ declare module '@tanstack/react-router' {
       path: '/agendar/$barbeiroId'
       fullPath: '/agendar/$barbeiroId'
       preLoaderRoute: typeof AgendarBarbeiroIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assinar/$barbershopId': {
+      id: '/assinar/$barbershopId'
+      path: '/assinar/$barbershopId'
+      fullPath: '/assinar/$barbershopId'
+      preLoaderRoute: typeof AssinarBarbershopIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assinatura-confirmada/$subscriptionId': {
+      id: '/assinatura-confirmada/$subscriptionId'
+      path: '/assinatura-confirmada/$subscriptionId'
+      fullPath: '/assinatura-confirmada/$subscriptionId'
+      preLoaderRoute: typeof AssinaturaConfirmadaSubscriptionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pagamento-confirmado/$appointmentId': {
@@ -354,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMercadopagoOauthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mercadopago-preapproval': {
+      id: '/api/public/mercadopago-preapproval'
+      path: '/api/public/mercadopago-preapproval'
+      fullPath: '/api/public/mercadopago-preapproval'
+      preLoaderRoute: typeof ApiPublicMercadopagoPreapprovalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/mercadopago-preference': {
       id: '/api/public/mercadopago-preference'
       path: '/api/public/mercadopago-preference'
@@ -373,6 +449,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/mercadopago-status'
       fullPath: '/api/public/mercadopago-status'
       preLoaderRoute: typeof ApiPublicMercadopagoStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mercadopago-subscription-cancel': {
+      id: '/api/public/mercadopago-subscription-cancel'
+      path: '/api/public/mercadopago-subscription-cancel'
+      fullPath: '/api/public/mercadopago-subscription-cancel'
+      preLoaderRoute: typeof ApiPublicMercadopagoSubscriptionCancelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mercadopago-sync': {
@@ -412,15 +495,21 @@ const rootRouteChildren: RootRouteChildren = {
   MeusAgendamentosRoute: MeusAgendamentosRoute,
   PainelRoute: PainelRoute,
   AgendarBarbeiroIdRoute: AgendarBarbeiroIdRoute,
+  AssinarBarbershopIdRoute: AssinarBarbershopIdRoute,
+  AssinaturaConfirmadaSubscriptionIdRoute:
+    AssinaturaConfirmadaSubscriptionIdRoute,
   PagamentoConfirmadoAppointmentIdRoute: PagamentoConfirmadoAppointmentIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
   ApiPublicAppointmentCreateRoute: ApiPublicAppointmentCreateRoute,
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
   ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
+  ApiPublicMercadopagoPreapprovalRoute: ApiPublicMercadopagoPreapprovalRoute,
   ApiPublicMercadopagoPreferenceRoute: ApiPublicMercadopagoPreferenceRoute,
   ApiPublicMercadopagoReconcileRoute: ApiPublicMercadopagoReconcileRoute,
   ApiPublicMercadopagoStatusRoute: ApiPublicMercadopagoStatusRoute,
+  ApiPublicMercadopagoSubscriptionCancelRoute:
+    ApiPublicMercadopagoSubscriptionCancelRoute,
   ApiPublicMercadopagoSyncRoute: ApiPublicMercadopagoSyncRoute,
   ApiPublicMercadopagoWebhookRoute: ApiPublicMercadopagoWebhookRoute,
   ApiWebhooksMercadopagoRoute: ApiWebhooksMercadopagoRoute,

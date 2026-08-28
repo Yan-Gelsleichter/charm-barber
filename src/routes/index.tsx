@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Scissors, Calendar, LogOut, CalendarDays, LayoutDashboard, Loader2 } from "lucide-react";
+import { Scissors, Calendar, LogOut, CalendarDays, LayoutDashboard, Loader2, Repeat } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Barber } from "@/integrations/supabase/db-types";
@@ -119,6 +119,24 @@ function Home() {
           Escolha seu barbeiro e agende em poucos toques.
         </p>
       </section>
+
+      {currentBarbershopId && !barber && (
+        <section className="mt-8">
+          <Link
+            to="/assinar/$barbershopId"
+            params={{ barbershopId: currentBarbershopId }}
+            className="surface flex items-center gap-3 p-4 transition-all hover:border-transparent hover:shadow-[var(--shadow-elev)]"
+          >
+            <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-full text-white">
+              <Repeat className="size-5" />
+            </div>
+            <div>
+              <p className="font-semibold">Planos de assinatura</p>
+              <p className="text-xs text-muted-foreground">Corte ilimitado todo mês, sem pagar por visita.</p>
+            </div>
+          </Link>
+        </section>
+      )}
 
       <section className="mt-8">
         <h2 className="mb-3 px-1 text-sm font-medium uppercase tracking-wider text-muted-foreground">

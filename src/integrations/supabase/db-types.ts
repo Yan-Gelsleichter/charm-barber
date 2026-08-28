@@ -135,6 +135,7 @@ export type SubscriptionPlan = {
   id: string;
   barbershop_id: string;
   name: string;
+  description: string | null;
   price: number;
   active: boolean;
   created_at?: string;
@@ -144,6 +145,7 @@ export type SubscriptionPlanInsert = {
   id?: string;
   barbershop_id: string;
   name: string;
+  description?: string | null;
   price: number;
   active?: boolean;
 };
@@ -157,6 +159,17 @@ export type SubscriptionPlanServiceInsert = {
   id?: string;
   plan_id: string;
   service_id: string;
+};
+
+export type SubscriptionPlanBarber = {
+  id: string;
+  plan_id: string;
+  barber_id: string;
+};
+export type SubscriptionPlanBarberInsert = {
+  id?: string;
+  plan_id: string;
+  barber_id: string;
 };
 
 export type SubscriptionStatus =
@@ -229,6 +242,7 @@ export type Database = {
       schedule_blocks: Table<ScheduleBlock, ScheduleBlockInsert>;
       subscription_plans: Table<SubscriptionPlan, SubscriptionPlanInsert>;
       subscription_plan_services: Table<SubscriptionPlanService, SubscriptionPlanServiceInsert>;
+      subscription_plan_barbers: Table<SubscriptionPlanBarber, SubscriptionPlanBarberInsert>;
       client_subscriptions: Table<ClientSubscription, ClientSubscriptionInsert>;
       subscription_charges: Table<SubscriptionCharge, SubscriptionChargeInsert>;
     };

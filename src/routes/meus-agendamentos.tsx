@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, CreditCard, Loader2, LogOut, RefreshCw, X } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, CreditCard, Loader2, LogOut, RefreshCw, X, Repeat } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,15 @@ import { Button } from "@/components/ui/button";
 import { fmtDate, fmtTime, brl, phoneDigits } from "@/lib/format";
 import { cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
+import { postPublicApi } from "@/lib/api-fetch";
+
+const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
+  pending: "Aguardando confirmação",
+  authorized: "Cartão autorizado",
+  active: "Ativa",
+  paused: "Pausada",
+  payment_failed: "Última cobrança falhou",
+};
 
 export const Route = createFileRoute("/meus-agendamentos")({
   head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
@@ -24,6 +33,7 @@ export const Route = createFileRoute("/meus-agendamentos")({
 
 function MeusAgendamentosPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { cliente, agendamento: guestId } = Route.useSearch();
   const { session, loading } = useSession();
   // ADICIONE ESTE BLOCO AQUI: Força a atualização automática dos dados assim que a tela abre ou ganha foco
@@ -130,6 +140,45 @@ function MeusAgendamentosPage() {
     },
   });
 
+  const subscriptionsQ = useQuery({
+    queryKey: ["my-subscriptions", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data: myClients } = await supabase.from("clients").select("id").eq("user_id", uid!);
+      const clientIds = ((myClients ?? []) as { id: string }[]).map((c) => c.id);
+      if (clientIds.length === 0) return { subs: [], planNameById: new Map<string, string>() };
+
+      const { data: subs, error } = await supabase
+        .from("client_subscriptions")
+        .select("*")
+        .in("client_id", clientIds)
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const list = (subs ?? []) as { id: string; plan_id: string; status: string; current_period_end: string | null }[];
+      const planIds = Array.from(new Set(list.map((s) => s.plan_id)));
+      const planNameById = new Map<string, string>();
+      if (planIds.length > 0) {
+        const { data: plans } = await supabase.from("subscription_plans").select("id, name").in("id", planIds);
+        ((plans ?? []) as { id: string; name: string }[]).forEach((p) => planNameById.set(p.id, p.name));
+      }
+      return { subs: list, planNameById };
+    },
+  });
+
+  const cancelSubscription = useMutation({
+    mutationFn: async (subscriptionId: string) => {
+      const token = session?.access_token;
+      await postPublicApi("/api/public/mercadopago-subscription-cancel", { subscription_id: subscriptionId }, token);
+    },
+    onSuccess: () => {
+      toast.success("Assinatura cancelada");
+      qc.invalidateQueries({ queryKey: ["my-subscriptions", uid] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (loading || (!session && !guestId)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -194,6 +243,40 @@ function MeusAgendamentosPage() {
         </div>
       </header>
 
+
+      {session && subscriptionsQ.data && subscriptionsQ.data.subs.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Minha assinatura
+          </h2>
+          <div className="grid gap-2">
+            {subscriptionsQ.data.subs.map((s) => (
+              <div key={s.id} className="surface flex items-center justify-between gap-3 p-4">
+                <div className="flex items-center gap-3">
+                  <Repeat className="size-5 text-success" />
+                  <div>
+                    <p className="font-semibold">{subscriptionsQ.data.planNameById.get(s.plan_id) ?? "Plano"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {SUBSCRIPTION_STATUS_LABEL[s.status] ?? s.status}
+                      {s.current_period_end &&
+                        ` • próxima cobrança ${new Date(s.current_period_end).toLocaleDateString("pt-BR")}`}
+                    </p>
+                  </div>
+                </div>
+                {(s.status === "active" || s.status === "authorized") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => confirm("Cancelar sua assinatura?") && cancelSubscription.mutate(s.id)}
+                  >
+                    Cancelar
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-8">
         <h1 className="text-xl font-semibold">Meus agendamentos</h1>

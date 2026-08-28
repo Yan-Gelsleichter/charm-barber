@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, RotateCcw, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, RotateCcw, XCircle, Repeat } from "lucide-react";
 
 type Variant = {
   label: string;
@@ -37,6 +37,12 @@ const VARIANTS: Record<string, Variant> = {
     label: "Estornado",
     icon: RotateCcw,
     className: "border-muted-foreground/40 bg-muted text-muted-foreground",
+  },
+  coberto_por_assinatura: {
+    label: "Incluso na assinatura",
+    icon: Repeat,
+    className:
+      "border-[color:var(--success)]/40 bg-[color:var(--success)]/10 text-[color:var(--success)]",
   },
 };
 

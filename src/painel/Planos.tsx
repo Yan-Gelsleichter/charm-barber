@@ -9,12 +9,14 @@ import type {
   Service,
   SubscriptionPlan,
   SubscriptionPlanService,
+  SubscriptionPlanBarber,
   ClientSubscription,
   Client,
 } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { brl } from "@/lib/format";
 import { postPublicApi } from "@/lib/api-fetch";
 
@@ -32,8 +34,10 @@ export function PlanosTab({ barber }: { barber: Barber }) {
   const shopId = barber.barbershop_id ?? null;
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
+  const [selectedBarberIds, setSelectedBarberIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<SubscriptionPlan | null>(null);
 
   // Todos os serviços da barbearia (de todos os barbeiros), para montar a
@@ -103,6 +107,20 @@ export function PlanosTab({ barber }: { barber: Barber }) {
     },
   });
 
+  const planBarbersQ = useQuery({
+    queryKey: ["subscription-plan-barbers", shopId, plansQ.data?.map((p) => p.id).join(",")],
+    enabled: !!plansQ.data && plansQ.data.length > 0,
+    queryFn: async () => {
+      const planIds = (plansQ.data ?? []).map((p) => p.id);
+      const { data, error } = await supabase
+        .from("subscription_plan_barbers")
+        .select("*")
+        .in("plan_id", planIds);
+      if (error) throw error;
+      return data as SubscriptionPlanBarber[];
+    },
+  });
+
   const serviceById = useMemo(() => {
     const m = new Map<string, Service>();
     (servicesQ.data ?? []).forEach((s) => m.set(s.id, s));
@@ -119,6 +137,26 @@ export function PlanosTab({ barber }: { barber: Barber }) {
     }
     return groups;
   }, [planServicesQ.data, serviceById]);
+
+  const barbersByPlan = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const link of planBarbersQ.data ?? []) {
+      const barberName = barberNameById.get(link.barber_id);
+      if (!barberName) continue;
+      if (!groups.has(link.plan_id)) groups.set(link.plan_id, []);
+      groups.get(link.plan_id)!.push(barberName);
+    }
+    return groups;
+  }, [planBarbersQ.data, barberNameById]);
+
+  const barberIdsByPlan = useMemo(() => {
+    const groups = new Map<string, Set<string>>();
+    for (const link of planBarbersQ.data ?? []) {
+      if (!groups.has(link.plan_id)) groups.set(link.plan_id, new Set());
+      groups.get(link.plan_id)!.add(link.barber_id);
+    }
+    return groups;
+  }, [planBarbersQ.data]);
 
   const subscribersQ = useQuery({
     queryKey: ["client-subscriptions", shopId],
@@ -158,22 +196,35 @@ export function PlanosTab({ barber }: { barber: Barber }) {
 
   function reset() {
     setName("");
+    setDescription("");
     setPrice("");
     setSelectedServiceIds(new Set());
+    setSelectedBarberIds(new Set());
     setEditing(null);
   }
 
   function startEdit(p: SubscriptionPlan) {
     setEditing(p);
     setName(p.name);
+    setDescription(p.description ?? "");
     setPrice(String(p.price).replace(".", ","));
     const included = servicesByPlan.get(p.id) ?? [];
     setSelectedServiceIds(new Set(included.map((s) => s.id)));
+    setSelectedBarberIds(new Set(barberIdsByPlan.get(p.id) ?? []));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function toggleService(id: string) {
     setSelectedServiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleBarber(id: string) {
+    setSelectedBarberIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -187,6 +238,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
       const pre = Number(price.replace(",", "."));
       if (!pre || pre <= 0) throw new Error("Valor mensal inválido");
       if (selectedServiceIds.size === 0) throw new Error("Selecione ao menos um serviço incluso");
+      if (selectedBarberIds.size === 0) throw new Error("Selecione ao menos um barbeiro para o plano");
 
       const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
       const barbershopId = shopId ?? (await getBarbershopIdByBarberId(barber.id));
@@ -197,7 +249,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
         planId = editing.id;
         const { error } = await supabase
           .from("subscription_plans")
-          .update({ name: name.trim(), price: pre })
+          .update({ name: name.trim(), description: description.trim() || null, price: pre })
           .eq("id", planId);
         if (error) throw error;
         const { error: delErr } = await supabase
@@ -205,25 +257,40 @@ export function PlanosTab({ barber }: { barber: Barber }) {
           .delete()
           .eq("plan_id", planId);
         if (delErr) throw delErr;
+        const { error: delBarberErr } = await supabase
+          .from("subscription_plan_barbers")
+          .delete()
+          .eq("plan_id", planId);
+        if (delBarberErr) throw delBarberErr;
       } else {
         const { data, error } = await supabase
           .from("subscription_plans")
-          .insert({ name: name.trim(), price: pre, barbershop_id: barbershopId })
+          .insert({
+            name: name.trim(),
+            description: description.trim() || null,
+            price: pre,
+            barbershop_id: barbershopId,
+          })
           .select()
           .single();
         if (error) throw error;
         planId = (data as SubscriptionPlan).id;
       }
 
-      const rows = Array.from(selectedServiceIds).map((service_id) => ({ plan_id: planId, service_id }));
-      const { error: insErr } = await supabase.from("subscription_plan_services").insert(rows);
+      const serviceRows = Array.from(selectedServiceIds).map((service_id) => ({ plan_id: planId, service_id }));
+      const { error: insErr } = await supabase.from("subscription_plan_services").insert(serviceRows);
       if (insErr) throw insErr;
+
+      const barberRows = Array.from(selectedBarberIds).map((barber_id) => ({ plan_id: planId, barber_id }));
+      const { error: insBarberErr } = await supabase.from("subscription_plan_barbers").insert(barberRows);
+      if (insBarberErr) throw insBarberErr;
     },
     onSuccess: () => {
       toast.success(editing ? "Plano atualizado" : "Plano criado");
       reset();
       qc.invalidateQueries({ queryKey: ["subscription-plans", shopId] });
       qc.invalidateQueries({ queryKey: ["subscription-plan-services", shopId] });
+      qc.invalidateQueries({ queryKey: ["subscription-plan-barbers", shopId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -285,6 +352,35 @@ export function PlanosTab({ barber }: { barber: Barber }) {
           </div>
         </div>
 
+        <div className="space-y-1">
+          <Label>Descrição do plano (opcional)</Label>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Ex.: corte ilimitado todo mês, agende quantas vezes quiser."
+            rows={3}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Barbeiros que atendem esse plano</Label>
+          {barbersQ.isLoading && <Loader2 className="animate-spin" />}
+          {!barbersQ.isLoading && (barbersQ.data ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum barbeiro cadastrado ainda.</p>
+          )}
+          <div className="grid gap-2 sm:grid-cols-2">
+            {barbersQ.data?.map((b) => (
+              <label key={b.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                <input type="checkbox" checked={selectedBarberIds.has(b.id)} onChange={() => toggleBarber(b.id)} />
+                {b.name}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Só agendamentos com um desses barbeiros contam como inclusos na assinatura.
+          </p>
+        </div>
+
         <div className="space-y-2">
           <Label>Serviços inclusos (ilimitados no mês)</Label>
           {servicesQ.isLoading && <Loader2 className="animate-spin" />}
@@ -342,8 +438,12 @@ export function PlanosTab({ barber }: { barber: Barber }) {
                     </span>
                   )}
                 </div>
+                {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
                 <p className="truncate text-xs text-muted-foreground">
                   {(servicesByPlan.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Com: {(barbersByPlan.get(p.id) ?? []).join(", ") || "nenhum barbeiro"}
                 </p>
               </div>
               <div className="flex items-center gap-3">

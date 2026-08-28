@@ -10,7 +10,12 @@
  * responder OK. Falhas nunca quebram o fluxo de conexão.
  */
 
-export const WEBHOOK_EVENTS = ["payment", "merchant_order"] as const;
+export const WEBHOOK_EVENTS = [
+  "payment",
+  "merchant_order",
+  "subscription_preapproval",
+  "subscription_authorized_payment",
+] as const;
 
 export function webhookUrlFor(appUrl: string) {
   const base = (appUrl || "https://charm-barber.lovable.app").replace(/\/+$/, "");

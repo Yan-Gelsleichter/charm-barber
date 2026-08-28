@@ -230,6 +230,7 @@ function AgendarPage() {
           customer_phone: string;
           appointment_time: string;
         };
+        covered_by_subscription?: boolean;
         error?: string;
       };
 
@@ -295,14 +296,21 @@ function AgendarPage() {
         }
       }
 
-      return createdId;
+      return { id: createdId, covered: Boolean(payload.covered_by_subscription) };
 
     },
-    onSuccess: async (appointmentId) => {
+    onSuccess: async ({ id: appointmentId, covered }) => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] }),
         qc.invalidateQueries({ queryKey: ["my-appointments"] }),
       ]);
+      if (covered) {
+        toast.success("Horário reservado! Incluso na sua assinatura.", {
+          description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
+        });
+        navigate({ to: "/meus-agendamentos" });
+        return;
+      }
       toast.success("Horário reservado!", {
         description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
       });

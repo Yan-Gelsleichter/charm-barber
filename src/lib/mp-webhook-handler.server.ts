@@ -372,6 +372,16 @@ async function handleNotification(request: Request) {
   const raw = (await request.json().catch(() => ({}))) as RawNotification;
 
   const topic = raw.type ?? raw.topic ?? url.searchParams.get("topic") ?? url.searchParams.get("type") ?? "";
+
+  // Eventos de assinatura (planos mensais) são tratados à parte: não são
+  // "payment" nem "merchant_order" e não têm agendamento associado.
+  if (topic === "subscription_preapproval" || topic === "subscription_authorized_payment") {
+    const admin = createSupabaseAdmin();
+    if (!admin) return new Response("misconfigured", { status: 500 });
+    const { handleSubscriptionNotification } = await import("@/lib/mp-subscription-webhook.server");
+    return handleSubscriptionNotification(admin, request, url, raw, topic);
+  }
+
   const isOrder = topic.includes("merchant_order");
   if (topic && !topic.includes("payment") && !isOrder) {
     return new Response("ignored", { status: 200 });
@@ -428,4 +438,5 @@ async function handleNotification(request: Request) {
   return applyPayment(admin, payment, notificationId, eventId, finalPreferenceId);
 }
 
-export { handleNotification };
+export { handleNotification, resolveTenant, verifySignature, fetchPayment };
+export type { PaymentPayload, RawNotification };
