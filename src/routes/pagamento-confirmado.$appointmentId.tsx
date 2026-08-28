@@ -290,12 +290,17 @@ function ConfirmacaoPage() {
     void qc.invalidateQueries({ queryKey: ["my-appointments"] });
   }, [paid, appointmentId, qc]);
 
-  // Aprovado no Mercado Pago: leva o cliente imediatamente para seus horários.
+  // Aprovado no Mercado Pago: mostra a confirmação por alguns segundos antes
+  // de levar o cliente para seus horários (sem isso, o redirect era imediato
+  // e a tela de "Pagamento confirmado!" nunca chegava a aparecer).
   const navigate = useNavigate();
   useEffect(() => {
     if (!paid || isPresencial) return;
-    void navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } });
-  }, [paid, isPresencial, navigate]);
+    const timeout = window.setTimeout(() => {
+      void navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } });
+    }, 4000);
+    return () => window.clearTimeout(timeout);
+  }, [paid, isPresencial, navigate, appointmentId]);
 
 
 
