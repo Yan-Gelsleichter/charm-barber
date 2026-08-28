@@ -46,7 +46,12 @@ export const Route = createFileRoute("/pagamento-confirmado/$appointmentId")({
     const out: Record<string, string> = {};
     for (const k of keys) {
       const v = search[k];
+      // O parseSearch padrão do router faz JSON.parse em cada valor da URL:
+      // "175027266929" (payment_id/collection_id/merchant_order_id do MP)
+      // vira number, não string. Sem esse fallback, o valor era descartado
+      // em silêncio e nunca chegava no body do reconcile.
       if (typeof v === "string" && v) out[k] = v;
+      else if (typeof v === "number" && Number.isFinite(v)) out[k] = String(v);
     }
     return out;
   },

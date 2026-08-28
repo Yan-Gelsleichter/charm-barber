@@ -14,10 +14,19 @@ import { mapPaymentStatus } from "@/lib/mp-status.server";
 import { withReconcileLock } from "@/lib/mp-reconcile-lock.server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
+// O parseSearch padrão do TanStack Router faz JSON.parse nos valores da URL:
+// payment_id/merchant_order_id (só dígitos, ex. "176035451766") chegam como
+// number, não string. Aceita os dois formatos e normaliza para string.
+const idLike = z
+  .union([z.string(), z.number()])
+  .transform((v) => String(v).trim())
+  .pipe(z.string().max(64))
+  .optional();
+
 const requestSchema = z.object({
   appointment_id: z.string().uuid(),
-  payment_id: z.string().trim().max(64).optional(),
-  merchant_order_id: z.string().trim().max(64).optional(),
+  payment_id: idLike,
+  merchant_order_id: idLike,
   preference_id: z.string().trim().max(128).optional(),
 });
 
