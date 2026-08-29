@@ -143,7 +143,7 @@ export function ClientesTab({ barber }: { barber: Barber }) {
             </Button>
           )}
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-1">
             <Label>Nome</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" />
@@ -189,7 +189,7 @@ export function ClientesTab({ barber }: { barber: Barber }) {
           </div>
         )}
 
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {filtered.map((c) => (
             <div key={c.id} className="surface flex items-center justify-between gap-3 p-4">
               <div className="min-w-0 flex-1">

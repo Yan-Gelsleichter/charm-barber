@@ -367,7 +367,7 @@ function AgendarPage() {
             Este barbeiro ainda não cadastrou serviços.
           </p>
         )}
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {servicesQ.data?.map((s) => (
             <button
               key={s.id}
@@ -466,7 +466,7 @@ function AgendarPage() {
         <Step title="4. Confirmar">
           <div className="space-y-4">
             <div className="surface grid gap-3 p-4">
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label className="grid grid-cols-1 gap-1.5 text-sm font-medium">
                 Nome
                 <Input
                   value={clientName}
@@ -475,7 +475,7 @@ function AgendarPage() {
                   autoComplete="name"
                 />
               </label>
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label className="grid grid-cols-1 gap-1.5 text-sm font-medium">
                 Telefone
                 <PhoneInput
                   value={clientPhone}
@@ -555,7 +555,7 @@ function Step({ title, children }: { title: string; children: React.ReactNode })
 
 function Skeleton() {
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-1 gap-2">
       {[0, 1, 2].map((i) => (
         <div key={i} className="surface h-14 animate-pulse" />
       ))}

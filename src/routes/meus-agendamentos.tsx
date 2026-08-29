@@ -249,7 +249,7 @@ function MeusAgendamentosPage() {
           <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Minha assinatura
           </h2>
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {subscriptionsQ.data.subs.map((s) => (
               <div key={s.id} className="surface flex items-center justify-between gap-3 p-4">
                 <div className="flex items-center gap-3">

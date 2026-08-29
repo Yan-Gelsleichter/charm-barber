@@ -144,7 +144,7 @@ function Home() {
         </h2>
 
         {(isLoading || shopIdQ.isLoading) && (
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {[0, 1, 2].map((i) => (
               <div key={i} className="surface h-24 animate-pulse" />
             ))}
@@ -160,7 +160,7 @@ function Home() {
           </div>
         )}
 
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {barbers?.map((b) => (
             <Link
               key={b.id}

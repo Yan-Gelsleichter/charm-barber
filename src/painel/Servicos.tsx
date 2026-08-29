@@ -72,7 +72,7 @@ export function ServicosTab({ barber }: { barber: Barber }) {
     <div className="space-y-6">
       <section className="surface p-4">
         <h2 className="mb-3 font-semibold">Novo serviço</h2>
-        <div className="grid gap-3 sm:grid-cols-[1fr_120px_140px_auto]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_120px_140px_auto]">
           <div className="space-y-1">
             <Label htmlFor="snome">Nome</Label>
             <Input id="snome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Corte simples" />
@@ -113,7 +113,7 @@ export function ServicosTab({ barber }: { barber: Barber }) {
             Nenhum serviço cadastrado.
           </div>
         ) : (
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {q.data?.map((s) => (
               <div key={s.id} className="surface flex items-center justify-between p-4">
                 <div>

@@ -163,7 +163,7 @@ function AssinarPage() {
       </header>
 
       {plansQ.isLoading && (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {[0, 1].map((i) => (
             <div key={i} className="surface h-32 animate-pulse" />
           ))}
@@ -176,7 +176,7 @@ function AssinarPage() {
         </div>
       )}
 
-      <div className="grid gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {plansQ.data?.map((plan) => (
           <div key={plan.id} className="surface p-5">
             <div className="flex items-baseline justify-between">

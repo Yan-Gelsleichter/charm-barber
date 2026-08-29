@@ -97,7 +97,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
             Sem agendamentos hoje.
           </div>
         ) : (
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {hoje.map((a) => {
               const sv = freshServices.find((s) => s.id === a.service_id);
               const fim =
@@ -144,7 +144,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
             Sem agendamentos futuros.
           </div>
         ) : (
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {proximos.map((a) => {
               const sv = freshServices.find((s) => s.id === a.service_id);
               return (

@@ -113,7 +113,7 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
           Sem atendimentos neste período.
         </div>
       ) : (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {historico.map((a) => {
             const sv = svMap.get(a.service_id);
             const cancelado = a.status === "cancelado";

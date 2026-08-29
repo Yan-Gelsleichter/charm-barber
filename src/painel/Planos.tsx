@@ -336,7 +336,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
             </Button>
           )}
         </div>
-        <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_160px]">
           <div className="space-y-1">
             <Label>Nome do plano</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Corte ilimitado" />
@@ -370,7 +370,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
           )}
           {(barbersQ.data ?? []).length > 0 && (
             <div className="rounded-lg border border-border p-3">
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {barbersQ.data?.map((b) => (
                   <label
                     key={b.id}
@@ -400,7 +400,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
               Nenhum serviço cadastrado ainda. Cadastre serviços na aba "Serviços" primeiro.
             </p>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {Array.from(servicesByBarber.entries()).map(([barberId, list]) => (
               <div key={barberId} className="rounded-lg border border-border p-3">
                 <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -437,7 +437,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
         {plansQ.data?.length === 0 && (
           <div className="surface p-6 text-center text-sm text-muted-foreground">Nenhum plano cadastrado ainda.</div>
         )}
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {plansQ.data?.map((p) => (
             <div key={p.id} className="surface flex items-center justify-between gap-3 p-4">
               <div className="min-w-0 flex-1">
@@ -485,7 +485,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
             Ninguém assinou um plano ainda.
           </div>
         )}
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {subscribersQ.data?.map((s) => {
             const client = clientById.get(s.client_id);
             const plan = planById.get(s.plan_id);

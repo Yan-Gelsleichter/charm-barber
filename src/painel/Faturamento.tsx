@@ -392,7 +392,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                   Nenhum barbeiro cadastrado.
                 </div>
               ) : (
-                <div className="grid gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {list.map((r, i) => {
                     const s = r.stats[rk.key];
                     return (
@@ -461,7 +461,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
               Nenhum atendimento neste período.
             </p>
           ) : (
-            <div className="grid gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {detalheItens.map((a) => (
                 <div
                   key={a.id}

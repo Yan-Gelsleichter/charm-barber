@@ -355,7 +355,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
             <p className="text-xs text-muted-foreground">
               Informe os dados do cliente e escolha um horário livre do dia selecionado.
             </p>
-            <label className="grid gap-1 text-xs text-muted-foreground">
+            <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
               Nome do cliente
               <Input
                 value={novoNome}
@@ -379,7 +379,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               </label>
 
             </div>
-            <label className="grid gap-1 text-xs text-muted-foreground">
+            <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
               Serviço
               <select
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
@@ -464,7 +464,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                 />
               </label>
             </div>
-            <label className="grid gap-1 text-xs text-muted-foreground">
+            <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
               Motivo (opcional)
               <Input
                 value={blockReason}
@@ -479,7 +479,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         )}
 
         {bloqueios.length > 0 && (
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {bloqueios.map((a) => {
               return (
                 <div
@@ -529,7 +529,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
             Nenhum agendamento neste dia.
           </div>
         ) : (
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {ativos.map((a) => {
               const sv = servicesMap.get(a.service_id);
               const fim =
@@ -581,8 +581,8 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                   </div>
 
                   {reschedId === a.id && (
-                    <div className="grid gap-3 rounded-lg border border-border/60 bg-card/40 p-3">
-                      <label className="grid gap-1 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/60 bg-card/40 p-3">
+                      <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
                         Nova data
                         <Input
                           type="date"
@@ -661,7 +661,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Cancelados
           </h2>
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {cancelados.map((a) => (
               <div
                 key={a.id}

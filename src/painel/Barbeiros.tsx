@@ -170,7 +170,7 @@ export function BarbeirosTab() {
     <div className="space-y-6">
       <section className="surface p-4">
         <h2 className="mb-3 font-semibold">Cadastrar novo barbeiro</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label>Nome</Label>
             <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do profissional" />
@@ -212,7 +212,7 @@ export function BarbeirosTab() {
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Equipe
         </h2>
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {q.data?.map((b) => (
             <div key={b.id} className="surface flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
