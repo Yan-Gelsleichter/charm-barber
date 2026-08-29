@@ -45,8 +45,10 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   startWeek.setDate(startWeek.getDate() - startWeek.getDay());
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Nunca mistura um SELECT em andamento com dados antigos mantidos em memória.
-  const freshServices = q.isFetching ? [] : (q.data ?? []);
+  // Mantém os últimos serviços na tela enquanto uma atualização em segundo
+  // plano está em andamento — zerar aqui fazia os valores (Hoje/Semana/Mês)
+  // e a lista de agendamentos piscarem a cada atualização automática.
+  const freshServices = q.data ?? [];
   const priceMap = new Map(freshServices.map((s) => [s.id, Number(s.price)]));
   const appointments = hideRejectedPayments(
     filterActiveAppointments(directAppointments.appointments ?? []),

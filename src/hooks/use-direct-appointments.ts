@@ -12,7 +12,10 @@ type DirectAppointmentsOptions = {
 
 /**
  * Lista sem cache: cada resultado exibido vem de um SELECT concluído na tabela
- * appointments. A lista anterior é apagada antes de toda nova consulta.
+ * appointments. A lista só é apagada/mostra "carregando" na primeira consulta
+ * de cada escopo (barbeiro/período) — atualizações periódicas em segundo
+ * plano trocam os dados direto, sem apagar a tela antes (senão a lista pisca
+ * a cada `intervalMs` mesmo quando nada mudou).
  */
 export function useDirectAppointments({
   barberId,
@@ -24,12 +27,12 @@ export function useDirectAppointments({
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
   const requestId = useRef(0);
+  const hasLoadedOnce = useRef(false);
 
   const refresh = useCallback(async () => {
     const currentRequest = ++requestId.current;
-    setAppointments(null);
     setError(null);
-    setLoading(true);
+    if (!hasLoadedOnce.current) setLoading(true);
 
     let query = supabase
       .from("appointments")
@@ -49,9 +52,14 @@ export function useDirectAppointments({
 
     setAppointments((result.data ?? []) as Appointment[]);
     setLoading(false);
+    hasLoadedOnce.current = true;
   }, [barberId, from, to]);
 
   useEffect(() => {
+    // Barbeiro/período mudou: essa nova consulta conta como "primeira vez"
+    // desse escopo, então volta a mostrar o carregando (evita misturar com
+    // os agendamentos do escopo anterior).
+    hasLoadedOnce.current = false;
     void refresh();
     const interval = window.setInterval(() => void refresh(), intervalMs);
     const onFocus = () => void refresh();

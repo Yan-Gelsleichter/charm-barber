@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, Pencil, X, Save, Power, Users } from "lucide-react";
+import { Plus, Loader2, Pencil, X, Save, Power, Users, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -306,6 +306,27 @@ export function PlanosTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deletePlan = useMutation({
+    mutationFn: async (planId: string) => {
+      const { error } = await supabase.from("subscription_plans").delete().eq("id", planId);
+      if (error) {
+        if (error.code === "23503") {
+          throw new Error(
+            "Não é possível excluir: esse plano já teve assinantes. Desative-o em vez de excluir, pra manter o histórico.",
+          );
+        }
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Plano excluído");
+      qc.invalidateQueries({ queryKey: ["subscription-plans", shopId] });
+      qc.invalidateQueries({ queryKey: ["subscription-plan-services", shopId] });
+      qc.invalidateQueries({ queryKey: ["subscription-plan-barbers", shopId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const cancelSubscription = useMutation({
     mutationFn: async (subscriptionId: string) => {
       const session = (await supabase.auth.getSession()).data.session;
@@ -439,7 +460,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
         )}
         <div className="grid grid-cols-1 gap-2">
           {plansQ.data?.map((p) => (
-            <div key={p.id} className="surface flex items-center justify-between gap-3 p-4">
+            <div key={p.id} className="surface flex items-start justify-between gap-3 p-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="font-semibold">{p.name}</p>
@@ -453,23 +474,41 @@ export function PlanosTab({ barber }: { barber: Barber }) {
                 <p className="truncate text-xs text-muted-foreground">
                   {(servicesByPlan.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
                 </p>
+              </div>
+              <div className="flex w-2/5 shrink-0 flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="brand-text font-bold">{brl(p.price)}/mês</span>
+                  <Button variant="ghost" size="icon" onClick={() => startEdit(p)}>
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title={p.active ? "Desativar plano" : "Reativar plano"}
+                    onClick={() => toggleActive.mutate(p)}
+                  >
+                    <Power className={p.active ? "text-destructive" : "text-success"} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Excluir plano"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Excluir o plano "${p.name}" permanentemente? Essa ação não pode ser desfeita.`,
+                        )
+                      ) {
+                        deletePlan.mutate(p.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="text-destructive" />
+                  </Button>
+                </div>
                 <p className="truncate text-xs text-muted-foreground">
                   Com: {(barbersByPlan.get(p.id) ?? []).join(", ") || "nenhum barbeiro"}
                 </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="brand-text font-bold">{brl(p.price)}/mês</span>
-                <Button variant="ghost" size="icon" onClick={() => startEdit(p)}>
-                  <Pencil />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title={p.active ? "Desativar plano" : "Reativar plano"}
-                  onClick={() => toggleActive.mutate(p)}
-                >
-                  <Power className={p.active ? "text-destructive" : "text-success"} />
-                </Button>
               </div>
             </div>
           ))}
