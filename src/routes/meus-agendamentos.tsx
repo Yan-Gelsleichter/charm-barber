@@ -113,10 +113,16 @@ function MeusAgendamentosPage() {
       if (metaName) orParts.push(`customer_name.ilike.${metaName}`);
       if (orParts.length === 0) return empty;
 
-      const { data: ap, error } = await supabase
-        .from("appointments")
-        .select("*")
-        .or(orParts.join(","))
+      // Cada cliente fica vinculado a uma única barbearia por vez — sem essa
+      // trava, alguém que já teve conta em outra barbearia (identificado
+      // pelo mesmo telefone/nome) veria agendamentos misturados aqui.
+      const { getMyBarbershopId } = await import("@/lib/barbershop");
+      const currentShopId = await getMyBarbershopId().catch(() => null);
+
+      let query = supabase.from("appointments").select("*").or(orParts.join(","));
+      if (currentShopId) query = query.eq("barbershop_id", currentShopId);
+
+      const { data: ap, error } = await query
         .order("appointment_time", { ascending: false })
         .limit(50);
       if (error) throw error;

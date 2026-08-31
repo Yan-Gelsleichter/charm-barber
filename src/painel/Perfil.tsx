@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import { EmailInput } from "@/components/EmailInput";
 import { Switch } from "@/components/ui/switch";
 import { useDarkMode } from "@/lib/theme";
 import { publicAppOrigin } from "@/lib/app-url";
+import { postPublicApi } from "@/lib/api-fetch";
 
 
 const PRESET_COLORS = [
@@ -364,10 +365,28 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
 }
 
 function QrInviteSection({ barbershopId }: { barbershopId: string }) {
-  const inviteUrl = useMemo(
-    () => `${publicAppOrigin()}/auth?barbershop_id=${encodeURIComponent(barbershopId)}`,
-    [barbershopId],
-  );
+  // O slug é gerado sob demanda na primeira vez que essa tela abre (cobre
+  // tanto barbearias novas quanto as que já existiam antes dessa mudança).
+  const slugQ = useQuery({
+    queryKey: ["barbershop-slug", barbershopId],
+    queryFn: async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      const result = await postPublicApi<{ slug?: string; error?: string }>(
+        "/api/public/ensure-barbershop-slug",
+        { barbershop_id: barbershopId },
+        session?.access_token,
+      ).catch(() => null);
+      return result?.slug ?? null;
+    },
+  });
+
+  const inviteUrl = useMemo(() => {
+    const origin = publicAppOrigin();
+    // Enquanto o slug ainda não carregou (ou se algo falhar), cai no
+    // formato antigo — nunca mostra um link quebrado.
+    if (slugQ.data) return `${origin}/b/${slugQ.data}`;
+    return `${origin}/auth?barbershop_id=${encodeURIComponent(barbershopId)}`;
+  }, [slugQ.data, barbershopId]);
 
 
   async function copy() {

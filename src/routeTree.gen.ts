@@ -16,10 +16,13 @@ import { Route as PainelRouteImport } from './routes/painel'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
 import { Route as AssinarBarbershopIdRouteImport } from './routes/assinar.$barbershopId'
 import { Route as AssinaturaConfirmadaSubscriptionIdRouteImport } from './routes/assinatura-confirmada.$subscriptionId'
+import { Route as BSlugRouteImport } from './routes/b.$slug'
 import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/pagamento-confirmado.$appointmentId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
 import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/public/appointment-create'
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
+import { Route as ApiPublicBarbershopBySlugRouteImport } from './routes/api/public/barbershop-by-slug'
+import { Route as ApiPublicEnsureBarbershopSlugRouteImport } from './routes/api/public/ensure-barbershop-slug'
 import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
 import { Route as ApiPublicMercadopagoPreapprovalRouteImport } from './routes/api/public/mercadopago-preapproval'
@@ -68,6 +71,11 @@ const AssinaturaConfirmadaSubscriptionIdRoute =
     path: '/assinatura-confirmada/$subscriptionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const BSlugRoute = BSlugRouteImport.update({
+  id: '/b/$slug',
+  path: '/b/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PagamentoConfirmadoAppointmentIdRoute =
   PagamentoConfirmadoAppointmentIdRouteImport.update({
     id: '/pagamento-confirmado/$appointmentId',
@@ -89,6 +97,18 @@ const ApiPublicAppointmentLocalPaymentRoute =
   ApiPublicAppointmentLocalPaymentRouteImport.update({
     id: '/api/public/appointment-local-payment',
     path: '/api/public/appointment-local-payment',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicBarbershopBySlugRoute =
+  ApiPublicBarbershopBySlugRouteImport.update({
+    id: '/api/public/barbershop-by-slug',
+    path: '/api/public/barbershop-by-slug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicEnsureBarbershopSlugRoute =
+  ApiPublicEnsureBarbershopSlugRouteImport.update({
+    id: '/api/public/ensure-barbershop-slug',
+    path: '/api/public/ensure-barbershop-slug',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicMercadopagoConnectRoute =
@@ -165,10 +185,13 @@ export interface FileRoutesByFullPath {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
+  '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
@@ -189,10 +212,13 @@ export interface FileRoutesByTo {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
+  '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
@@ -214,10 +240,13 @@ export interface FileRoutesById {
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
+  '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
@@ -240,10 +269,13 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
+    | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/barbershop-by-slug'
+    | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preapproval'
@@ -264,10 +296,13 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
+    | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/barbershop-by-slug'
+    | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preapproval'
@@ -288,10 +323,13 @@ export interface FileRouteTypes {
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
+    | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/barbershop-by-slug'
+    | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preapproval'
@@ -313,10 +351,13 @@ export interface RootRouteChildren {
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
   AssinarBarbershopIdRoute: typeof AssinarBarbershopIdRoute
   AssinaturaConfirmadaSubscriptionIdRoute: typeof AssinaturaConfirmadaSubscriptionIdRoute
+  BSlugRoute: typeof BSlugRoute
   PagamentoConfirmadoAppointmentIdRoute: typeof PagamentoConfirmadoAppointmentIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
   ApiPublicAppointmentCreateRoute: typeof ApiPublicAppointmentCreateRoute
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
+  ApiPublicBarbershopBySlugRoute: typeof ApiPublicBarbershopBySlugRoute
+  ApiPublicEnsureBarbershopSlugRoute: typeof ApiPublicEnsureBarbershopSlugRoute
   ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
   ApiPublicMercadopagoPreapprovalRoute: typeof ApiPublicMercadopagoPreapprovalRoute
@@ -381,6 +422,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AssinaturaConfirmadaSubscriptionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/b/$slug': {
+      id: '/b/$slug'
+      path: '/b/$slug'
+      fullPath: '/b/$slug'
+      preLoaderRoute: typeof BSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pagamento-confirmado/$appointmentId': {
       id: '/pagamento-confirmado/$appointmentId'
       path: '/pagamento-confirmado/$appointmentId'
@@ -407,6 +455,20 @@ declare module '@tanstack/react-router' {
       path: '/api/public/appointment-local-payment'
       fullPath: '/api/public/appointment-local-payment'
       preLoaderRoute: typeof ApiPublicAppointmentLocalPaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/barbershop-by-slug': {
+      id: '/api/public/barbershop-by-slug'
+      path: '/api/public/barbershop-by-slug'
+      fullPath: '/api/public/barbershop-by-slug'
+      preLoaderRoute: typeof ApiPublicBarbershopBySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/ensure-barbershop-slug': {
+      id: '/api/public/ensure-barbershop-slug'
+      path: '/api/public/ensure-barbershop-slug'
+      fullPath: '/api/public/ensure-barbershop-slug'
+      preLoaderRoute: typeof ApiPublicEnsureBarbershopSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mercadopago-connect': {
@@ -498,10 +560,13 @@ const rootRouteChildren: RootRouteChildren = {
   AssinarBarbershopIdRoute: AssinarBarbershopIdRoute,
   AssinaturaConfirmadaSubscriptionIdRoute:
     AssinaturaConfirmadaSubscriptionIdRoute,
+  BSlugRoute: BSlugRoute,
   PagamentoConfirmadoAppointmentIdRoute: PagamentoConfirmadoAppointmentIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
   ApiPublicAppointmentCreateRoute: ApiPublicAppointmentCreateRoute,
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
+  ApiPublicBarbershopBySlugRoute: ApiPublicBarbershopBySlugRoute,
+  ApiPublicEnsureBarbershopSlugRoute: ApiPublicEnsureBarbershopSlugRoute,
   ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
   ApiPublicMercadopagoPreapprovalRoute: ApiPublicMercadopagoPreapprovalRoute,

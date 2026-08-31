@@ -11,6 +11,7 @@ import { useMeBarber } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { getMyBarbershopId } from "@/lib/barbershop";
+import { IosAddToHomeBanner } from "@/components/IosAddToHomeBanner";
 
 
 export const Route = createFileRoute("/")({
@@ -119,6 +120,10 @@ function Home() {
           Escolha seu barbeiro e agende em poucos toques.
         </p>
       </section>
+
+      <div className="mt-6">
+        <IosAddToHomeBanner />
+      </div>
 
       {currentBarbershopId && !barber && (
         <section className="mt-8">
