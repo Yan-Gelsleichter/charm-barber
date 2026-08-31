@@ -74,6 +74,7 @@ export type Appointment = {
   mp_payment_id?: string | null;
   paid_at?: string | null;
   covered_by_subscription_id?: string | null;
+  service_price_snapshot?: number | null;
 };
 export type AppointmentInsert = {
   id?: string;
@@ -90,6 +91,7 @@ export type AppointmentInsert = {
   mp_payment_id?: string | null;
   paid_at?: string | null;
   covered_by_subscription_id?: string | null;
+  service_price_snapshot?: number | null;
 };
 
 

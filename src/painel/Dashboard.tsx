@@ -54,6 +54,8 @@ export function DashboardTab({ barber }: { barber: Barber }) {
     filterActiveAppointments(directAppointments.appointments ?? []),
   );
 
+  // Usa o preço travado no momento do agendamento; só cai para o preço
+  // atual do serviço em agendamentos antigos que não têm esse valor salvo.
   const sum = (from: Date) =>
     appointments
       .filter(
@@ -61,7 +63,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
           new Date(a.appointment_time) >= from &&
           new Date(a.appointment_time) <= now,
       )
-      .reduce((s, a) => s + (priceMap.get(a.service_id) ?? 0), 0);
+      .reduce((s, a) => s + (a.service_price_snapshot ?? priceMap.get(a.service_id) ?? 0), 0);
 
   const ganhosDia = sum(startDay);
   const ganhosSemana = sum(startWeek);
@@ -102,6 +104,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
           <div className="grid grid-cols-1 gap-2">
             {hoje.map((a) => {
               const sv = freshServices.find((s) => s.id === a.service_id);
+              const preco = a.service_price_snapshot ?? sv?.price ?? null;
               const fim =
                 new Date(a.appointment_time).getTime() +
                 (sv?.duration_minutes ?? 30) * 60_000;
@@ -119,7 +122,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                       </p>
                     </div>
                     <span className="brand-text shrink-0 font-bold">
-                      {sv ? brl(sv.price) : "—"}
+                      {preco != null ? brl(preco) : "—"}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -149,6 +152,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
           <div className="grid grid-cols-1 gap-2">
             {proximos.map((a) => {
               const sv = freshServices.find((s) => s.id === a.service_id);
+              const preco = a.service_price_snapshot ?? sv?.price ?? null;
               return (
                 <div key={a.id} className="surface flex flex-col gap-2 p-4">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
@@ -161,7 +165,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                       </p>
                     </div>
                     <span className="brand-text shrink-0 font-bold">
-                      {sv ? brl(sv.price) : "—"}
+                      {preco != null ? brl(preco) : "—"}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

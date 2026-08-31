@@ -131,6 +131,10 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     [q.data?.sv],
   );
 
+  // Preço travado no momento do agendamento; só cai para o preço atual do
+  // serviço em agendamentos antigos que não têm esse valor salvo.
+  const precoDe = (a: Appointment) => a.service_price_snapshot ?? precos.get(a.service_id) ?? 0;
+
   const atendidos = useMemo(
     () =>
       filterActiveAppointments(q.data?.ag ?? []).filter(
@@ -157,7 +161,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     const t = ZERO_STATS();
     for (const a of atendidos) {
       const time = new Date(a.appointment_time).getTime();
-      const v = precos.get(a.service_id) ?? 0;
+      const v = precoDe(a);
       for (const key of Object.keys(faixas) as Periodo[]) {
         const fx = faixas[key];
         if (fx && time >= fx.ini && time <= fx.fim) {
@@ -167,6 +171,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
       }
     }
     return t;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [atendidos, precos, faixas]);
 
   const statsPorBarbeiro = useMemo(() => {
@@ -175,7 +180,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
     for (const a of atendidos) {
       const row = map.get(a.barber_id);
       if (!row) continue;
-      const v = precos.get(a.service_id) ?? 0;
+      const v = precoDe(a);
       const time = new Date(a.appointment_time).getTime();
       for (const key of Object.keys(faixas) as Periodo[]) {
         const fx = faixas[key];
@@ -186,6 +191,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
       }
     }
     return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.data?.barbeiros, atendidos, precos, faixas]);
 
   const rankings = useMemo(() => {
@@ -228,7 +234,8 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
   }, [detalhe, atendidos, faixas]);
 
   const detalheTotal = useMemo(
-    () => detalheItens.reduce((sum, a) => sum + (precos.get(a.service_id) ?? 0), 0),
+    () => detalheItens.reduce((sum, a) => sum + precoDe(a), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [detalheItens, precos],
   );
 
@@ -257,7 +264,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
           a.customer_name,
           servicosMap.get(a.service_id)?.name ?? "Serviço",
           fmtDateTime(a.appointment_time),
-          brl(precos.get(a.service_id) ?? 0),
+          brl(precoDe(a)),
         ]),
         foot: [
           [
@@ -478,7 +485,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                     </p>
                   </div>
                   <span className="brand-text shrink-0 text-sm font-semibold">
-                    {brl(precos.get(a.service_id) ?? 0)}
+                    {brl(precoDe(a))}
                   </span>
                 </div>
               ))}

@@ -95,8 +95,11 @@ export function ProducaoTab({ barber }: { barber: Barber }) {
   const rows = useMemo(() => {
     const map = new Map<string, { count: number; total: number }>();
     for (const a of appointmentsQ.data ?? []) {
+      // Usa o preço travado no momento do agendamento; só cai para o preço
+      // atual do serviço em agendamentos antigos (de teste) que não têm
+      // esse valor salvo.
       const svc = serviceById.get(a.service_id);
-      const price = svc?.price ?? 0;
+      const price = a.service_price_snapshot ?? svc?.price ?? 0;
       const cur = map.get(a.barber_id) ?? { count: 0, total: 0 };
       cur.count += 1;
       cur.total += price;
@@ -168,8 +171,8 @@ export function ProducaoTab({ barber }: { barber: Barber }) {
 
       {rows.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Valor de referência calculado pelo preço atual de cada serviço — serve de base para o repasse manual, não é
-          uma cobrança real.
+          Valor de referência calculado pelo preço do serviço no momento do agendamento — serve de base para o
+          repasse manual, não é uma cobrança real.
         </p>
       )}
     </div>

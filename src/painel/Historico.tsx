@@ -138,7 +138,11 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
                   {cancelado ? (
                     <span className="text-xs text-destructive">cancelado</span>
                   ) : (
-                    <span className="brand-text font-bold">{sv ? brl(sv.price) : "—"}</span>
+                    <span className="brand-text font-bold">
+                      {a.service_price_snapshot != null || sv
+                        ? brl(a.service_price_snapshot ?? sv!.price)
+                        : "—"}
+                    </span>
                   )}
                 </div>
               </div>

@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             admin.from("barbers").select("id, barbershop_id").eq("id", d.barber_id).maybeSingle(),
             admin
               .from("services")
-              .select("id, barber_id, barbershop_id")
+              .select("id, barber_id, barbershop_id, price")
               .eq("id", d.service_id)
               .maybeSingle(),
           ]);
@@ -137,6 +137,10 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               payment_status: subscriptionCoverage ? "coberto_por_assinatura" : "pendente",
               covered_by_subscription_id: subscriptionCoverage?.subscriptionId ?? null,
               barbershop_id: barber.barbershop_id,
+              // Preço travado no momento do agendamento — relatórios (Produção,
+              // histórico) não devem mudar retroativamente se o preço do
+              // serviço for alterado depois.
+              service_price_snapshot: Number(service.price ?? 0),
             })
             .select(
               "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status, covered_by_subscription_id",
