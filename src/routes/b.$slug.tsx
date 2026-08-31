@@ -5,13 +5,6 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, isClientAccount } from "@/hooks/use-auth";
 import { BrandMark } from "@/components/Brand";
-import { IosAddToHomeBanner } from "@/components/IosAddToHomeBanner";
-
-const PLAY_STORE_URL = (import.meta.env.VITE_PLAY_STORE_URL ?? "").trim();
-
-function isAndroidVisitor(): boolean {
-  return typeof navigator !== "undefined" && /Android/.test(navigator.userAgent);
-}
 
 export const Route = createFileRoute("/b/$slug")({
   head: () => ({ meta: [{ title: "Entrar — VIP BARBER" }] }),
@@ -87,21 +80,17 @@ function BarbershopLinkPage() {
     );
   }
 
+  // Essa tela é só uma passagem (resolve o slug e já redireciona sozinha
+  // pro cadastro/login ou pra home) — nenhum banner deve ficar aqui, porque
+  // o redirecionamento é quase instantâneo e qualquer aviso apareceria e
+  // sumiria na hora, parecendo bug (foi o que aconteceu com o banner iOS,
+  // por isso ele saiu daqui e ficou só na home). Quando o app Android
+  // existir, o banner de download só deve entrar aqui se o redirecionamento
+  // for pausado de propósito pra visitante Android — senão vai ter o mesmo
+  // problema.
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-5 py-10">
       <Loader2 className="animate-spin text-muted-foreground" />
-      {isAndroidVisitor() && PLAY_STORE_URL && (
-        <div className="surface w-full space-y-2 p-4 text-center">
-          <p className="text-sm font-semibold">Tenha o app no seu Android</p>
-          <a
-            href={`${PLAY_STORE_URL}${PLAY_STORE_URL.includes("?") ? "&" : "?"}referrer=${encodeURIComponent(slug)}`}
-            className="brand-text text-sm font-semibold underline-offset-2 hover:underline"
-          >
-            Baixar na Play Store
-          </a>
-        </div>
-      )}
-      <IosAddToHomeBanner />
     </main>
   );
 }
