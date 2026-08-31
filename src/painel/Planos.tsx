@@ -460,24 +460,26 @@ export function PlanosTab({ barber }: { barber: Barber }) {
         )}
         <div className="grid grid-cols-1 gap-2">
           {plansQ.data?.map((p) => (
-            <div key={p.id} className="surface flex items-start justify-between gap-3 p-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold">{p.name}</p>
-                  {!p.active && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Inativo
-                    </span>
-                  )}
-                </div>
-                {p.description && <p className="break-words text-xs text-muted-foreground">{p.description}</p>}
-                <p className="truncate text-xs text-muted-foreground">
-                  {(servicesByPlan.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
-                </p>
+            <div key={p.id} className="surface p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="break-words font-semibold">{p.name}</p>
+                {!p.active && (
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Inativo
+                  </span>
+                )}
               </div>
-              <div className="flex w-2/5 shrink-0 flex-col items-end gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="brand-text font-bold">{brl(p.price)}/mês</span>
+              {p.description && <p className="mt-1 break-words text-xs text-muted-foreground">{p.description}</p>}
+              <p className="mt-1 break-words text-xs text-muted-foreground">
+                Serviços: {(servicesByPlan.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
+              </p>
+              <p className="mt-1 break-words text-xs text-muted-foreground">
+                Com: {(barbersByPlan.get(p.id) ?? []).join(", ") || "nenhum barbeiro"}
+              </p>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                <span className="brand-text text-base font-bold">{brl(p.price)}/mês</span>
+                <div className="flex shrink-0 items-center gap-1">
                   <Button variant="ghost" size="icon" onClick={() => startEdit(p)}>
                     <Pencil />
                   </Button>
@@ -506,9 +508,6 @@ export function PlanosTab({ barber }: { barber: Barber }) {
                     <Trash2 className="text-destructive" />
                   </Button>
                 </div>
-                <p className="truncate text-xs text-muted-foreground">
-                  Com: {(barbersByPlan.get(p.id) ?? []).join(", ") || "nenhum barbeiro"}
-                </p>
               </div>
             </div>
           ))}
