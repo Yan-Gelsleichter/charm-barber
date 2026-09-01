@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             admin.from("barbers").select("id, barbershop_id").eq("id", d.barber_id).maybeSingle(),
             admin
               .from("services")
-              .select("id, barber_id, barbershop_id, price")
+              .select("id, barber_id, barbershop_id, price, name")
               .eq("id", d.service_id)
               .maybeSingle(),
           ]);
@@ -209,6 +209,29 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               { error: "Erro ao salvar agendamento: o registro gravado não foi confirmado." },
               500,
             );
+          }
+
+          // Avisa o barbeiro por notificação push, melhor esforço: uma falha
+          // aqui nunca desfaz nem atrapalha o agendamento já confirmado.
+          try {
+            const { data: subs } = await admin
+              .from("push_subscriptions")
+              .select("token")
+              .eq("barber_id", d.barber_id);
+            const tokens = ((subs ?? []) as { token: string }[]).map((s) => s.token);
+            if (tokens.length > 0) {
+              const { sendPush } = await import("@/lib/push.server");
+              const { invalidTokens } = await sendPush(tokens, {
+                title: "Novo agendamento",
+                body: `${d.customer_name.trim()} marcou ${service.name ?? "um horário"} para ${new Date(appointmentTimeIso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`,
+                url: "/painel",
+              });
+              if (invalidTokens.length > 0) {
+                await admin.from("push_subscriptions").delete().in("token", invalidTokens);
+              }
+            }
+          } catch (pushError) {
+            console.warn("[appointment-create] falha ao notificar o barbeiro", pushError);
           }
 
           // A ficha do cliente é sincronizada depois e de forma independente.

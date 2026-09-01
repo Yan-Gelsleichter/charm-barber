@@ -300,6 +300,23 @@ function AgendarPage() {
 
     },
     onSuccess: async ({ id: appointmentId, covered }) => {
+      // Pede a permissão de notificação (pro lembrete do agendamento) sem
+      // travar a navegação — se o cliente recusar, ou for iPhone sem o site
+      // instalado na tela de início, simplesmente não tem lembrete pra esse
+      // agendamento, sem afetar o resto do fluxo.
+      if (appointmentId) {
+        void (async () => {
+          const { requestPushToken } = await import("@/lib/push-client");
+          const token = await requestPushToken();
+          if (!token) return;
+          await postPublicApi("/api/public/appointment-push-token", {
+            appointment_id: appointmentId,
+            customer_phone: phoneDigits(clientPhone),
+            push_token: token,
+          }).catch(() => {});
+        })();
+      }
+
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] }),
         qc.invalidateQueries({ queryKey: ["my-appointments"] }),

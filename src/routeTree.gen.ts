@@ -19,8 +19,10 @@ import { Route as AssinaturaConfirmadaSubscriptionIdRouteImport } from './routes
 import { Route as BSlugRouteImport } from './routes/b.$slug'
 import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/pagamento-confirmado.$appointmentId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
+import { Route as ApiCronAppointmentRemindersRouteImport } from './routes/api/cron/appointment-reminders'
 import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/public/appointment-create'
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
+import { Route as ApiPublicAppointmentPushTokenRouteImport } from './routes/api/public/appointment-push-token'
 import { Route as ApiPublicBarbershopBySlugRouteImport } from './routes/api/public/barbershop-by-slug'
 import { Route as ApiPublicEnsureBarbershopSlugRouteImport } from './routes/api/public/ensure-barbershop-slug'
 import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
@@ -87,6 +89,12 @@ const PagamentoAppointmentIdRoute = PagamentoAppointmentIdRouteImport.update({
   path: '/pagamento/$appointmentId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronAppointmentRemindersRoute =
+  ApiCronAppointmentRemindersRouteImport.update({
+    id: '/api/cron/appointment-reminders',
+    path: '/api/cron/appointment-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicAppointmentCreateRoute =
   ApiPublicAppointmentCreateRouteImport.update({
     id: '/api/public/appointment-create',
@@ -97,6 +105,12 @@ const ApiPublicAppointmentLocalPaymentRoute =
   ApiPublicAppointmentLocalPaymentRouteImport.update({
     id: '/api/public/appointment-local-payment',
     path: '/api/public/appointment-local-payment',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAppointmentPushTokenRoute =
+  ApiPublicAppointmentPushTokenRouteImport.update({
+    id: '/api/public/appointment-push-token',
+    path: '/api/public/appointment-push-token',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicBarbershopBySlugRoute =
@@ -188,8 +202,10 @@ export interface FileRoutesByFullPath {
   '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
@@ -215,8 +231,10 @@ export interface FileRoutesByTo {
   '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
@@ -243,8 +261,10 @@ export interface FileRoutesById {
   '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
+  '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
@@ -272,8 +292,10 @@ export interface FileRouteTypes {
     | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/api/cron/appointment-reminders'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
@@ -299,8 +321,10 @@ export interface FileRouteTypes {
     | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/api/cron/appointment-reminders'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
@@ -326,8 +350,10 @@ export interface FileRouteTypes {
     | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/api/cron/appointment-reminders'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
+    | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
@@ -354,8 +380,10 @@ export interface RootRouteChildren {
   BSlugRoute: typeof BSlugRoute
   PagamentoConfirmadoAppointmentIdRoute: typeof PagamentoConfirmadoAppointmentIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
+  ApiCronAppointmentRemindersRoute: typeof ApiCronAppointmentRemindersRoute
   ApiPublicAppointmentCreateRoute: typeof ApiPublicAppointmentCreateRoute
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
+  ApiPublicAppointmentPushTokenRoute: typeof ApiPublicAppointmentPushTokenRoute
   ApiPublicBarbershopBySlugRoute: typeof ApiPublicBarbershopBySlugRoute
   ApiPublicEnsureBarbershopSlugRoute: typeof ApiPublicEnsureBarbershopSlugRoute
   ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
@@ -443,6 +471,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PagamentoAppointmentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/appointment-reminders': {
+      id: '/api/cron/appointment-reminders'
+      path: '/api/cron/appointment-reminders'
+      fullPath: '/api/cron/appointment-reminders'
+      preLoaderRoute: typeof ApiCronAppointmentRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/appointment-create': {
       id: '/api/public/appointment-create'
       path: '/api/public/appointment-create'
@@ -455,6 +490,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/appointment-local-payment'
       fullPath: '/api/public/appointment-local-payment'
       preLoaderRoute: typeof ApiPublicAppointmentLocalPaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/appointment-push-token': {
+      id: '/api/public/appointment-push-token'
+      path: '/api/public/appointment-push-token'
+      fullPath: '/api/public/appointment-push-token'
+      preLoaderRoute: typeof ApiPublicAppointmentPushTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/barbershop-by-slug': {
@@ -563,8 +605,10 @@ const rootRouteChildren: RootRouteChildren = {
   BSlugRoute: BSlugRoute,
   PagamentoConfirmadoAppointmentIdRoute: PagamentoConfirmadoAppointmentIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
+  ApiCronAppointmentRemindersRoute: ApiCronAppointmentRemindersRoute,
   ApiPublicAppointmentCreateRoute: ApiPublicAppointmentCreateRoute,
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
+  ApiPublicAppointmentPushTokenRoute: ApiPublicAppointmentPushTokenRoute,
   ApiPublicBarbershopBySlugRoute: ApiPublicBarbershopBySlugRoute,
   ApiPublicEnsureBarbershopSlugRoute: ApiPublicEnsureBarbershopSlugRoute,
   ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,

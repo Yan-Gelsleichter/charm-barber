@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
@@ -298,6 +298,8 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         </Button>
       </section>
 
+      <NotificationsSection barberId={barber.id} />
+
       {barber.barbershop_id ? (
         <QrInviteSection barbershopId={barber.barbershop_id} />
       ) : null}
@@ -361,6 +363,66 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         </Button>
       </section>
     </div>
+  );
+}
+
+function NotificationsSection({ barberId }: { barberId: string }) {
+  const [enabling, setEnabling] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    try {
+      setEnabled(localStorage.getItem(`push_enabled_${barberId}`) === "1");
+    } catch {
+      /* ignora */
+    }
+  }, [barberId]);
+
+  async function activate() {
+    setEnabling(true);
+    try {
+      const { requestPushToken } = await import("@/lib/push-client");
+      const token = await requestPushToken();
+      if (!token) {
+        toast.error("Não foi possível ativar. Verifique a permissão de notificações do navegador.");
+        return;
+      }
+      const { error } = await supabase.from("push_subscriptions").insert({ barber_id: barberId, token });
+      if (error && error.code !== "23505") throw error; // 23505 = esse token já estava cadastrado
+      setEnabled(true);
+      try {
+        localStorage.setItem(`push_enabled_${barberId}`, "1");
+      } catch {
+        /* ignora */
+      }
+      toast.success("Notificações ativadas!");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível ativar as notificações");
+    } finally {
+      setEnabling(false);
+    }
+  }
+
+  return (
+    <section className="surface space-y-3 p-4">
+      <div className="flex items-center gap-2">
+        <Bell className="text-muted-foreground" size={18} />
+        <h2 className="font-semibold">Notificações</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Receba um aviso neste aparelho quando um cliente agendar um horário novo, e um lembrete 30
+        minutos antes de cada atendimento.
+      </p>
+      <Button
+        type="button"
+        variant={enabled ? "outline" : "hero"}
+        onClick={activate}
+        disabled={enabling || enabled}
+      >
+        {enabling ? <Loader2 className="animate-spin" /> : <Bell />}
+        {enabled ? "Notificações ativadas" : "Ativar notificações"}
+      </Button>
+    </section>
   );
 }
 

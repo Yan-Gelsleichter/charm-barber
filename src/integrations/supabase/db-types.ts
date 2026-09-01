@@ -75,6 +75,9 @@ export type Appointment = {
   paid_at?: string | null;
   covered_by_subscription_id?: string | null;
   service_price_snapshot?: number | null;
+  push_token?: string | null;
+  reminder_sent_at?: string | null;
+  barber_reminder_sent_at?: string | null;
 };
 export type AppointmentInsert = {
   id?: string;
@@ -92,6 +95,9 @@ export type AppointmentInsert = {
   paid_at?: string | null;
   covered_by_subscription_id?: string | null;
   service_price_snapshot?: number | null;
+  push_token?: string | null;
+  reminder_sent_at?: string | null;
+  barber_reminder_sent_at?: string | null;
 };
 
 
@@ -131,6 +137,18 @@ export type ScheduleBlockInsert = {
   start_time: string;
   end_time: string;
   reason?: string | null;
+};
+
+export type PushSubscription = {
+  id: string;
+  barber_id: string;
+  token: string;
+  created_at?: string;
+};
+export type PushSubscriptionInsert = {
+  id?: string;
+  barber_id: string;
+  token: string;
 };
 
 export type SubscriptionPlan = {
@@ -242,6 +260,7 @@ export type Database = {
       appointments: Table<Appointment, AppointmentInsert>;
       clients: Table<Client, ClientInsert>;
       schedule_blocks: Table<ScheduleBlock, ScheduleBlockInsert>;
+      push_subscriptions: Table<PushSubscription, PushSubscriptionInsert>;
       subscription_plans: Table<SubscriptionPlan, SubscriptionPlanInsert>;
       subscription_plan_services: Table<SubscriptionPlanService, SubscriptionPlanServiceInsert>;
       subscription_plan_barbers: Table<SubscriptionPlanBarber, SubscriptionPlanBarberInsert>;
