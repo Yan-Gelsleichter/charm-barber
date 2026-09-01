@@ -4,7 +4,8 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 import { sendPush } from "@/lib/push.server";
 
 /**
- * Roda periodicamente (Vercel Cron, ver vercel.json) e manda dois lembretes
+ * Chamada periodicamente por um scheduler externo (com
+ * "Authorization: Bearer <CRON_SECRET>") e manda dois lembretes
  * independentes: pro cliente (usa o push_token salvo no próprio
  * agendamento) e pro barbeiro, 30 minutos antes (usa os tokens salvos em
  * push_subscriptions). Cada um marca sua própria coluna pra nunca repetir.
