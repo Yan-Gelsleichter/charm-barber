@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
-import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
+import { BRAZIL_TIME_ZONE, brazilDayBounds } from "@/lib/timezone";
 import { buildSlots, filterActiveAppointments } from "@/lib/availability";
 import { postPublicApi } from "@/lib/api-fetch";
 import { cn } from "@/lib/utils";
@@ -118,12 +118,10 @@ function AgendarPage() {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     queryFn: async () => {
+      // Sempre o dia de calendário em Brasília, não no fuso do aparelho.
       const [y, m, d] = dayKey!.split("-").map(Number);
-      const start = new Date(y, m - 1, d);
-      start.setHours(0, 0, 0, 0);
-
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
+      const start = brazilDayBounds(y, m - 1, d).start;
+      const end = brazilDayBounds(y, m - 1, d + 1).start;
 
       // Os agendamentos de outros clientes não são visíveis por RLS, por isso a
       // disponibilidade vem de uma função que devolve só os intervalos ocupados.

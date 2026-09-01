@@ -5,7 +5,7 @@ import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtTime } from "@/lib/format";
-import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
+import { BRAZIL_TIME_ZONE, brazilStartOfDay, brazilStartOfWeek, brazilStartOfMonth } from "@/lib/timezone";
 import { filterActiveAppointments, hideRejectedPayments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { useDirectAppointments } from "@/hooks/use-direct-appointments";
@@ -40,11 +40,11 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   });
 
   const now = new Date();
-  const startDay = new Date(now);
-  startDay.setHours(0, 0, 0, 0);
-  const startWeek = new Date(startDay);
-  startWeek.setDate(startWeek.getDate() - startWeek.getDay());
-  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  // "Hoje/semana/mês" sempre pelo calendário de Brasília, não pelo fuso do
+  // aparelho de quem está olhando o painel.
+  const startDay = brazilStartOfDay(now);
+  const startWeek = brazilStartOfWeek(now);
+  const startMonth = brazilStartOfMonth(now);
 
   // Mantém os últimos serviços na tela enquanto uma atualização em segundo
   // plano está em andamento — zerar aqui fazia os valores (Hoje/Semana/Mês)
@@ -70,8 +70,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const ganhosSemana = sum(startWeek);
   const ganhosMes = sum(startMonth);
 
-  const startTomorrow = new Date(startDay);
-  startTomorrow.setDate(startTomorrow.getDate() + 1);
+  const startTomorrow = new Date(startDay.getTime() + 86_400_000);
 
   const hoje = appointments.filter((a) => {
     const t = new Date(a.appointment_time);

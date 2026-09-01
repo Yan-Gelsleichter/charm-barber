@@ -19,7 +19,7 @@ import {
   isBlock,
 } from "@/lib/availability";
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
-import { brazilDateTime, BRAZIL_TIME_ZONE } from "@/lib/timezone";
+import { brazilDateTime, brazilDateKey, brazilDayBounds, BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { PhoneInput } from "@/components/PhoneInput";
@@ -30,21 +30,29 @@ import { useDirectAppointments } from "@/hooks/use-direct-appointments";
 
 export function AgendaTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
+  // `date` guarda só o dia de calendário escolhido (hora local ignorada) —
+  // sempre inicializado a partir do "hoje" de Brasília, não do fuso do
+  // aparelho do barbeiro.
   const [date, setDate] = useState(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
+    const [y, m, d] = brazilDateKey().split("-").map(Number);
+    return new Date(y, m - 1, d);
   });
 
-  const dayKey = date.toISOString().slice(0, 10);
-  const dayEnd = useMemo(() => {
-    const end = new Date(date);
-    end.setDate(end.getDate() + 1);
-    return end.toISOString();
-  }, [date]);
+  // Chave do dia em horário LOCAL (toISOString usaria UTC e podia trocar de
+  // dia, igual ao mesmo cuidado tomado em agendar.$barbeiroId.tsx).
+  const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  // Início/fim reais do dia sempre em Brasília, não no fuso do aparelho.
+  const dayStart = useMemo(
+    () => brazilDayBounds(date.getFullYear(), date.getMonth(), date.getDate()).start.toISOString(),
+    [date],
+  );
+  const dayEnd = useMemo(
+    () => brazilDayBounds(date.getFullYear(), date.getMonth(), date.getDate() + 1).start.toISOString(),
+    [date],
+  );
   const directAppointments = useDirectAppointments({
     barberId: barber.id,
-    from: date.toISOString(),
+    from: dayStart,
     to: dayEnd,
   });
 
@@ -65,7 +73,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           .from("schedule_blocks")
           .select("*")
           .eq("barber_id", barber.id)
-          .gte("start_time", date.toISOString())
+          .gte("start_time", dayStart)
           .lt("start_time", dayEnd)
           .order("start_time"),
       ]);
@@ -82,7 +90,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
   // ---- Reagendamento (barbeiro) ----
   const [reschedId, setReschedId] = useState<string | null>(null);
-  const [reschedDate, setReschedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reschedDate, setReschedDate] = useState(() => brazilDateKey());
 
   const reschedTarget = (directAppointments.appointments ?? []).find((a) => a.id === reschedId) ?? null;
 
@@ -90,9 +98,10 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     enabled: !!reschedId,
     queryKey: ["remarcar-painel", barber.id, reschedDate],
     queryFn: async () => {
-      const start = new Date(`${reschedDate}T00:00:00`);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
+      // Sempre o dia de calendário em Brasília, não no fuso do aparelho.
+      const [ry, rm, rd] = reschedDate.split("-").map(Number);
+      const start = brazilDayBounds(ry, rm - 1, rd).start;
+      const end = brazilDayBounds(ry, rm - 1, rd + 1).start;
       const [a, b] = await Promise.all([
         supabase
           .from("appointments")

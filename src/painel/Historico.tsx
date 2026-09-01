@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
 import { filterActiveAppointments, hideRejectedPayments, isCancellationMarker } from "@/lib/availability";
+import { brazilStartOfWeek, brazilStartOfMonth, brazilStartOfYear } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
 
@@ -16,17 +17,12 @@ const PERIODOS: { key: Periodo; label: string }[] = [
   { key: "ano", label: "Anual" },
 ];
 
+// Sempre pelo calendário de Brasília, não pelo fuso do aparelho de quem
+// está vendo o histórico.
 function inicioDoPeriodo(p: Periodo): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  if (p === "semana") {
-    d.setDate(d.getDate() - d.getDay());
-  } else if (p === "mes") {
-    d.setDate(1);
-  } else {
-    d.setMonth(0, 1);
-  }
-  return d;
+  if (p === "semana") return brazilStartOfWeek();
+  if (p === "mes") return brazilStartOfMonth();
+  return brazilStartOfYear();
 }
 
 export function HistoricoTab({ barber }: { barber: Barber }) {

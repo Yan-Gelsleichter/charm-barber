@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtDateTime } from "@/lib/format";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
+import { brazilStartOfDay, brazilStartOfWeek, brazilStartOfMonth, brazilStartOfYear, brazilDayBounds } from "@/lib/timezone";
 
 type Periodo = "hoje" | "semana" | "mes" | "ano" | "custom";
 
@@ -27,27 +28,27 @@ const PERIODOS: { key: Periodo; label: string }[] = [
   { key: "ano", label: "Este ano" },
 ];
 
+// Sempre pelo calendário de Brasília, não pelo fuso do aparelho de quem
+// está vendo o faturamento.
 function inicioDoPeriodo(p: Exclude<Periodo, "custom">): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  if (p === "semana") d.setDate(d.getDate() - d.getDay());
-  else if (p === "mes") d.setDate(1);
-  else if (p === "ano") d.setMonth(0, 1);
-  return d;
+  if (p === "semana") return brazilStartOfWeek();
+  if (p === "mes") return brazilStartOfMonth();
+  if (p === "ano") return brazilStartOfYear();
+  return brazilStartOfDay();
 }
 
 function parseInicio(s: string): number | null {
   if (!s) return null;
   const [y, m, d] = s.split("-").map(Number);
   if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  return brazilDayBounds(y, m - 1, d).start.getTime();
 }
 
 function parseFim(s: string): number | null {
   if (!s) return null;
   const [y, m, d] = s.split("-").map(Number);
   if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  return brazilDayBounds(y, m - 1, d).end.getTime();
 }
 
 interface BarberStats {
