@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
+import { fmtDate, fmtTime } from "@/lib/format";
 
 /**
  * Criação pública e autoritativa de agendamento com service role.
@@ -223,7 +224,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               const { sendPush } = await import("@/lib/push.server");
               const { invalidTokens } = await sendPush(tokens, {
                 title: "Novo agendamento",
-                body: `${d.customer_name.trim()} marcou ${service.name ?? "um horário"} para ${new Date(appointmentTimeIso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`,
+                body: `${d.customer_name.trim()} marcou ${service.name ?? "um horário"} para ${fmtDate(appointmentTimeIso)} às ${fmtTime(appointmentTimeIso)}`,
                 url: "/painel",
               });
               if (invalidTokens.length > 0) {

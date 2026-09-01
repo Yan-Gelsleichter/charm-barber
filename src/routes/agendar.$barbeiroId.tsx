@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { useSession } from "@/hooks/use-auth";
 import { brl, fmtTime, phoneDigits } from "@/lib/format";
+import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { buildSlots, filterActiveAppointments } from "@/lib/availability";
 import { postPublicApi } from "@/lib/api-fetch";
 import { cn } from "@/lib/utils";
@@ -521,6 +522,7 @@ function AgendarPage() {
                       weekday: "short",
                       day: "2-digit",
                       month: "2-digit",
+                      timeZone: BRAZIL_TIME_ZONE,
                     })}
                   </p>
                 </div>

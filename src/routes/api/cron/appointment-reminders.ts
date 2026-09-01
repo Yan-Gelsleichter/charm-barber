@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 import { sendPush } from "@/lib/push.server";
+import { fmtTime } from "@/lib/format";
 
 /**
  * Chamada periodicamente por um scheduler externo (com
@@ -81,7 +82,7 @@ async function remindClients(admin: any): Promise<number> {
   for (const row of rows) {
     await sendPush([row.push_token], {
       title: "Seu horário está chegando",
-      body: `${serviceNameById.get(row.service_id) ?? "Seu atendimento"} às ${new Date(row.appointment_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+      body: `${serviceNameById.get(row.service_id) ?? "Seu atendimento"} às ${fmtTime(row.appointment_time)}`,
       url: "/meus-agendamentos",
     });
     sent += 1;
@@ -122,7 +123,7 @@ async function remindBarbers(admin: any): Promise<number> {
     if (tokens.length > 0) {
       const { invalidTokens } = await sendPush(tokens, {
         title: "Atendimento em 30 minutos",
-        body: `${row.customer_name} · ${serviceNameById.get(row.service_id) ?? "atendimento"} às ${new Date(row.appointment_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+        body: `${row.customer_name} · ${serviceNameById.get(row.service_id) ?? "atendimento"} às ${fmtTime(row.appointment_time)}`,
         url: "/painel",
       });
       if (invalidTokens.length > 0) {

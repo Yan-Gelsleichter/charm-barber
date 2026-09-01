@@ -5,6 +5,7 @@ import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
 import { brl, fmtTime } from "@/lib/format";
+import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { filterActiveAppointments, hideRejectedPayments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { useDirectAppointments } from "@/hooks/use-direct-appointments";
@@ -160,7 +161,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                       <p className="truncate font-semibold">{a.customer_name}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {sv?.name ?? "Serviço"} ·{" "}
-                        {new Date(a.appointment_time).toLocaleDateString("pt-BR")} ·{" "}
+                        {new Date(a.appointment_time).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })} ·{" "}
                         {fmtTime(a.appointment_time)}
                       </p>
                     </div>

@@ -19,6 +19,7 @@ import {
   isBlock,
 } from "@/lib/availability";
 import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
+import { brazilDateTime, BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { PhoneInput } from "@/components/PhoneInput";
@@ -206,10 +207,9 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
 
   function timeOnDate(hhmm: string) {
-    const [h, m] = hhmm.split(":").map(Number);
-    const d = new Date(date);
-    d.setHours(h || 0, m || 0, 0, 0);
-    return d;
+    // Sempre hora de Brasília — brazilDateTime evita depender do fuso do
+    // aparelho de quem está usando o painel.
+    return brazilDateTime(date, hhmm);
   }
 
   const createBlock = useMutation({
@@ -331,6 +331,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               day: "2-digit",
               month: "long",
               year: "numeric",
+              timeZone: BRAZIL_TIME_ZONE,
             })}
           </p>
         </div>

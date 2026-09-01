@@ -10,6 +10,7 @@ import type { Appointment, Barber, Service } from "@/integrations/supabase/db-ty
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { fmtDate, fmtTime, brl, phoneDigits } from "@/lib/format";
+import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { postPublicApi } from "@/lib/api-fetch";
@@ -265,7 +266,7 @@ function MeusAgendamentosPage() {
                     <p className="text-xs text-muted-foreground">
                       {SUBSCRIPTION_STATUS_LABEL[s.status] ?? s.status}
                       {s.current_period_end &&
-                        ` • próxima cobrança ${new Date(s.current_period_end).toLocaleDateString("pt-BR")}`}
+                        ` • próxima cobrança ${new Date(s.current_period_end).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })}`}
                     </p>
                   </div>
                 </div>

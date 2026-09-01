@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { brl, fmtTime } from "@/lib/format";
+import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { postPublicApi } from "@/lib/api-fetch";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -195,7 +196,7 @@ function PagamentoPage() {
               <span className="text-muted-foreground">Horário</span>
               <span className="font-medium">
                 {appointment
-                  ? `${new Date(appointment.appointment_time).toLocaleDateString("pt-BR")} · ${fmtTime(appointment.appointment_time)}`
+                  ? `${new Date(appointment.appointment_time).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })} · ${fmtTime(appointment.appointment_time)}`
                   : "—"}
               </span>
             </div>

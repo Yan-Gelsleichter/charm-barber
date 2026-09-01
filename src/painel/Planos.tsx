@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { brl } from "@/lib/format";
+import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { postPublicApi } from "@/lib/api-fetch";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -533,7 +534,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
                   <p className="truncate font-semibold">{client?.name ?? "Cliente"}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {plan?.name ?? "Plano"} • {STATUS_LABEL[s.status] ?? s.status}
-                    {s.current_period_end && ` • próxima cobrança ${new Date(s.current_period_end).toLocaleDateString("pt-BR")}`}
+                    {s.current_period_end && ` • próxima cobrança ${new Date(s.current_period_end).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })}`}
                   </p>
                 </div>
                 {(s.status === "active" || s.status === "authorized") && (

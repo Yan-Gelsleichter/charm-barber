@@ -1,3 +1,5 @@
+import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
+
 export function maskPhoneBR(value: string): string {
   const d = value.replace(/\D/g, "").slice(0, 11);
   if (d.length <= 2) return d.length ? `(${d}` : "";
@@ -17,12 +19,17 @@ export function brl(n: number | string): string {
 
 export function fmtDate(d: Date | string): string {
   const x = typeof d === "string" ? new Date(d) : d;
-  return x.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  return x.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: BRAZIL_TIME_ZONE,
+  });
 }
 
 export function fmtTime(d: Date | string): string {
   const x = typeof d === "string" ? new Date(d) : d;
-  return x.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return x.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: BRAZIL_TIME_ZONE });
 }
 
 export function fmtDateTime(d: Date | string): string {

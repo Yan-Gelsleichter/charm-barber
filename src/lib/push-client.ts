@@ -65,7 +65,8 @@ export function listenForegroundPush(onPush: (title: string, body: string) => vo
   try {
     const messaging = getMessaging(getFirebaseApp());
     return onMessage(messaging, (payload) => {
-      onPush(payload.notification?.title ?? "VIP BARBER", payload.notification?.body ?? "");
+      // Mensagem só com "data" (veja push.server.ts) — nunca "notification".
+      onPush(payload.data?.title ?? "VIP BARBER", payload.data?.body ?? "");
     });
   } catch {
     return () => {};

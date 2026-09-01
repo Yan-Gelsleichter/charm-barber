@@ -22,10 +22,13 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Mensagem só com "data" (sem "notification") de propósito — veja o
+// comentário em src/lib/push.server.ts. Isso garante que só este código
+// mostra a notificação, nunca duas vezes.
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? "VIP BARBER";
+  const title = payload.data?.title ?? "VIP BARBER";
   const options = {
-    body: payload.notification?.body ?? "",
+    body: payload.data?.body ?? "",
     data: payload.data ?? {},
   };
   self.registration.showNotification(title, options);

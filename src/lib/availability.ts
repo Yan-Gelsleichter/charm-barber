@@ -1,4 +1,5 @@
 import type { Appointment, WorkingHour, Service } from "@/integrations/supabase/db-types";
+import { brazilDateTime } from "@/lib/timezone";
 
 export type Slot = { start: Date; end: Date; available: boolean };
 
@@ -82,10 +83,10 @@ export function filterActiveAppointments<T extends AppointmentState>(appointment
 }
 
 function parseTime(hms: string, base: Date): Date {
-  const [h, m] = hms.split(":").map(Number);
-  const d = new Date(base);
-  d.setHours(h, m || 0, 0, 0);
-  return d;
+  // working_hours.start_time/end_time são sempre hora de Brasília — usa
+  // brazilDateTime em vez de setHours (que interpretaria "09:00" no fuso do
+  // aparelho de quem está agendando, não necessariamente Brasília).
+  return brazilDateTime(base, hms);
 }
 
 export function buildSlots(params: {

@@ -31,10 +31,17 @@ export async function sendPush(
 
   const invalidTokens: string[] = [];
   try {
+    // Só "data" (sem "notification"): quando a mensagem tem os dois, o
+    // navegador mostra o aviso sozinho por conta própria E o service worker
+    // (onBackgroundMessage) mostra de novo — resultado é notificação
+    // duplicada. Com "data" puro, só o nosso código decide, uma vez só.
     const result = await messaging.sendEachForMulticast({
       tokens: uniqueTokens,
-      notification: { title: notification.title, body: notification.body },
-      data: notification.url ? { url: notification.url } : undefined,
+      data: {
+        title: notification.title,
+        body: notification.body,
+        ...(notification.url ? { url: notification.url } : {}),
+      },
     });
     result.responses.forEach((res, i) => {
       if (!res.success && isInvalidTokenError(res.error?.code)) {
