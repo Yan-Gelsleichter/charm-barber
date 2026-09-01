@@ -77,6 +77,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#0b1220" },
+      // Nome curto mostrado embaixo do ícone quando o cliente adiciona o
+      // site à Tela de Início do iPhone (Safari não usa o <title> pra isso).
+      { name: "apple-mobile-web-app-title", content: "App Barbearias" },
+      // Faz o site abrir em tela cheia (sem a barra de endereço do Safari)
+      // quando aberto a partir do ícone salvo na Tela de Início.
+      { name: "apple-mobile-web-app-capable", content: "yes" },
       { title: "VIP BARBER — Agende seu corte" },
       { name: "description", content: "Escolha seu barbeiro favorito e agende em poucos toques." },
       { property: "og:title", content: "VIP BARBER — Agende seu corte" },
@@ -88,7 +94,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c49cea74-af85-48fc-b0ae-7683eb29be69/id-preview-e7968e53--f8e58623-77fe-4f6a-9a93-94bca800c277.lovable.app-1783530490744.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c49cea74-af85-48fc-b0ae-7683eb29be69/id-preview-e7968e53--f8e58623-77fe-4f6a-9a93-94bca800c277.lovable.app-1783530490744.png" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      // Ícone usado quando o site é adicionado à Tela de Início (iPhone/iPad).
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+      // Favicon "normal" (aba do navegador) e ícones maiores reaproveitáveis
+      // depois no ícone do app Android (TWA/Bubblewrap).
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
+      { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
+      { rel: "icon", type: "image/png", sizes: "512x512", href: "/icon-512.png" },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
