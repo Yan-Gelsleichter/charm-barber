@@ -264,9 +264,18 @@ function AuthPage() {
             {isSignup ? "Já tenho conta — entrar" : "Não tem conta? Criar agora"}
           </button>
           {!isSignup && (
-            <p className="text-[11px]">
-              Barbeiros: use o mesmo formulário para entrar. Cadastro de barbeiro é feito pelo admin.
-            </p>
+            <>
+              <p className="text-[11px]">
+                Barbeiros: use o mesmo formulário para entrar. Cadastro de barbeiro é feito pelo admin.
+              </p>
+              <p>
+                É dono de barbearia?{" "}
+                <Link to="/comecar" className="brand-text font-semibold">
+                  Comece seu teste grátis de 7 dias
+                </Link>
+                .
+              </p>
+            </>
           )}
           <p>
             Voltar para{" "}

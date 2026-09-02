@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ComecarRouteImport } from './routes/comecar'
 import { Route as MeusAgendamentosRouteImport } from './routes/meus-agendamentos'
 import { Route as PainelRouteImport } from './routes/painel'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
@@ -24,6 +25,7 @@ import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/pub
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
 import { Route as ApiPublicAppointmentPushTokenRouteImport } from './routes/api/public/appointment-push-token'
 import { Route as ApiPublicBarbershopBySlugRouteImport } from './routes/api/public/barbershop-by-slug'
+import { Route as ApiPublicCreateBarbershopRouteImport } from './routes/api/public/create-barbershop'
 import { Route as ApiPublicEnsureBarbershopSlugRouteImport } from './routes/api/public/ensure-barbershop-slug'
 import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
@@ -45,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComecarRoute = ComecarRouteImport.update({
+  id: '/comecar',
+  path: '/comecar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MeusAgendamentosRoute = MeusAgendamentosRouteImport.update({
@@ -117,6 +124,12 @@ const ApiPublicBarbershopBySlugRoute =
   ApiPublicBarbershopBySlugRouteImport.update({
     id: '/api/public/barbershop-by-slug',
     path: '/api/public/barbershop-by-slug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCreateBarbershopRoute =
+  ApiPublicCreateBarbershopRouteImport.update({
+    id: '/api/public/create-barbershop',
+    path: '/api/public/create-barbershop',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicEnsureBarbershopSlugRoute =
@@ -194,6 +207,7 @@ const ApiPublicWebhooksMercadopagoRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/comecar': typeof ComecarRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
@@ -207,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
@@ -223,6 +238,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/comecar': typeof ComecarRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
@@ -236,6 +252,7 @@ export interface FileRoutesByTo {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
@@ -253,6 +270,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/comecar': typeof ComecarRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
@@ -266,6 +284,7 @@ export interface FileRoutesById {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
@@ -284,6 +303,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/comecar'
     | '/meus-agendamentos'
     | '/painel'
     | '/agendar/$barbeiroId'
@@ -297,6 +317,7 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
@@ -313,6 +334,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/comecar'
     | '/meus-agendamentos'
     | '/painel'
     | '/agendar/$barbeiroId'
@@ -326,6 +348,7 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
@@ -342,6 +365,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/comecar'
     | '/meus-agendamentos'
     | '/painel'
     | '/agendar/$barbeiroId'
@@ -355,6 +379,7 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-oauth'
@@ -372,6 +397,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  ComecarRoute: typeof ComecarRoute
   MeusAgendamentosRoute: typeof MeusAgendamentosRoute
   PainelRoute: typeof PainelRoute
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
@@ -385,6 +411,7 @@ export interface RootRouteChildren {
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
   ApiPublicAppointmentPushTokenRoute: typeof ApiPublicAppointmentPushTokenRoute
   ApiPublicBarbershopBySlugRoute: typeof ApiPublicBarbershopBySlugRoute
+  ApiPublicCreateBarbershopRoute: typeof ApiPublicCreateBarbershopRoute
   ApiPublicEnsureBarbershopSlugRoute: typeof ApiPublicEnsureBarbershopSlugRoute
   ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
@@ -413,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comecar': {
+      id: '/comecar'
+      path: '/comecar'
+      fullPath: '/comecar'
+      preLoaderRoute: typeof ComecarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/meus-agendamentos': {
@@ -506,6 +540,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBarbershopBySlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/create-barbershop': {
+      id: '/api/public/create-barbershop'
+      path: '/api/public/create-barbershop'
+      fullPath: '/api/public/create-barbershop'
+      preLoaderRoute: typeof ApiPublicCreateBarbershopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ensure-barbershop-slug': {
       id: '/api/public/ensure-barbershop-slug'
       path: '/api/public/ensure-barbershop-slug'
@@ -596,6 +637,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  ComecarRoute: ComecarRoute,
   MeusAgendamentosRoute: MeusAgendamentosRoute,
   PainelRoute: PainelRoute,
   AgendarBarbeiroIdRoute: AgendarBarbeiroIdRoute,
@@ -610,6 +652,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
   ApiPublicAppointmentPushTokenRoute: ApiPublicAppointmentPushTokenRoute,
   ApiPublicBarbershopBySlugRoute: ApiPublicBarbershopBySlugRoute,
+  ApiPublicCreateBarbershopRoute: ApiPublicCreateBarbershopRoute,
   ApiPublicEnsureBarbershopSlugRoute: ApiPublicEnsureBarbershopSlugRoute,
   ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
