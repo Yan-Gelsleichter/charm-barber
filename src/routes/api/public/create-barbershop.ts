@@ -34,6 +34,16 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Feature nova: mostra o motivo real do erro (não só uma mensagem genérica)
+// enquanto ainda estamos validando o schema de `barbershops`, que não é
+// versionado neste repositório.
+function databaseError(prefix: string, error: { message: string; details?: string | null; hint?: string | null; code?: string | null }) {
+  const extra = [error.details, error.hint, error.code ? `código ${error.code}` : null]
+    .filter(Boolean)
+    .join(" · ");
+  return `${prefix}: ${error.message}${extra ? ` (${extra})` : ""}`;
+}
+
 export const Route = createFileRoute("/api/public/create-barbershop")({
   server: {
     handlers: {
@@ -72,7 +82,10 @@ export const Route = createFileRoute("/api/public/create-barbershop")({
             .single();
           if (shopInsert.error || !shopInsert.data) {
             console.error("[create-barbershop] falha ao criar barbearia", shopInsert.error);
-            return json({ error: "Não foi possível criar a barbearia." }, 500);
+            const message = shopInsert.error
+              ? databaseError("Não foi possível criar a barbearia", shopInsert.error)
+              : "Não foi possível criar a barbearia: o banco não retornou o registro criado.";
+            return json({ error: message }, 500);
           }
           const barbershopId = String((shopInsert.data as { id: string }).id);
 
@@ -90,7 +103,10 @@ export const Route = createFileRoute("/api/public/create-barbershop")({
           if (barberInsert.error || !barberInsert.data) {
             console.error("[create-barbershop] falha ao criar admin, desfazendo barbearia", barberInsert.error);
             await admin.from("barbershops").delete().eq("id", barbershopId);
-            return json({ error: "Não foi possível concluir o cadastro." }, 500);
+            const message = barberInsert.error
+              ? databaseError("Não foi possível concluir o cadastro", barberInsert.error)
+              : "Não foi possível concluir o cadastro: o banco não retornou o registro criado.";
+            return json({ error: message }, 500);
           }
 
           return json({
