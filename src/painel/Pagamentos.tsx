@@ -72,10 +72,15 @@ function usePlatformMp() {
 }
 
 function PlatformConnected({ env }: { env: "test" | "live" | null }) {
+  // Isso NÃO significa que a barbearia conectou a própria conta — é o
+  // fallback: enquanto ela não conecta, os pagamentos passam pela conta
+  // padrão da plataforma (configurada por variável de ambiente), pra nunca
+  // ficar sem cobrar. O texto precisa deixar isso bem claro, senão o dono
+  // de uma barbearia recém-criada acha que já está tudo pronto.
   return (
-    <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
-      <CheckCircle2 className="size-3" /> Conectado (chaves da barbearia no Supabase
-      {env === "test" ? " · teste" : ""})
+    <p className="flex items-center gap-1 text-xs text-amber-500">
+      <AlertCircle className="size-3" /> Ainda não conectada — pagamentos usando a conta padrão do app por enquanto
+      {env === "test" ? " · teste" : ""}
     </p>
   );
 }
