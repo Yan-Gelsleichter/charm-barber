@@ -77,7 +77,11 @@ export const Route = createFileRoute("/api/public/create-barbershop")({
           const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 3_600_000).toISOString();
           const shopInsert = await admin
             .from("barbershops")
-            .insert({ subscription_status: "trial", trial_ends_at: trialEndsAt })
+            .insert({
+              name: parsed.data.business_name,
+              subscription_status: "trial",
+              trial_ends_at: trialEndsAt,
+            })
             .select("id")
             .single();
           if (shopInsert.error || !shopInsert.data) {
