@@ -36,6 +36,7 @@ import { Route as ApiPublicMercadopagoReconcileRouteImport } from './routes/api/
 import { Route as ApiPublicMercadopagoSubscriptionCancelRouteImport } from './routes/api/public/mercadopago-subscription-cancel'
 import { Route as ApiPublicMercadopagoSyncRouteImport } from './routes/api/public/mercadopago-sync'
 import { Route as ApiPublicMercadopagoWebhookRouteImport } from './routes/api/public/mercadopago-webhook'
+import { Route as ApiPublicSubscriptionStatusRouteImport } from './routes/api/public/subscription-status'
 import { Route as ApiWebhooksMercadopagoRouteImport } from './routes/api/webhooks/mercadopago'
 import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
 
@@ -192,6 +193,12 @@ const ApiPublicMercadopagoWebhookRoute =
     path: '/api/public/mercadopago-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicSubscriptionStatusRoute =
+  ApiPublicSubscriptionStatusRouteImport.update({
+    id: '/api/public/subscription-status',
+    path: '/api/public/subscription-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWebhooksMercadopagoRoute = ApiWebhooksMercadopagoRouteImport.update({
   id: '/api/webhooks/mercadopago',
   path: '/api/webhooks/mercadopago',
@@ -232,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -263,6 +271,7 @@ export interface FileRoutesByTo {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -295,6 +304,7 @@ export interface FileRoutesById {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -328,6 +338,7 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
   fileRoutesByTo: FileRoutesByTo
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
   id:
@@ -390,6 +402,7 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
   fileRoutesById: FileRoutesById
@@ -422,6 +435,7 @@ export interface RootRouteChildren {
   ApiPublicMercadopagoSubscriptionCancelRoute: typeof ApiPublicMercadopagoSubscriptionCancelRoute
   ApiPublicMercadopagoSyncRoute: typeof ApiPublicMercadopagoSyncRoute
   ApiPublicMercadopagoWebhookRoute: typeof ApiPublicMercadopagoWebhookRoute
+  ApiPublicSubscriptionStatusRoute: typeof ApiPublicSubscriptionStatusRoute
   ApiWebhooksMercadopagoRoute: typeof ApiWebhooksMercadopagoRoute
   ApiPublicWebhooksMercadopagoRoute: typeof ApiPublicWebhooksMercadopagoRoute
 }
@@ -617,6 +631,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMercadopagoWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/subscription-status': {
+      id: '/api/public/subscription-status'
+      path: '/api/public/subscription-status'
+      fullPath: '/api/public/subscription-status'
+      preLoaderRoute: typeof ApiPublicSubscriptionStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/mercadopago': {
       id: '/api/webhooks/mercadopago'
       path: '/api/webhooks/mercadopago'
@@ -664,6 +685,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicMercadopagoSubscriptionCancelRoute,
   ApiPublicMercadopagoSyncRoute: ApiPublicMercadopagoSyncRoute,
   ApiPublicMercadopagoWebhookRoute: ApiPublicMercadopagoWebhookRoute,
+  ApiPublicSubscriptionStatusRoute: ApiPublicSubscriptionStatusRoute,
   ApiWebhooksMercadopagoRoute: ApiWebhooksMercadopagoRoute,
   ApiPublicWebhooksMercadopagoRoute: ApiPublicWebhooksMercadopagoRoute,
 }

@@ -16,6 +16,8 @@ import {
   Wallet,
   Repeat,
   TrendingUp,
+  Lock,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +26,7 @@ import { useMeBarber } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
 import { usePayoutMode } from "@/hooks/use-payout-mode";
 import { usePaymentSync } from "@/hooks/use-payment-sync";
+import { useSubscriptionGate, type SubscriptionGateReason } from "@/hooks/use-subscription-gate";
 
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { BrandMark } from "@/components/Brand";
@@ -125,6 +128,7 @@ function PainelPage() {
   const { data: payoutMode } = usePayoutMode(barber?.barbershop_id ?? null);
   const splitOn = payoutMode === "split";
   usePaymentSync(!!barber);
+  const subscriptionGate = useSubscriptionGate(barber?.barbershop_id ?? null);
 
 
   useEffect(() => {
@@ -283,6 +287,24 @@ WHERE user_id = '${currentUid}';`;
     );
   }
 
+  if (subscriptionGate.loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (subscriptionGate.blocked && subscriptionGate.reason) {
+    return (
+      <SubscriptionBlockedScreen
+        reason={subscriptionGate.reason}
+        onSignOut={handleSignOut}
+        signingOut={signingOut}
+      />
+    );
+  }
+
   const items = NAV.filter(
     (n) =>
       (!n.adminOnly || barber.is_admin) &&
@@ -379,6 +401,60 @@ WHERE user_id = '${currentUid}';`;
         <div style={{ height: "env(safe-area-inset-bottom)" }} />
         <span className="hidden">{loc.pathname}</span>
       </nav>
+    </div>
+  );
+}
+
+const SUBSCRIPTION_GATE_COPY: Record<
+  SubscriptionGateReason,
+  { title: string; message: string; icon: React.ElementType }
+> = {
+  trial_expired: {
+    title: "Seu teste grátis acabou",
+    message:
+      "O período de 7 dias de teste terminou. Assine um plano para continuar usando o painel.",
+    icon: Lock,
+  },
+  past_due: {
+    title: "Pagamento pendente",
+    message:
+      "Identificamos uma falha no pagamento da sua assinatura. Regularize para continuar usando o painel.",
+    icon: AlertTriangle,
+  },
+  canceled: {
+    title: "Assinatura cancelada",
+    message: "Sua assinatura foi cancelada. Assine novamente para continuar usando o painel.",
+    icon: Lock,
+  },
+};
+
+function SubscriptionBlockedScreen({
+  reason,
+  onSignOut,
+  signingOut,
+}: {
+  reason: SubscriptionGateReason;
+  onSignOut: () => void;
+  signingOut: boolean;
+}) {
+  const copy = SUBSCRIPTION_GATE_COPY[reason];
+  const Icon = copy.icon;
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-5 py-20 text-center">
+      <BrandMark size={48} />
+      <div className="mt-4 flex size-14 items-center justify-center rounded-full bg-destructive/10">
+        <Icon className="size-7 text-destructive" />
+      </div>
+      <h1 className="mt-4 text-xl font-semibold">{copy.title}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">{copy.message}</p>
+      <div className="mt-6 grid w-full gap-2">
+        <Button variant="hero" onClick={() => toast.info("Em breve: assinatura pelo app.")}>
+          Assinar agora
+        </Button>
+        <Button variant="outline" onClick={onSignOut} disabled={signingOut}>
+          <LogOut /> Sair
+        </Button>
+      </div>
     </div>
   );
 }
