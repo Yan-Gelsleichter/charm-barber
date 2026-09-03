@@ -53,38 +53,6 @@ const MODES: { id: PayoutMode; title: string; desc: string; icon: React.ElementT
   },
 ];
 
-/** Chaves do Mercado Pago configuradas no Supabase (conta da plataforma). */
-function usePlatformMp() {
-  const q = useQuery({
-    queryKey: ["mp-platform-status"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const res = await fetch("/api/public/mercadopago-status");
-      if (!res.ok) throw new Error("Falha ao verificar as chaves do Mercado Pago");
-      return (await res.json()) as {
-        configured: boolean;
-        env: "test" | "live" | null;
-        has_public_key: boolean;
-      };
-    },
-  });
-  return { platformReady: !!q.data?.configured, platformEnv: q.data?.env ?? null };
-}
-
-function PlatformConnected({ env }: { env: "test" | "live" | null }) {
-  // Isso NÃO significa que a barbearia conectou a própria conta — é o
-  // fallback: enquanto ela não conecta, os pagamentos passam pela conta
-  // padrão da plataforma (configurada por variável de ambiente), pra nunca
-  // ficar sem cobrar. O texto precisa deixar isso bem claro, senão o dono
-  // de uma barbearia recém-criada acha que já está tudo pronto.
-  return (
-    <p className="flex items-center gap-1 text-xs text-amber-500">
-      <AlertCircle className="size-3" /> Ainda não conectada — pagamentos usando a conta padrão do app por enquanto
-      {env === "test" ? " · teste" : ""}
-    </p>
-  );
-}
-
 export function PagamentosTab({ barber }: { barber: Barber }) {
   if (!barber.is_admin) return <MeuMercadoPago barber={barber} />;
   return <AdminPagamentos barber={barber} />;
@@ -106,7 +74,6 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
       return (data as { mp_user_id?: string | null } | null) ?? null;
     },
   });
-  usePlatformMp();
   const connected = !!meQ.data?.mp_user_id;
 
   const disconnect = useMutation({
@@ -307,7 +274,6 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
   });
 
 
-  const { platformReady, platformEnv } = usePlatformMp();
   const connected = !!statusQ.data?.mp_user_id;
 
   function connect() {
@@ -392,11 +358,10 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
               <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
                 <CheckCircle2 className="size-3" /> Conectado (conta {statusQ.data?.mp_user_id})
               </p>
-            ) : platformReady ? (
-              <PlatformConnected env={platformEnv} />
             ) : (
               <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                <AlertCircle className="size-3" /> Não conectado
+                <AlertCircle className="size-3" /> Não conectado — pagamento online fica indisponível pros
+                clientes até você conectar
               </p>
             )}
           </div>
@@ -436,7 +401,6 @@ function ComissoesBarbeiros({
   shopMpUserId?: string | null;
 }) {
   const qc = useQueryClient();
-  usePlatformMp();
   const [draft, setDraft] = useState<Record<string, string>>({});
 
   const listQ = useQuery({

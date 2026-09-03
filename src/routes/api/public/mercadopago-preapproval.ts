@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { mpPlatformCredentials, mpEnvGuardError } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { publicOrigin } from "@/lib/app-origin.server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
@@ -42,9 +41,6 @@ export const Route = createFileRoute("/api/public/mercadopago-preapproval")({
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) return json({ error: "Dados da assinatura inválidos." }, 400);
 
-          const envError = mpEnvGuardError();
-          if (envError) return json({ error: envError }, 503);
-
           const admin = createSupabaseAdmin();
           if (!admin) return json({ error: "A assinatura está temporariamente indisponível." }, 503);
 
@@ -83,11 +79,11 @@ export const Route = createFileRoute("/api/public/mercadopago-preapproval")({
             return json({ error: "Não foi possível carregar a conta de pagamento." }, 500);
           }
 
-          const platform = mpPlatformCredentials();
+          // Só a conta da própria barbearia — nunca uma conta "coringa" da
+          // plataforma. O dinheiro da assinatura só pode ir direto pro dono.
           const shopToken = String((shop as { mp_access_token?: string | null } | null)?.mp_access_token ?? "").trim();
           const candidates: string[] = [];
           if (shopToken && !shopToken.toUpperCase().startsWith("TEST-")) candidates.push(shopToken);
-          if (platform?.accessToken) candidates.push(platform.accessToken);
           if (candidates.length === 0) {
             return json({ error: "Esta barbearia ainda não conectou o Mercado Pago." }, 400);
           }
@@ -175,7 +171,6 @@ export const Route = createFileRoute("/api/public/mercadopago-preapproval")({
               body: rawBody.slice(0, 1000),
             });
             lastError = body.message || body.error || lastError;
-            // Token inválido/sem permissão: tenta o próximo candidato (fallback da plataforma).
             if (res.status !== 401 && res.status !== 403) break;
           }
 

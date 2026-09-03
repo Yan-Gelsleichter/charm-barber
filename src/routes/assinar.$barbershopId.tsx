@@ -76,6 +76,20 @@ function AssinarPage() {
     },
   });
 
+  // Só oferece "Assinar" quando a barbearia já conectou a própria conta do
+  // Mercado Pago — a cobrança da assinatura nunca passa pela plataforma.
+  const connectionQ = useQuery({
+    queryKey: ["mp-connection-shop", barbershopId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/public/mercadopago-connection?barbershop_id=${encodeURIComponent(barbershopId)}`,
+        { cache: "no-store" },
+      ).catch(() => null);
+      const body = (await res?.json().catch(() => null)) as { connected?: boolean } | null;
+      return body?.connected === true;
+    },
+  });
+
   const barbersQ = useQuery({
     queryKey: ["public-barbers-for-plans", barbershopId],
     queryFn: async () => {
@@ -194,18 +208,24 @@ function AssinarPage() {
             <p className="mt-3 text-xs text-muted-foreground">
               Disponível com: {(barbersByPlan.get(plan.id) ?? []).join(", ") || "a definir"}
             </p>
-            <Button
-              variant="hero"
-              className="mt-4 w-full"
-              disabled={subscribe.isPending && subscribingId === plan.id}
-              onClick={() => subscribe.mutate(plan.id)}
-            >
-              {subscribe.isPending && subscribingId === plan.id ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                "Assinar"
-              )}
-            </Button>
+            {connectionQ.data === true ? (
+              <Button
+                variant="hero"
+                className="mt-4 w-full"
+                disabled={subscribe.isPending && subscribingId === plan.id}
+                onClick={() => subscribe.mutate(plan.id)}
+              >
+                {subscribe.isPending && subscribingId === plan.id ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  "Assinar"
+                )}
+              </Button>
+            ) : connectionQ.data === false ? (
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                Assinatura ainda não disponível nesta barbearia.
+              </p>
+            ) : null}
           </div>
         ))}
       </div>

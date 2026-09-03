@@ -28,11 +28,11 @@ import { Route as ApiPublicBarbershopBySlugRouteImport } from './routes/api/publ
 import { Route as ApiPublicCreateBarbershopRouteImport } from './routes/api/public/create-barbershop'
 import { Route as ApiPublicEnsureBarbershopSlugRouteImport } from './routes/api/public/ensure-barbershop-slug'
 import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
+import { Route as ApiPublicMercadopagoConnectionRouteImport } from './routes/api/public/mercadopago-connection'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
 import { Route as ApiPublicMercadopagoPreapprovalRouteImport } from './routes/api/public/mercadopago-preapproval'
 import { Route as ApiPublicMercadopagoPreferenceRouteImport } from './routes/api/public/mercadopago-preference'
 import { Route as ApiPublicMercadopagoReconcileRouteImport } from './routes/api/public/mercadopago-reconcile'
-import { Route as ApiPublicMercadopagoStatusRouteImport } from './routes/api/public/mercadopago-status'
 import { Route as ApiPublicMercadopagoSubscriptionCancelRouteImport } from './routes/api/public/mercadopago-subscription-cancel'
 import { Route as ApiPublicMercadopagoSyncRouteImport } from './routes/api/public/mercadopago-sync'
 import { Route as ApiPublicMercadopagoWebhookRouteImport } from './routes/api/public/mercadopago-webhook'
@@ -144,6 +144,12 @@ const ApiPublicMercadopagoConnectRoute =
     path: '/api/public/mercadopago-connect',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMercadopagoConnectionRoute =
+  ApiPublicMercadopagoConnectionRouteImport.update({
+    id: '/api/public/mercadopago-connection',
+    path: '/api/public/mercadopago-connection',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicMercadopagoOauthRoute =
   ApiPublicMercadopagoOauthRouteImport.update({
     id: '/api/public/mercadopago-oauth',
@@ -166,12 +172,6 @@ const ApiPublicMercadopagoReconcileRoute =
   ApiPublicMercadopagoReconcileRouteImport.update({
     id: '/api/public/mercadopago-reconcile',
     path: '/api/public/mercadopago-reconcile',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicMercadopagoStatusRoute =
-  ApiPublicMercadopagoStatusRouteImport.update({
-    id: '/api/public/mercadopago-status',
-    path: '/api/public/mercadopago-status',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicMercadopagoSubscriptionCancelRoute =
@@ -224,11 +224,11 @@ export interface FileRoutesByFullPath {
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
+  '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
-  '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
@@ -255,11 +255,11 @@ export interface FileRoutesByTo {
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
+  '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
-  '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
@@ -287,11 +287,11 @@ export interface FileRoutesById {
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
+  '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
   '/api/public/mercadopago-preapproval': typeof ApiPublicMercadopagoPreapprovalRoute
   '/api/public/mercadopago-preference': typeof ApiPublicMercadopagoPreferenceRoute
   '/api/public/mercadopago-reconcile': typeof ApiPublicMercadopagoReconcileRoute
-  '/api/public/mercadopago-status': typeof ApiPublicMercadopagoStatusRoute
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
@@ -320,11 +320,11 @@ export interface FileRouteTypes {
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
+    | '/api/public/mercadopago-connection'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preapproval'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
-    | '/api/public/mercadopago-status'
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
@@ -351,11 +351,11 @@ export interface FileRouteTypes {
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
+    | '/api/public/mercadopago-connection'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preapproval'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
-    | '/api/public/mercadopago-status'
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
@@ -382,11 +382,11 @@ export interface FileRouteTypes {
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
+    | '/api/public/mercadopago-connection'
     | '/api/public/mercadopago-oauth'
     | '/api/public/mercadopago-preapproval'
     | '/api/public/mercadopago-preference'
     | '/api/public/mercadopago-reconcile'
-    | '/api/public/mercadopago-status'
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
@@ -414,11 +414,11 @@ export interface RootRouteChildren {
   ApiPublicCreateBarbershopRoute: typeof ApiPublicCreateBarbershopRoute
   ApiPublicEnsureBarbershopSlugRoute: typeof ApiPublicEnsureBarbershopSlugRoute
   ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
+  ApiPublicMercadopagoConnectionRoute: typeof ApiPublicMercadopagoConnectionRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
   ApiPublicMercadopagoPreapprovalRoute: typeof ApiPublicMercadopagoPreapprovalRoute
   ApiPublicMercadopagoPreferenceRoute: typeof ApiPublicMercadopagoPreferenceRoute
   ApiPublicMercadopagoReconcileRoute: typeof ApiPublicMercadopagoReconcileRoute
-  ApiPublicMercadopagoStatusRoute: typeof ApiPublicMercadopagoStatusRoute
   ApiPublicMercadopagoSubscriptionCancelRoute: typeof ApiPublicMercadopagoSubscriptionCancelRoute
   ApiPublicMercadopagoSyncRoute: typeof ApiPublicMercadopagoSyncRoute
   ApiPublicMercadopagoWebhookRoute: typeof ApiPublicMercadopagoWebhookRoute
@@ -561,6 +561,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMercadopagoConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mercadopago-connection': {
+      id: '/api/public/mercadopago-connection'
+      path: '/api/public/mercadopago-connection'
+      fullPath: '/api/public/mercadopago-connection'
+      preLoaderRoute: typeof ApiPublicMercadopagoConnectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/mercadopago-oauth': {
       id: '/api/public/mercadopago-oauth'
       path: '/api/public/mercadopago-oauth'
@@ -587,13 +594,6 @@ declare module '@tanstack/react-router' {
       path: '/api/public/mercadopago-reconcile'
       fullPath: '/api/public/mercadopago-reconcile'
       preLoaderRoute: typeof ApiPublicMercadopagoReconcileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/mercadopago-status': {
-      id: '/api/public/mercadopago-status'
-      path: '/api/public/mercadopago-status'
-      fullPath: '/api/public/mercadopago-status'
-      preLoaderRoute: typeof ApiPublicMercadopagoStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mercadopago-subscription-cancel': {
@@ -655,11 +655,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCreateBarbershopRoute: ApiPublicCreateBarbershopRoute,
   ApiPublicEnsureBarbershopSlugRoute: ApiPublicEnsureBarbershopSlugRoute,
   ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,
+  ApiPublicMercadopagoConnectionRoute: ApiPublicMercadopagoConnectionRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,
   ApiPublicMercadopagoPreapprovalRoute: ApiPublicMercadopagoPreapprovalRoute,
   ApiPublicMercadopagoPreferenceRoute: ApiPublicMercadopagoPreferenceRoute,
   ApiPublicMercadopagoReconcileRoute: ApiPublicMercadopagoReconcileRoute,
-  ApiPublicMercadopagoStatusRoute: ApiPublicMercadopagoStatusRoute,
   ApiPublicMercadopagoSubscriptionCancelRoute:
     ApiPublicMercadopagoSubscriptionCancelRoute,
   ApiPublicMercadopagoSyncRoute: ApiPublicMercadopagoSyncRoute,

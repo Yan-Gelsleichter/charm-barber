@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { mpPlatformCredentials, mpEnvGuardError } from "@/lib/mp-platform.server";
 import { mpNotificationUrl } from "@/lib/mp-webhook.server";
 import { resolvePayerEmail } from "@/lib/mp-payer.server";
 import { PUBLIC_APP_URL } from "@/lib/app-url";
@@ -78,9 +77,6 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
 
           const parsed = requestSchema.safeParse(await request.json().catch(() => null));
           if (!parsed.success) return json({ error: "Dados do pagamento inválidos." }, 400);
-
-          const envError = mpEnvGuardError();
-          if (envError) return json({ error: envError }, 503);
 
           const admin = createSupabaseAdmin();
           if (!admin) {
@@ -173,12 +169,16 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             }
           }
 
-          const platform = mpPlatformCredentials();
-
-          /** Candidatos de token, do mais específico ao token da plataforma. */
+          /**
+           * Candidatos de token: só a conta do barbeiro (modo dividido) e/ou da
+           * própria barbearia. Nunca cai numa conta "coringa" da plataforma —
+           * o dinheiro do cliente só pode ir direto pra conta de quem é dono do
+           * agendamento. Sem candidato aqui, o pagamento online simplesmente
+           * não é oferecido (ver mercadopago-connection.ts).
+           */
           type TokenCandidate = {
             token: string;
-            source: "barber" | "shop" | "platform";
+            source: "barber" | "shop";
           };
           const seen = new Set<string>();
           const candidates: TokenCandidate[] = [];
@@ -194,9 +194,6 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           };
           if (barberSplit) pushCandidate(barberSplit.accessToken, "barber");
           pushCandidate(shop?.mp_access_token, "shop");
-          // Sempre disponível como fallback: MP_ACCESS_TOKEN de produção (lido a cada request,
-          // sem cache de módulo, para que uma troca de credencial valha imediatamente).
-          pushCandidate(platform?.accessToken, "platform");
 
           if (candidates.length === 0) {
             return json(
@@ -342,7 +339,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
                   status: meRes.status,
                   message: tokenError,
                 });
-                if (candidate.source !== "platform" && (meRes.status === 401 || meRes.status === 403)) {
+                if (meRes.status === 401 || meRes.status === 403) {
                   await invalidateStoredToken(candidate.source);
                 }
               }
@@ -357,8 +354,7 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           if (validCandidates.length === 0) {
             return json(
               {
-                error:
-                  "Credencial do Mercado Pago inválida ou expirada. Atualize o MP_ACCESS_TOKEN de produção (ou reconecte a conta do Mercado Pago).",
+                error: "A conexão com o Mercado Pago expirou. Reconecte a conta da barbearia.",
                 detail: tokenError || undefined,
               },
               503,
@@ -422,22 +418,12 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             });
             lastError = message || lastError;
 
-            if (invalidToken && candidate.source !== "platform") {
-              // Token OAuth vencido/revogado: limpa para não ser reutilizado e cai no próximo.
-              await invalidateStoredToken(candidate.source);
-              continue;
-            }
             if (invalidToken) {
-              return json(
-                {
-                  error:
-                    "Credencial do Mercado Pago inválida. Verifique o MP_ACCESS_TOKEN de produção.",
-                  detail: message || undefined,
-                },
-                503,
-              );
+              // Token OAuth vencido/revogado: limpa para não ser reutilizado e cai no próximo
+              // candidato (barbeiro → barbearia — nunca plataforma).
+              await invalidateStoredToken(candidate.source);
             }
-            // Erro de dados/conta: tenta o próximo token (ex.: cai na conta da plataforma).
+            // Erro de dados/conta ou token inválido: tenta o próximo candidato, se houver.
             continue;
           }
 

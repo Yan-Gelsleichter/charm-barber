@@ -43,6 +43,22 @@ export const Route = createFileRoute("/pagamento/$appointmentId")({
 function PagamentoPage() {
   const { appointmentId } = Route.useParams();
   const navigate = useNavigate();
+
+  // Só oferece "Pagar Online" quando a barbearia (ou o barbeiro, no modo
+  // dividido) já conectou a própria conta do Mercado Pago — o dinheiro do
+  // cliente nunca passa por uma conta intermediária da plataforma.
+  const connectionQ = useQuery({
+    queryKey: ["mp-connection", appointmentId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/public/mercadopago-connection?appointment_id=${encodeURIComponent(appointmentId)}`,
+        { cache: "no-store" },
+      ).catch(() => null);
+      const body = (await res?.json().catch(() => null)) as { connected?: boolean } | null;
+      return body?.connected === true;
+    },
+  });
+
   const apptQ = useQuery({
     queryKey: ["appointment-pay", appointmentId],
     refetchInterval: (query) =>
@@ -259,16 +275,23 @@ function PagamentoPage() {
 
       {!paid && (
         <div className="mt-5 grid gap-3">
-          <Button
-            variant="hero"
-            size="xl"
-            className="w-full"
-            onClick={() => startCheckout.mutate()}
-            disabled={busy}
-          >
-            {startCheckout.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
-            {startCheckout.isPending ? "Abrindo pagamento…" : "Pagar Online (Pix ou Cartão)"}
-          </Button>
+          {connectionQ.data === true && (
+            <Button
+              variant="hero"
+              size="xl"
+              className="w-full"
+              onClick={() => startCheckout.mutate()}
+              disabled={busy}
+            >
+              {startCheckout.isPending ? <Loader2 className="animate-spin" /> : <CreditCard />}
+              {startCheckout.isPending ? "Abrindo pagamento…" : "Pagar Online (Pix ou Cartão)"}
+            </Button>
+          )}
+          {connectionQ.data === false && (
+            <p className="text-center text-xs text-muted-foreground">
+              Pagamento online ainda não disponível nesta barbearia.
+            </p>
+          )}
           <Button
             variant="outline"
             size="xl"
