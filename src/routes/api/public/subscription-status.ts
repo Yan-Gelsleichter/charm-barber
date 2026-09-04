@@ -38,19 +38,27 @@ export const Route = createFileRoute("/api/public/subscription-status")({
 
           const { data: shop } = await admin
             .from("barbershops")
-            .select("subscription_status, trial_ends_at, current_period_ends_at")
+            .select(
+              "subscription_status, trial_ends_at, current_period_ends_at, subscription_plan, pending_plan_change, subscription_id",
+            )
             .eq("id", barbershopId)
             .maybeSingle();
           const row = shop as {
             subscription_status?: string | null;
             trial_ends_at?: string | null;
             current_period_ends_at?: string | null;
+            subscription_plan?: string | null;
+            pending_plan_change?: string | null;
+            subscription_id?: string | null;
           } | null;
 
           return json({
             subscription_status: row?.subscription_status ?? "trial",
             trial_ends_at: row?.trial_ends_at ?? null,
             current_period_ends_at: row?.current_period_ends_at ?? null,
+            subscription_plan: row?.subscription_plan ?? null,
+            pending_plan_change: row?.pending_plan_change ?? null,
+            subscription_id: row?.subscription_id ?? null,
           });
         } catch (error) {
           console.error("[subscription-status] erro inesperado", error);

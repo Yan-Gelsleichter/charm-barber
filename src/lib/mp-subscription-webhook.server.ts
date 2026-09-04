@@ -10,9 +10,35 @@
  */
 import { resolveTenant, verifySignature, fetchPayment } from "@/lib/mp-webhook-handler.server";
 import type { PaymentPayload, RawNotification } from "@/lib/mp-webhook-handler.server";
+import { parsePlatformExternalRef } from "@/lib/platform-subscription.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = { from: (table: string) => any };
+
+/**
+ * Assinatura da própria PLATAFORMA (barbershops.subscription_id) — enum
+ * diferente de client_subscriptions.status: barbershops.subscription_status
+ * só aceita trial/active/past_due/canceled. "active" só é setado pela
+ * confirmação de cobrança real (handlePlatformSubscriptionPayment), nunca
+ * por um ping de status daqui.
+ */
+async function handlePlatformPreapprovalStatus(admin: Admin, barbershopId: string, mpStatus: string) {
+  let nextStatus: string | null = null;
+  if (mpStatus === "cancelled") nextStatus = "canceled";
+  else if (mpStatus === "paused") nextStatus = "past_due";
+  if (!nextStatus) return new Response("ok", { status: 200 });
+
+  const { error } = await admin
+    .from("barbershops")
+    .update({ subscription_status: nextStatus })
+    .eq("id", barbershopId)
+    .neq("subscription_status", "canceled");
+  if (error) {
+    console.error("Webhook assinatura: falha ao atualizar status da barbearia", error);
+    return new Response("update failed", { status: 500 });
+  }
+  return new Response("ok", { status: 200 });
+}
 
 async function handlePreapprovalStatus(admin: Admin, accessToken: string, preapprovalId: string) {
   const res = await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(preapprovalId)}`, {
@@ -28,6 +54,15 @@ async function handlePreapprovalStatus(admin: Admin, accessToken: string, preapp
     .maybeSingle();
   const subscription = sub as { id: string; status: string } | null;
   if (!subscription) {
+    const { data: shop } = await admin
+      .from("barbershops")
+      .select("id")
+      .eq("subscription_id", preapprovalId)
+      .maybeSingle();
+    const barbershopId = (shop as { id?: string } | null)?.id;
+    if (barbershopId) {
+      return handlePlatformPreapprovalStatus(admin, barbershopId, (body.status ?? "").toLowerCase());
+    }
     console.warn("Webhook assinatura: preapproval sem assinatura correspondente", { preapprovalId });
     return new Response("no subscription found", { status: 200 });
   }
@@ -52,16 +87,68 @@ async function handlePreapprovalStatus(admin: Admin, accessToken: string, preapp
   return new Response("ok", { status: 200 });
 }
 
+/**
+ * Cobrança confirmada da assinatura da PLATAFORMA. Trava com mp_webhook_events
+ * (mesmo truque de idempotência do pagamento de agendamento avulso) pra um
+ * reenvio duplicado do MP não empurrar current_period_ends_at duas vezes.
+ */
+async function handlePlatformSubscriptionPayment(
+  admin: Admin,
+  barbershopId: string,
+  paymentId: string,
+  payment: PaymentPayload,
+) {
+  const { error: claimError } = await admin.from("mp_webhook_events").insert({
+    event_id: `platform-sub:${paymentId}`,
+    payment_id: paymentId,
+    appointment_id: null,
+    status: payment.status ?? null,
+  });
+  const isDuplicate =
+    !!claimError && (claimError.code === "23505" || /duplicate key/i.test(claimError.message ?? ""));
+  if (isDuplicate) return new Response("already processed", { status: 200 });
+  if (claimError) {
+    console.error("Webhook assinatura: falha ao reservar evento da plataforma", claimError);
+    return new Response("event claim failed", { status: 500 });
+  }
+
+  const status = String(payment.status ?? "").toLowerCase();
+  const isApproved = status === "approved" || status === "authorized";
+  const nextPeriodEnd = new Date();
+  nextPeriodEnd.setMonth(nextPeriodEnd.getMonth() + 1);
+
+  const { error } = await admin
+    .from("barbershops")
+    .update(
+      isApproved
+        ? { subscription_status: "active", current_period_ends_at: nextPeriodEnd.toISOString() }
+        : { subscription_status: "past_due" },
+    )
+    .eq("id", barbershopId)
+    .neq("subscription_status", "canceled");
+  if (error) {
+    console.error("Webhook assinatura: falha ao atualizar barbearia após cobrança", error);
+    return new Response("barbershop update failed", { status: 500 });
+  }
+  return new Response("ok", { status: 200 });
+}
+
 async function handleSubscriptionPayment(admin: Admin, accessToken: string, paymentId: string) {
   const { ok, payment } = await fetchPayment(accessToken, paymentId);
   if (!ok) return new Response("payment fetch failed", { status: 200 });
 
   // O `external_reference` da cobrança herda o que foi enviado na criação do
-  // preapproval — lá usamos o id da nossa linha em client_subscriptions.
+  // preapproval — lá usamos o id da nossa linha em client_subscriptions (ou,
+  // pra assinatura da plataforma, o prefixo "platform-sub:" + barbershopId.
   const externalRef = String((payment as PaymentPayload).external_reference ?? "").trim();
   if (!externalRef) {
     console.warn("Webhook assinatura: cobrança sem external_reference", { paymentId });
     return new Response("no subscription reference", { status: 200 });
+  }
+
+  const platformBarbershopId = parsePlatformExternalRef(externalRef);
+  if (platformBarbershopId) {
+    return handlePlatformSubscriptionPayment(admin, platformBarbershopId, paymentId, payment as PaymentPayload);
   }
 
   const { data: sub } = await admin

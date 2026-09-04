@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { useDarkMode } from "@/lib/theme";
 import { publicAppOrigin } from "@/lib/app-url";
 import { postPublicApi } from "@/lib/api-fetch";
+import { brl, fmtDate } from "@/lib/format";
+import { useSubscriptionStatusQuery } from "@/hooks/use-subscription-gate";
 
 
 const PRESET_COLORS = [
@@ -304,6 +306,10 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         <QrInviteSection barbershopId={barber.barbershop_id} />
       ) : null}
 
+      {barber.is_admin && barber.barbershop_id ? (
+        <AssinaturaPlataformaSection barbershopId={barber.barbershop_id} />
+      ) : null}
+
 
 
       <section className="surface space-y-4 p-4">
@@ -501,6 +507,121 @@ function QrInviteSection({ barbershopId }: { barbershopId: string }) {
           </div>
         </div>
       </div>
+    </section>
+  );
+}
+
+const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
+  trial: "Teste grátis",
+  active: "Ativa",
+  past_due: "Pagamento pendente",
+  canceled: "Cancelada",
+};
+
+const PLATFORM_PLAN_LABEL: Record<string, string> = {
+  monthly: "Mensal (R$ 49,00/mês)",
+  yearly: "Anual (R$ 39,00/mês)",
+};
+
+function AssinaturaPlataformaSection({ barbershopId }: { barbershopId: string }) {
+  const qc = useQueryClient();
+  const statusQ = useSubscriptionStatusQuery(barbershopId);
+  const [confirming, setConfirming] = useState(false);
+
+  const upgrade = useMutation({
+    mutationFn: async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      const result = await postPublicApi<{
+        ok?: boolean;
+        already_scheduled?: boolean;
+        error?: string;
+      }>("/api/public/platform-subscription-upgrade", {}, session?.access_token);
+      if (!result?.ok) throw new Error(result?.error ?? "Não foi possível agendar o upgrade.");
+      return result;
+    },
+    onSuccess: () => {
+      toast.success("Upgrade para o anual agendado!");
+      setConfirming(false);
+      qc.invalidateQueries({ queryKey: ["subscription-status", barbershopId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const data = statusQ.data;
+
+  return (
+    <section className="surface space-y-3 p-4">
+      <div className="flex items-center gap-2">
+        <CreditCard className="text-muted-foreground" size={18} />
+        <h2 className="font-semibold">Assinatura da plataforma</h2>
+      </div>
+
+      {statusQ.isLoading || !data ? (
+        <Loader2 className="animate-spin text-muted-foreground" size={18} />
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Status:{" "}
+            <span className="font-medium text-foreground">
+              {SUBSCRIPTION_STATUS_LABEL[data.subscription_status ?? "trial"] ?? data.subscription_status}
+            </span>
+          </p>
+          {data.subscription_plan && (
+            <p className="text-sm text-muted-foreground">
+              Plano:{" "}
+              <span className="font-medium text-foreground">
+                {PLATFORM_PLAN_LABEL[data.subscription_plan] ?? data.subscription_plan}
+              </span>
+            </p>
+          )}
+          {data.current_period_ends_at && (
+            <p className="text-sm text-muted-foreground">
+              {data.subscription_status === "active" ? "Renova em" : "Válido até"}:{" "}
+              <span className="font-medium text-foreground">{fmtDate(data.current_period_ends_at)}</span>
+            </p>
+          )}
+
+          {data.pending_plan_change === "yearly" ? (
+            <p className="rounded-xl border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
+              Upgrade para o plano anual ({brl(39)}/mês) agendado para{" "}
+              {data.current_period_ends_at ? fmtDate(data.current_period_ends_at) : "o fim do período atual"}
+              . Nenhuma cobrança extra acontece até lá.
+            </p>
+          ) : data.subscription_plan === "monthly" && data.subscription_status === "active" ? (
+            confirming ? (
+              <div className="space-y-2 rounded-xl border border-border bg-secondary/40 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Seu plano atual continua até{" "}
+                  {data.current_period_ends_at ? fmtDate(data.current_period_ends_at) : "o fim do período atual"}
+                  . Depois disso você passa a pagar {brl(39)}/mês automaticamente.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="hero"
+                    onClick={() => upgrade.mutate()}
+                    disabled={upgrade.isPending}
+                  >
+                    {upgrade.isPending ? <Loader2 className="animate-spin" /> : "Confirmar upgrade"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirming(false)}
+                    disabled={upgrade.isPending}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="outline" onClick={() => setConfirming(true)}>
+                Fazer upgrade para o Anual
+              </Button>
+            )
+          ) : null}
+        </>
+      )}
     </section>
   );
 }

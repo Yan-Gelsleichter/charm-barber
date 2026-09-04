@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate, Link, useLocation } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -26,12 +27,18 @@ import { useMeBarber } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
 import { usePayoutMode } from "@/hooks/use-payout-mode";
 import { usePaymentSync } from "@/hooks/use-payment-sync";
-import { useSubscriptionGate, type SubscriptionGateReason } from "@/hooks/use-subscription-gate";
+import {
+  useSubscriptionGate,
+  type SubscriptionGateReason,
+  type SubscriptionStatusResponse,
+} from "@/hooks/use-subscription-gate";
 
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { brl } from "@/lib/format";
+import { postPublicApi } from "@/lib/api-fetch";
 
 import { DashboardTab } from "@/painel/Dashboard";
 import { AgendaTab } from "@/painel/Agenda";
@@ -299,6 +306,9 @@ WHERE user_id = '${currentUid}';`;
     return (
       <SubscriptionBlockedScreen
         reason={subscriptionGate.reason}
+        isAdmin={barber.is_admin}
+        accessToken={session.access_token}
+        subscriptionData={subscriptionGate.data}
         onSignOut={handleSignOut}
         signingOut={signingOut}
       />
@@ -428,17 +438,58 @@ const SUBSCRIPTION_GATE_COPY: Record<
   },
 };
 
+const PLATFORM_PLAN_INFO: Record<
+  "monthly" | "yearly",
+  { label: string; price: number; caption?: string }
+> = {
+  monthly: { label: "Mensal", price: 49 },
+  yearly: {
+    label: "Anual",
+    price: 39,
+    caption: "equivalente a R$ 468,00/ano · compromisso de 12 meses",
+  },
+};
+
 function SubscriptionBlockedScreen({
   reason,
+  isAdmin,
+  accessToken,
+  subscriptionData,
   onSignOut,
   signingOut,
 }: {
   reason: SubscriptionGateReason;
+  isAdmin: boolean;
+  accessToken: string;
+  subscriptionData: SubscriptionStatusResponse | undefined;
   onSignOut: () => void;
   signingOut: boolean;
 }) {
   const copy = SUBSCRIPTION_GATE_COPY[reason];
   const Icon = copy.icon;
+
+  // Só ambíguo pro caso de trial nunca assinado: subscription_id fica preso
+  // no último valor mesmo depois de a barbearia reassinar, então em
+  // past_due/canceled sempre mostramos os planos de novo (é a ação certa).
+  const awaitingConfirmation = reason === "trial_expired" && !!subscriptionData?.subscription_id;
+  const [showPlansAnyway, setShowPlansAnyway] = useState(false);
+
+  const subscribe = useMutation({
+    mutationFn: async (plan: "monthly" | "yearly") => {
+      const result = await postPublicApi<{ init_point?: string }>(
+        "/api/public/platform-subscription-create",
+        { plan },
+        accessToken,
+      );
+      if (!result?.init_point) throw new Error("Não foi possível iniciar a assinatura.");
+      return result.init_point;
+    },
+    onSuccess: (initPoint) => {
+      window.location.href = initPoint;
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-5 py-20 text-center">
       <BrandMark size={48} />
@@ -447,10 +498,56 @@ function SubscriptionBlockedScreen({
       </div>
       <h1 className="mt-4 text-xl font-semibold">{copy.title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{copy.message}</p>
+
+      {!isAdmin ? (
+        <p className="mt-6 rounded-xl border border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
+          Peça para o administrador da barbearia regularizar a assinatura.
+        </p>
+      ) : awaitingConfirmation && !showPlansAnyway ? (
+        <div className="mt-6 w-full rounded-xl border border-border bg-secondary/40 p-4">
+          <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
+          <p className="mt-2 text-sm font-medium">Aguardando confirmação do pagamento…</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Isso costuma levar só alguns segundos depois de você concluir o pagamento no Mercado
+            Pago.
+          </p>
+          <button
+            type="button"
+            className="mt-3 text-xs text-muted-foreground underline underline-offset-2"
+            onClick={() => setShowPlansAnyway(true)}
+          >
+            Tentar novamente com outro plano
+          </button>
+        </div>
+      ) : (
+        <div className="mt-6 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+          {(Object.keys(PLATFORM_PLAN_INFO) as (keyof typeof PLATFORM_PLAN_INFO)[]).map((plan) => {
+            const info = PLATFORM_PLAN_INFO[plan];
+            return (
+              <div key={plan} className="surface flex flex-col p-4 text-left">
+                <p className="text-sm font-semibold">{info.label}</p>
+                <p className="brand-text mt-1 text-lg font-bold">
+                  {brl(info.price)}
+                  <span className="text-xs font-normal text-muted-foreground">/mês</span>
+                </p>
+                {info.caption && (
+                  <p className="mt-1 text-xs text-muted-foreground">{info.caption}</p>
+                )}
+                <Button
+                  variant="hero"
+                  className="mt-4 w-full"
+                  disabled={subscribe.isPending}
+                  onClick={() => subscribe.mutate(plan)}
+                >
+                  {subscribe.isPending ? <Loader2 className="animate-spin" /> : "Assinar"}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="mt-6 grid w-full gap-2">
-        <Button variant="hero" onClick={() => toast.info("Em breve: assinatura pelo app.")}>
-          Assinar agora
-        </Button>
         <Button variant="outline" onClick={onSignOut} disabled={signingOut}>
           <LogOut /> Sair
         </Button>

@@ -21,6 +21,7 @@ import { Route as BSlugRouteImport } from './routes/b.$slug'
 import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/pagamento-confirmado.$appointmentId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
 import { Route as ApiCronAppointmentRemindersRouteImport } from './routes/api/cron/appointment-reminders'
+import { Route as ApiCronProcessPlanChangesRouteImport } from './routes/api/cron/process-plan-changes'
 import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/public/appointment-create'
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
 import { Route as ApiPublicAppointmentPushTokenRouteImport } from './routes/api/public/appointment-push-token'
@@ -36,6 +37,8 @@ import { Route as ApiPublicMercadopagoReconcileRouteImport } from './routes/api/
 import { Route as ApiPublicMercadopagoSubscriptionCancelRouteImport } from './routes/api/public/mercadopago-subscription-cancel'
 import { Route as ApiPublicMercadopagoSyncRouteImport } from './routes/api/public/mercadopago-sync'
 import { Route as ApiPublicMercadopagoWebhookRouteImport } from './routes/api/public/mercadopago-webhook'
+import { Route as ApiPublicPlatformSubscriptionCreateRouteImport } from './routes/api/public/platform-subscription-create'
+import { Route as ApiPublicPlatformSubscriptionUpgradeRouteImport } from './routes/api/public/platform-subscription-upgrade'
 import { Route as ApiPublicSubscriptionStatusRouteImport } from './routes/api/public/subscription-status'
 import { Route as ApiWebhooksMercadopagoRouteImport } from './routes/api/webhooks/mercadopago'
 import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
@@ -101,6 +104,12 @@ const ApiCronAppointmentRemindersRoute =
   ApiCronAppointmentRemindersRouteImport.update({
     id: '/api/cron/appointment-reminders',
     path: '/api/cron/appointment-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiCronProcessPlanChangesRoute =
+  ApiCronProcessPlanChangesRouteImport.update({
+    id: '/api/cron/process-plan-changes',
+    path: '/api/cron/process-plan-changes',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicAppointmentCreateRoute =
@@ -193,6 +202,18 @@ const ApiPublicMercadopagoWebhookRoute =
     path: '/api/public/mercadopago-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPlatformSubscriptionCreateRoute =
+  ApiPublicPlatformSubscriptionCreateRouteImport.update({
+    id: '/api/public/platform-subscription-create',
+    path: '/api/public/platform-subscription-create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPlatformSubscriptionUpgradeRoute =
+  ApiPublicPlatformSubscriptionUpgradeRouteImport.update({
+    id: '/api/public/platform-subscription-upgrade',
+    path: '/api/public/platform-subscription-upgrade',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicSubscriptionStatusRoute =
   ApiPublicSubscriptionStatusRouteImport.update({
     id: '/api/public/subscription-status',
@@ -224,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
+  '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
@@ -239,6 +261,8 @@ export interface FileRoutesByFullPath {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
+  '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -256,6 +280,7 @@ export interface FileRoutesByTo {
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
+  '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
@@ -271,6 +296,8 @@ export interface FileRoutesByTo {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
+  '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -289,6 +316,7 @@ export interface FileRoutesById {
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
+  '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
@@ -304,6 +332,8 @@ export interface FileRoutesById {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
+  '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -323,6 +353,7 @@ export interface FileRouteTypes {
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/cron/appointment-reminders'
+    | '/api/cron/process-plan-changes'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
@@ -338,6 +369,8 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/platform-subscription-create'
+    | '/api/public/platform-subscription-upgrade'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -355,6 +388,7 @@ export interface FileRouteTypes {
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/cron/appointment-reminders'
+    | '/api/cron/process-plan-changes'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
@@ -370,6 +404,8 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/platform-subscription-create'
+    | '/api/public/platform-subscription-upgrade'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -387,6 +423,7 @@ export interface FileRouteTypes {
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
     | '/api/cron/appointment-reminders'
+    | '/api/cron/process-plan-changes'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
@@ -402,6 +439,8 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/platform-subscription-create'
+    | '/api/public/platform-subscription-upgrade'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -420,6 +459,7 @@ export interface RootRouteChildren {
   PagamentoConfirmadoAppointmentIdRoute: typeof PagamentoConfirmadoAppointmentIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
   ApiCronAppointmentRemindersRoute: typeof ApiCronAppointmentRemindersRoute
+  ApiCronProcessPlanChangesRoute: typeof ApiCronProcessPlanChangesRoute
   ApiPublicAppointmentCreateRoute: typeof ApiPublicAppointmentCreateRoute
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
   ApiPublicAppointmentPushTokenRoute: typeof ApiPublicAppointmentPushTokenRoute
@@ -435,6 +475,8 @@ export interface RootRouteChildren {
   ApiPublicMercadopagoSubscriptionCancelRoute: typeof ApiPublicMercadopagoSubscriptionCancelRoute
   ApiPublicMercadopagoSyncRoute: typeof ApiPublicMercadopagoSyncRoute
   ApiPublicMercadopagoWebhookRoute: typeof ApiPublicMercadopagoWebhookRoute
+  ApiPublicPlatformSubscriptionCreateRoute: typeof ApiPublicPlatformSubscriptionCreateRoute
+  ApiPublicPlatformSubscriptionUpgradeRoute: typeof ApiPublicPlatformSubscriptionUpgradeRoute
   ApiPublicSubscriptionStatusRoute: typeof ApiPublicSubscriptionStatusRoute
   ApiWebhooksMercadopagoRoute: typeof ApiWebhooksMercadopagoRoute
   ApiPublicWebhooksMercadopagoRoute: typeof ApiPublicWebhooksMercadopagoRoute
@@ -524,6 +566,13 @@ declare module '@tanstack/react-router' {
       path: '/api/cron/appointment-reminders'
       fullPath: '/api/cron/appointment-reminders'
       preLoaderRoute: typeof ApiCronAppointmentRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cron/process-plan-changes': {
+      id: '/api/cron/process-plan-changes'
+      path: '/api/cron/process-plan-changes'
+      fullPath: '/api/cron/process-plan-changes'
+      preLoaderRoute: typeof ApiCronProcessPlanChangesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/appointment-create': {
@@ -631,6 +680,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMercadopagoWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/platform-subscription-create': {
+      id: '/api/public/platform-subscription-create'
+      path: '/api/public/platform-subscription-create'
+      fullPath: '/api/public/platform-subscription-create'
+      preLoaderRoute: typeof ApiPublicPlatformSubscriptionCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/platform-subscription-upgrade': {
+      id: '/api/public/platform-subscription-upgrade'
+      path: '/api/public/platform-subscription-upgrade'
+      fullPath: '/api/public/platform-subscription-upgrade'
+      preLoaderRoute: typeof ApiPublicPlatformSubscriptionUpgradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/subscription-status': {
       id: '/api/public/subscription-status'
       path: '/api/public/subscription-status'
@@ -669,6 +732,7 @@ const rootRouteChildren: RootRouteChildren = {
   PagamentoConfirmadoAppointmentIdRoute: PagamentoConfirmadoAppointmentIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
   ApiCronAppointmentRemindersRoute: ApiCronAppointmentRemindersRoute,
+  ApiCronProcessPlanChangesRoute: ApiCronProcessPlanChangesRoute,
   ApiPublicAppointmentCreateRoute: ApiPublicAppointmentCreateRoute,
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
   ApiPublicAppointmentPushTokenRoute: ApiPublicAppointmentPushTokenRoute,
@@ -685,6 +749,10 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicMercadopagoSubscriptionCancelRoute,
   ApiPublicMercadopagoSyncRoute: ApiPublicMercadopagoSyncRoute,
   ApiPublicMercadopagoWebhookRoute: ApiPublicMercadopagoWebhookRoute,
+  ApiPublicPlatformSubscriptionCreateRoute:
+    ApiPublicPlatformSubscriptionCreateRoute,
+  ApiPublicPlatformSubscriptionUpgradeRoute:
+    ApiPublicPlatformSubscriptionUpgradeRoute,
   ApiPublicSubscriptionStatusRoute: ApiPublicSubscriptionStatusRoute,
   ApiWebhooksMercadopagoRoute: ApiWebhooksMercadopagoRoute,
   ApiPublicWebhooksMercadopagoRoute: ApiPublicWebhooksMercadopagoRoute,

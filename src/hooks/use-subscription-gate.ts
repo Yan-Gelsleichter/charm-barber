@@ -2,19 +2,36 @@ import { useQuery } from "@tanstack/react-query";
 
 export type SubscriptionGateReason = "trial_expired" | "past_due" | "canceled";
 
-type SubscriptionStatusResponse = {
+export type SubscriptionStatusResponse = {
   subscription_status?: string;
   trial_ends_at?: string | null;
   current_period_ends_at?: string | null;
+  subscription_plan?: string | null;
+  pending_plan_change?: string | null;
+  subscription_id?: string | null;
 };
 
+function computeGateReason(data: SubscriptionStatusResponse | undefined): SubscriptionGateReason | null {
+  if (!data) return null;
+  const status = data.subscription_status ?? "trial";
+  if (status === "past_due") return "past_due";
+  if (status === "canceled") return "canceled";
+  if (status === "trial") {
+    const trialEndsAt = data.trial_ends_at ? new Date(data.trial_ends_at) : null;
+    if (trialEndsAt && trialEndsAt.getTime() < Date.now()) return "trial_expired";
+  }
+  return null;
+}
+
 /**
- * Diz se o acesso ao painel deve ser bloqueado por causa do status da
- * assinatura da barbearia. Só usado pelo painel admin/barbeiro — nunca
- * afeta o cliente final.
+ * Busca o status de assinatura da barbearia. Compartilhada entre o gate do
+ * painel (`useSubscriptionGate`) e a seção de assinatura do Perfil — mesma
+ * queryKey, então o React Query faz um fetch só, não dois em paralelo.
+ * Faz polling enquanto bloqueado, pra refletir a confirmação do webhook
+ * (pagamento aprovado, etc.) sem o admin precisar dar F5.
  */
-export function useSubscriptionGate(barbershopId: string | null) {
-  const q = useQuery({
+export function useSubscriptionStatusQuery(barbershopId: string | null) {
+  return useQuery({
     queryKey: ["subscription-status", barbershopId],
     enabled: !!barbershopId,
     queryFn: async (): Promise<SubscriptionStatusResponse> => {
@@ -24,24 +41,23 @@ export function useSubscriptionGate(barbershopId: string | null) {
       );
       return (await res.json().catch(() => ({}))) as SubscriptionStatusResponse;
     },
+    refetchInterval: (query) => (computeGateReason(query.state.data) ? 4000 : false),
   });
+}
 
-  let reason: SubscriptionGateReason | null = null;
-  if (q.data) {
-    const status = q.data.subscription_status ?? "trial";
-    if (status === "past_due") {
-      reason = "past_due";
-    } else if (status === "canceled") {
-      reason = "canceled";
-    } else if (status === "trial") {
-      const trialEndsAt = q.data.trial_ends_at ? new Date(q.data.trial_ends_at) : null;
-      if (trialEndsAt && trialEndsAt.getTime() < Date.now()) reason = "trial_expired";
-    }
-  }
+/**
+ * Diz se o acesso ao painel deve ser bloqueado por causa do status da
+ * assinatura da barbearia. Só usado pelo painel admin/barbeiro — nunca
+ * afeta o cliente final.
+ */
+export function useSubscriptionGate(barbershopId: string | null) {
+  const q = useSubscriptionStatusQuery(barbershopId);
+  const reason = computeGateReason(q.data);
 
   return {
     loading: !!barbershopId && q.isLoading,
     blocked: reason !== null,
     reason,
+    data: q.data,
   };
 }
