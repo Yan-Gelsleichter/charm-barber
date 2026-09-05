@@ -23,14 +23,30 @@ type Admin = { from: (table: string) => any };
  * por um ping de status daqui.
  */
 async function handlePlatformPreapprovalStatus(admin: Admin, barbershopId: string, mpStatus: string) {
-  let nextStatus: string | null = null;
-  if (mpStatus === "cancelled") nextStatus = "canceled";
-  else if (mpStatus === "paused") nextStatus = "past_due";
-  if (!nextStatus) return new Response("ok", { status: 200 });
+  // "cancelled" NÃO bloqueia na hora — só sincroniza a intenção. O acesso
+  // continua até current_period_ends_at, e quem de fato rebaixa
+  // subscription_status pra "canceled" é o cron (process-plan-changes.ts),
+  // na data certa. Cobre tanto o cancelamento feito pelo painel (que já
+  // chama cancelPlatformPreapproval antes) quanto um cancelamento feito
+  // direto no app do Mercado Pago, fora do nosso controle.
+  if (mpStatus === "cancelled") {
+    const { error } = await admin
+      .from("barbershops")
+      .update({ cancel_at_period_end: true })
+      .eq("id", barbershopId)
+      .eq("subscription_status", "active");
+    if (error) {
+      console.error("Webhook assinatura: falha ao sincronizar cancelamento da barbearia", error);
+      return new Response("update failed", { status: 500 });
+    }
+    return new Response("ok", { status: 200 });
+  }
+
+  if (mpStatus !== "paused") return new Response("ok", { status: 200 });
 
   const { error } = await admin
     .from("barbershops")
-    .update({ subscription_status: nextStatus })
+    .update({ subscription_status: "past_due" })
     .eq("id", barbershopId)
     .neq("subscription_status", "canceled");
   if (error) {

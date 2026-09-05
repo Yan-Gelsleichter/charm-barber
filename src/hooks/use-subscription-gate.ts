@@ -9,6 +9,7 @@ export type SubscriptionStatusResponse = {
   subscription_plan?: string | null;
   pending_plan_change?: string | null;
   subscription_id?: string | null;
+  cancel_at_period_end?: boolean;
 };
 
 function computeGateReason(data: SubscriptionStatusResponse | undefined): SubscriptionGateReason | null {

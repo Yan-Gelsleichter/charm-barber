@@ -37,7 +37,9 @@ import { Route as ApiPublicMercadopagoReconcileRouteImport } from './routes/api/
 import { Route as ApiPublicMercadopagoSubscriptionCancelRouteImport } from './routes/api/public/mercadopago-subscription-cancel'
 import { Route as ApiPublicMercadopagoSyncRouteImport } from './routes/api/public/mercadopago-sync'
 import { Route as ApiPublicMercadopagoWebhookRouteImport } from './routes/api/public/mercadopago-webhook'
+import { Route as ApiPublicPlatformSubscriptionCancelRouteImport } from './routes/api/public/platform-subscription-cancel'
 import { Route as ApiPublicPlatformSubscriptionCreateRouteImport } from './routes/api/public/platform-subscription-create'
+import { Route as ApiPublicPlatformSubscriptionReactivateRouteImport } from './routes/api/public/platform-subscription-reactivate'
 import { Route as ApiPublicPlatformSubscriptionUpgradeRouteImport } from './routes/api/public/platform-subscription-upgrade'
 import { Route as ApiPublicSubscriptionStatusRouteImport } from './routes/api/public/subscription-status'
 import { Route as ApiWebhooksMercadopagoRouteImport } from './routes/api/webhooks/mercadopago'
@@ -202,10 +204,22 @@ const ApiPublicMercadopagoWebhookRoute =
     path: '/api/public/mercadopago-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPlatformSubscriptionCancelRoute =
+  ApiPublicPlatformSubscriptionCancelRouteImport.update({
+    id: '/api/public/platform-subscription-cancel',
+    path: '/api/public/platform-subscription-cancel',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPlatformSubscriptionCreateRoute =
   ApiPublicPlatformSubscriptionCreateRouteImport.update({
     id: '/api/public/platform-subscription-create',
     path: '/api/public/platform-subscription-create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPlatformSubscriptionReactivateRoute =
+  ApiPublicPlatformSubscriptionReactivateRouteImport.update({
+    id: '/api/public/platform-subscription-reactivate',
+    path: '/api/public/platform-subscription-reactivate',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicPlatformSubscriptionUpgradeRoute =
@@ -261,7 +275,9 @@ export interface FileRoutesByFullPath {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/platform-subscription-cancel': typeof ApiPublicPlatformSubscriptionCancelRoute
   '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
+  '/api/public/platform-subscription-reactivate': typeof ApiPublicPlatformSubscriptionReactivateRoute
   '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
@@ -296,7 +312,9 @@ export interface FileRoutesByTo {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/platform-subscription-cancel': typeof ApiPublicPlatformSubscriptionCancelRoute
   '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
+  '/api/public/platform-subscription-reactivate': typeof ApiPublicPlatformSubscriptionReactivateRoute
   '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
@@ -332,7 +350,9 @@ export interface FileRoutesById {
   '/api/public/mercadopago-subscription-cancel': typeof ApiPublicMercadopagoSubscriptionCancelRoute
   '/api/public/mercadopago-sync': typeof ApiPublicMercadopagoSyncRoute
   '/api/public/mercadopago-webhook': typeof ApiPublicMercadopagoWebhookRoute
+  '/api/public/platform-subscription-cancel': typeof ApiPublicPlatformSubscriptionCancelRoute
   '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
+  '/api/public/platform-subscription-reactivate': typeof ApiPublicPlatformSubscriptionReactivateRoute
   '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
@@ -369,7 +389,9 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/platform-subscription-cancel'
     | '/api/public/platform-subscription-create'
+    | '/api/public/platform-subscription-reactivate'
     | '/api/public/platform-subscription-upgrade'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
@@ -404,7 +426,9 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/platform-subscription-cancel'
     | '/api/public/platform-subscription-create'
+    | '/api/public/platform-subscription-reactivate'
     | '/api/public/platform-subscription-upgrade'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
@@ -439,7 +463,9 @@ export interface FileRouteTypes {
     | '/api/public/mercadopago-subscription-cancel'
     | '/api/public/mercadopago-sync'
     | '/api/public/mercadopago-webhook'
+    | '/api/public/platform-subscription-cancel'
     | '/api/public/platform-subscription-create'
+    | '/api/public/platform-subscription-reactivate'
     | '/api/public/platform-subscription-upgrade'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
@@ -475,7 +501,9 @@ export interface RootRouteChildren {
   ApiPublicMercadopagoSubscriptionCancelRoute: typeof ApiPublicMercadopagoSubscriptionCancelRoute
   ApiPublicMercadopagoSyncRoute: typeof ApiPublicMercadopagoSyncRoute
   ApiPublicMercadopagoWebhookRoute: typeof ApiPublicMercadopagoWebhookRoute
+  ApiPublicPlatformSubscriptionCancelRoute: typeof ApiPublicPlatformSubscriptionCancelRoute
   ApiPublicPlatformSubscriptionCreateRoute: typeof ApiPublicPlatformSubscriptionCreateRoute
+  ApiPublicPlatformSubscriptionReactivateRoute: typeof ApiPublicPlatformSubscriptionReactivateRoute
   ApiPublicPlatformSubscriptionUpgradeRoute: typeof ApiPublicPlatformSubscriptionUpgradeRoute
   ApiPublicSubscriptionStatusRoute: typeof ApiPublicSubscriptionStatusRoute
   ApiWebhooksMercadopagoRoute: typeof ApiWebhooksMercadopagoRoute
@@ -680,11 +708,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMercadopagoWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/platform-subscription-cancel': {
+      id: '/api/public/platform-subscription-cancel'
+      path: '/api/public/platform-subscription-cancel'
+      fullPath: '/api/public/platform-subscription-cancel'
+      preLoaderRoute: typeof ApiPublicPlatformSubscriptionCancelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/platform-subscription-create': {
       id: '/api/public/platform-subscription-create'
       path: '/api/public/platform-subscription-create'
       fullPath: '/api/public/platform-subscription-create'
       preLoaderRoute: typeof ApiPublicPlatformSubscriptionCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/platform-subscription-reactivate': {
+      id: '/api/public/platform-subscription-reactivate'
+      path: '/api/public/platform-subscription-reactivate'
+      fullPath: '/api/public/platform-subscription-reactivate'
+      preLoaderRoute: typeof ApiPublicPlatformSubscriptionReactivateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/platform-subscription-upgrade': {
@@ -749,8 +791,12 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicMercadopagoSubscriptionCancelRoute,
   ApiPublicMercadopagoSyncRoute: ApiPublicMercadopagoSyncRoute,
   ApiPublicMercadopagoWebhookRoute: ApiPublicMercadopagoWebhookRoute,
+  ApiPublicPlatformSubscriptionCancelRoute:
+    ApiPublicPlatformSubscriptionCancelRoute,
   ApiPublicPlatformSubscriptionCreateRoute:
     ApiPublicPlatformSubscriptionCreateRoute,
+  ApiPublicPlatformSubscriptionReactivateRoute:
+    ApiPublicPlatformSubscriptionReactivateRoute,
   ApiPublicPlatformSubscriptionUpgradeRoute:
     ApiPublicPlatformSubscriptionUpgradeRoute,
   ApiPublicSubscriptionStatusRoute: ApiPublicSubscriptionStatusRoute,

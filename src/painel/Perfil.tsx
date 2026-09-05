@@ -526,7 +526,10 @@ const PLATFORM_PLAN_LABEL: Record<string, string> = {
 function AssinaturaPlataformaSection({ barbershopId }: { barbershopId: string }) {
   const qc = useQueryClient();
   const statusQ = useSubscriptionStatusQuery(barbershopId);
-  const [confirming, setConfirming] = useState(false);
+  const [confirmingUpgrade, setConfirmingUpgrade] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+
+  const invalidateStatus = () => qc.invalidateQueries({ queryKey: ["subscription-status", barbershopId] });
 
   const upgrade = useMutation({
     mutationFn: async () => {
@@ -541,8 +544,44 @@ function AssinaturaPlataformaSection({ barbershopId }: { barbershopId: string })
     },
     onSuccess: () => {
       toast.success("Upgrade para o anual agendado!");
-      setConfirming(false);
-      qc.invalidateQueries({ queryKey: ["subscription-status", barbershopId] });
+      setConfirmingUpgrade(false);
+      invalidateStatus();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelSubscription = useMutation({
+    mutationFn: async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      const result = await postPublicApi<{ ok?: boolean; error?: string }>(
+        "/api/public/platform-subscription-cancel",
+        {},
+        session?.access_token,
+      );
+      if (!result?.ok) throw new Error(result?.error ?? "Não foi possível cancelar a assinatura.");
+      return result;
+    },
+    onSuccess: () => {
+      toast.success("Assinatura cancelada.");
+      setConfirmingCancel(false);
+      invalidateStatus();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reactivate = useMutation({
+    mutationFn: async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      const result = await postPublicApi<{ init_point?: string; error?: string }>(
+        "/api/public/platform-subscription-reactivate",
+        {},
+        session?.access_token,
+      );
+      if (!result?.init_point) throw new Error(result?.error ?? "Não foi possível reativar a assinatura.");
+      return result.init_point;
+    },
+    onSuccess: (initPoint) => {
+      window.location.href = initPoint;
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -581,45 +620,106 @@ function AssinaturaPlataformaSection({ barbershopId }: { barbershopId: string })
             </p>
           )}
 
-          {data.pending_plan_change === "yearly" ? (
-            <p className="rounded-xl border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
-              Upgrade para o plano anual ({brl(39)}/mês) agendado para{" "}
-              {data.current_period_ends_at ? fmtDate(data.current_period_ends_at) : "o fim do período atual"}
-              . Nenhuma cobrança extra acontece até lá.
-            </p>
-          ) : data.subscription_plan === "monthly" && data.subscription_status === "active" ? (
-            confirming ? (
-              <div className="space-y-2 rounded-xl border border-border bg-secondary/40 p-3">
-                <p className="text-xs text-muted-foreground">
-                  Seu plano atual continua até{" "}
-                  {data.current_period_ends_at ? fmtDate(data.current_period_ends_at) : "o fim do período atual"}
-                  . Depois disso você passa a pagar {brl(39)}/mês automaticamente.
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="hero"
-                    onClick={() => upgrade.mutate()}
-                    disabled={upgrade.isPending}
-                  >
-                    {upgrade.isPending ? <Loader2 className="animate-spin" /> : "Confirmar upgrade"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setConfirming(false)}
-                    disabled={upgrade.isPending}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="outline" onClick={() => setConfirming(true)}>
-                Fazer upgrade para o Anual
+          {data.subscription_status === "active" && data.cancel_at_period_end ? (
+            <div className="space-y-2 rounded-xl border border-border bg-secondary/40 p-3">
+              <p className="text-xs text-muted-foreground">
+                Assinatura cancelada — acesso garantido até{" "}
+                {data.current_period_ends_at ? fmtDate(data.current_period_ends_at) : "o fim do período atual"}
+                . Depois disso o painel fica bloqueado até uma nova assinatura.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => reactivate.mutate()}
+                disabled={reactivate.isPending}
+              >
+                {reactivate.isPending ? <Loader2 className="animate-spin" /> : "Desfazer cancelamento"}
               </Button>
-            )
-          ) : null}
+            </div>
+          ) : (
+            <>
+              {data.pending_plan_change === "yearly" ? (
+                <p className="rounded-xl border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
+                  Upgrade para o plano anual ({brl(39)}/mês) agendado para{" "}
+                  {data.current_period_ends_at ? fmtDate(data.current_period_ends_at) : "o fim do período atual"}
+                  . Nenhuma cobrança extra acontece até lá.
+                </p>
+              ) : data.subscription_plan === "monthly" && data.subscription_status === "active" ? (
+                confirmingUpgrade ? (
+                  <div className="space-y-2 rounded-xl border border-border bg-secondary/40 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Seu plano atual continua até{" "}
+                      {data.current_period_ends_at ? fmtDate(data.current_period_ends_at) : "o fim do período atual"}
+                      . Depois disso você passa a pagar {brl(39)}/mês automaticamente.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="hero"
+                        onClick={() => upgrade.mutate()}
+                        disabled={upgrade.isPending}
+                      >
+                        {upgrade.isPending ? <Loader2 className="animate-spin" /> : "Confirmar upgrade"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setConfirmingUpgrade(false)}
+                        disabled={upgrade.isPending}
+                      >
+                        Voltar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" onClick={() => setConfirmingUpgrade(true)}>
+                    Fazer upgrade para o Anual
+                  </Button>
+                )
+              ) : null}
+
+              {data.subscription_status === "active" &&
+                (confirmingCancel ? (
+                  <div className="space-y-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Sua assinatura será cancelada, mas você continua com acesso normal até{" "}
+                      {data.current_period_ends_at ? fmtDate(data.current_period_ends_at) : "o fim do período atual"}
+                      . Depois disso, o painel ficará bloqueado até uma nova assinatura.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => cancelSubscription.mutate()}
+                        disabled={cancelSubscription.isPending}
+                      >
+                        {cancelSubscription.isPending ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          "Confirmar cancelamento"
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setConfirmingCancel(false)}
+                        disabled={cancelSubscription.isPending}
+                      >
+                        Voltar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline underline-offset-2"
+                    onClick={() => setConfirmingCancel(true)}
+                  >
+                    Cancelar assinatura
+                  </button>
+                ))}
+            </>
+          )}
         </>
       )}
     </section>
