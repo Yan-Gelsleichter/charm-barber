@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell, CreditCard } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell, CreditCard, Share2, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
@@ -432,7 +432,29 @@ function NotificationsSection({ barberId }: { barberId: string }) {
   );
 }
 
+/** Abre o menu nativo de compartilhamento (WhatsApp, SMS, etc.); sem suporte, cai em copiar o link. */
+async function shareOrCopy(url: string, opts?: { title?: string; text?: string }) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ url, title: opts?.title, text: opts?.text });
+    } catch (error) {
+      // O usuário fechar o menu de compartilhamento sem escolher nada
+      // dispara AbortError — não é uma falha de verdade.
+      if ((error as Error)?.name !== "AbortError") toast.error("Não foi possível compartilhar");
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copiado");
+  } catch {
+    toast.error("Não foi possível copiar");
+  }
+}
+
 function QrInviteSection({ barbershopId }: { barbershopId: string }) {
+  const playStoreUrl = (import.meta.env.VITE_PLAY_STORE_URL as string | undefined)?.trim();
+
   // O slug é gerado sob demanda na primeira vez que essa tela abre (cobre
   // tanto barbearias novas quanto as que já existiam antes dessa mudança).
   const slugQ = useQuery({
@@ -504,9 +526,36 @@ function QrInviteSection({ barbershopId }: { barbershopId: string }) {
             <Button type="button" variant="outline" onClick={download}>
               <Upload className="rotate-180" /> Baixar QR
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                shareOrCopy(inviteUrl, {
+                  title: "Agende seu horário",
+                  text: "Agende seu horário aqui:",
+                })
+              }
+            >
+              <Share2 /> Compartilhar
+            </Button>
           </div>
         </div>
       </div>
+
+      {playStoreUrl && (
+        <div className="border-t border-border pt-4">
+          <p className="mb-2 text-sm text-muted-foreground">
+            Convide seus clientes a baixar o app na Play Store.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => shareOrCopy(playStoreUrl, { title: "Baixe o app" })}
+          >
+            <Smartphone /> Compartilhar app da Play Store
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
