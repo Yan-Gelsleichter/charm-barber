@@ -33,7 +33,13 @@ export function usePaymentSync(enabled: boolean) {
         if (!res.ok) return;
         const body = (await res.json().catch(() => ({}))) as { updated?: number };
         if (!cancelled && (body.updated ?? 0) > 0) {
-          qc.invalidateQueries();
+          // Só as telas que mostram payment_status de agendamentos — nunca
+          // uma invalidação geral, que recarregaria o app inteiro (inclusive
+          // abas sem nenhuma relação com pagamento) a cada sincronização.
+          qc.invalidateQueries({ queryKey: ["agenda-painel"] });
+          qc.invalidateQueries({ queryKey: ["agenda-apoio"] });
+          qc.invalidateQueries({ queryKey: ["historico"] });
+          qc.invalidateQueries({ queryKey: ["faturamento"] });
         }
       } catch {
         /* silencioso: é apenas uma verificação em segundo plano */

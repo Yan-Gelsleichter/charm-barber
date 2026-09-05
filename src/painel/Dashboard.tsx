@@ -30,7 +30,6 @@ export function DashboardTab({ barber }: { barber: Barber }) {
     gcTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: "always",
-    structuralSharing: false,
     queryFn: async () => {
 
       const svRes = await supabase.from("services").select("*").eq("barber_id", barber.id);
