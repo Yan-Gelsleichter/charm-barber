@@ -80,6 +80,7 @@ function ConfirmacaoPage() {
   const { appointmentId } = Route.useParams();
   const search = Route.useSearch();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const q = useQuery({
     queryKey: ["appointment-confirmation", appointmentId],
@@ -218,6 +219,22 @@ function ConfirmacaoPage() {
     setGaveUp(false);
     let stop = false;
     let gaveUpLocal = false;
+    const timers: { interval?: number; timeout?: number; giveUp?: number } = {};
+
+    // Chamado quando fica claro que não há nada a esperar (nenhum pagamento
+    // foi sequer criado no Mercado Pago) — em vez de deixar a pessoa olhando
+    // "Confirmando pagamento" até o timeout de segurança, já manda direto
+    // pra tela de escolha, de onde ela pode tentar pagar de novo ou escolher
+    // presencial. Nunca faz isso por causa de um PIX genuinamente pendente:
+    // esse caso tem um pagamento real, só que ainda não aprovado.
+    const bounceToCheckout = () => {
+      stop = true;
+      window.clearInterval(timers.interval);
+      window.clearTimeout(timers.timeout);
+      window.clearTimeout(timers.giveUp);
+      void navigate({ to: "/pagamento/$appointmentId", params: { appointmentId } });
+    };
+
     const check = async () => {
       if (running.current || stop) return false;
       running.current = true;
@@ -225,7 +242,7 @@ function ConfirmacaoPage() {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         const body =
-          (await postPublicApi<{ payment_status?: string; updated?: boolean }>(
+          (await postPublicApi<{ payment_status?: string; updated?: boolean; payment_found?: boolean }>(
             "/api/public/mercadopago-reconcile",
             {
               appointment_id: appointmentId,
@@ -239,12 +256,17 @@ function ConfirmacaoPage() {
             },
             token,
           )) ?? {};
+        if (stop) return false;
+        if (body.payment_found === false) {
+          bounceToCheckout();
+          return false;
+        }
         // "updated" só vem true quando o reconcile de fato gravou algo novo no
         // banco. Um checkout abandonado (cliente voltou sem pagar) devolve
         // payment_status="pendente" só informativo, sem updated — invalidar a
         // busca nesse caso recarregava a tela a cada 2s pra sempre, sem nunca
         // haver nada de novo pra mostrar.
-        if (!stop && body.updated) {
+        if (body.updated) {
           // A reconciliação apenas provoca uma nova leitura. Nunca transforma a
           // resposta HTTP em sucesso visual; isso só ocorre pelo banco/Realtime.
           await qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
@@ -260,26 +282,25 @@ function ConfirmacaoPage() {
     void check();
     // Rede de segurança: enquanto o Realtime não entregar a mudança, consulta
     // o gateway a cada 2s. Para assim que o status virar "pago".
-    const interval = window.setInterval(() => {
+    timers.interval = window.setInterval(() => {
       if (!stop) void check();
     }, 2000);
-    const timeout = window.setTimeout(() => {
+    timers.timeout = window.setTimeout(() => {
       if (!stop) setTimedOut(true);
     }, 30_000);
-    // Passou tempo demais sem confirmação: provavelmente o cliente desistiu
-    // do pagamento e voltou sem concluir. Para de consultar de vez (o Realtime
-    // continua ligado, então um webhook atrasado ainda é refletido se chegar).
-    const giveUpTimeout = window.setTimeout(() => {
+    // Rede de segurança adicional (conexão caiu, navegador travou, etc.):
+    // mesmo sem a detecção acima, nunca fica "confirmando" pra sempre.
+    timers.giveUp = window.setTimeout(() => {
       if (stop) return;
       gaveUpLocal = true;
-      window.clearInterval(interval);
+      window.clearInterval(timers.interval);
       setGaveUp(true);
     }, 90_000);
 
 
     // Volta do Mercado Pago / troca de aba: força checagem imediata.
     const onWake = () => {
-      if (!gaveUpLocal && document.visibilityState === "visible") void check();
+      if (!gaveUpLocal && !stop && document.visibilityState === "visible") void check();
     };
     window.addEventListener("focus", onWake);
     window.addEventListener("pageshow", onWake);
@@ -287,9 +308,9 @@ function ConfirmacaoPage() {
 
     return () => {
       stop = true;
-      window.clearInterval(interval);
-      window.clearTimeout(timeout);
-      window.clearTimeout(giveUpTimeout);
+      window.clearInterval(timers.interval);
+      window.clearTimeout(timers.timeout);
+      window.clearTimeout(timers.giveUp);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("pageshow", onWake);
       document.removeEventListener("visibilitychange", onWake);
@@ -304,6 +325,7 @@ function ConfirmacaoPage() {
     search.preference_id,
     dbPreferenceId,
     qc,
+    navigate,
   ]);
 
 
@@ -315,7 +337,6 @@ function ConfirmacaoPage() {
   // Aprovado no Mercado Pago: mostra a confirmação por alguns segundos antes
   // de levar o cliente para seus horários (sem isso, o redirect era imediato
   // e a tela de "Pagamento confirmado!" nunca chegava a aparecer).
-  const navigate = useNavigate();
   useEffect(() => {
     if (!paid || isPresencial) return;
     const timeout = window.setTimeout(() => {

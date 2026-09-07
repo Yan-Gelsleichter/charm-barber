@@ -165,7 +165,11 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             null;
 
           if (!payment?.status) {
-            return json({ payment_status: appointment.payment_status, updated: false });
+            // Nenhum pagamento existe no Mercado Pago pra esse agendamento —
+            // diferente de "existe mas está pendente" (ex.: PIX aguardando
+            // confirmação do banco). A tela usa isso pra saber que o checkout
+            // foi mesmo abandonado, não que só está demorando.
+            return json({ payment_status: appointment.payment_status, updated: false, payment_found: false });
           }
 
           // Nunca permite que um ID de pagamento fornecido pelo navegador
@@ -195,7 +199,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
             (appointment.paid_at ?? null) === (paidAt ?? null) &&
             (!mpPaymentId || appointment.mp_payment_id === mpPaymentId);
           if (unchanged) {
-            return json({ payment_status: paymentStatus, updated: false });
+            return json({ payment_status: paymentStatus, updated: false, payment_found: true });
           }
 
           const patch: Record<string, unknown> = {
@@ -241,6 +245,7 @@ export const Route = createFileRoute("/api/public/mercadopago-reconcile")({
           return json({
             payment_status: (persisted as { payment_status?: string }).payment_status ?? paymentStatus,
             updated: true,
+            payment_found: true,
           });
           };
 
