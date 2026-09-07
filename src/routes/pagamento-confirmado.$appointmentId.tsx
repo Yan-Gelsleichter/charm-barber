@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, CalendarDays, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Loader2, CalendarDays, ArrowLeft, AlertCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { postPublicApi } from "@/lib/api-fetch";
@@ -133,6 +133,10 @@ function ConfirmacaoPage() {
   const service = confirmedData?.service ?? null;
   // O estado visual vem exclusivamente da linha persistida em appointments.
   const [timedOut, setTimedOut] = useState(false);
+  // Depois de tempo demais sem confirmação (provável checkout abandonado),
+  // para de consultar o gateway e mostra um estado final com opção de tentar
+  // de novo, em vez de ficar "confirmando" pra sempre.
+  const [gaveUp, setGaveUp] = useState(false);
 
   // Referência salva no próprio agendamento ("pref:<id>" ou id do pagamento).
   // Garante reconciliação mesmo se o usuário recarregar sem parâmetros na URL
@@ -210,7 +214,10 @@ function ConfirmacaoPage() {
   useEffect(() => {
     if (paid || !shouldReconcile) return;
 
+    setTimedOut(false);
+    setGaveUp(false);
     let stop = false;
+    let gaveUpLocal = false;
     const check = async () => {
       if (running.current || stop) return false;
       running.current = true;
@@ -218,7 +225,7 @@ function ConfirmacaoPage() {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         const body =
-          (await postPublicApi<{ payment_status?: string }>(
+          (await postPublicApi<{ payment_status?: string; updated?: boolean }>(
             "/api/public/mercadopago-reconcile",
             {
               appointment_id: appointmentId,
@@ -232,7 +239,12 @@ function ConfirmacaoPage() {
             },
             token,
           )) ?? {};
-        if (!stop && body.payment_status) {
+        // "updated" só vem true quando o reconcile de fato gravou algo novo no
+        // banco. Um checkout abandonado (cliente voltou sem pagar) devolve
+        // payment_status="pendente" só informativo, sem updated — invalidar a
+        // busca nesse caso recarregava a tela a cada 2s pra sempre, sem nunca
+        // haver nada de novo pra mostrar.
+        if (!stop && body.updated) {
           // A reconciliação apenas provoca uma nova leitura. Nunca transforma a
           // resposta HTTP em sucesso visual; isso só ocorre pelo banco/Realtime.
           await qc.invalidateQueries({ queryKey: ["appointment-confirmation", appointmentId] });
@@ -254,11 +266,20 @@ function ConfirmacaoPage() {
     const timeout = window.setTimeout(() => {
       if (!stop) setTimedOut(true);
     }, 30_000);
+    // Passou tempo demais sem confirmação: provavelmente o cliente desistiu
+    // do pagamento e voltou sem concluir. Para de consultar de vez (o Realtime
+    // continua ligado, então um webhook atrasado ainda é refletido se chegar).
+    const giveUpTimeout = window.setTimeout(() => {
+      if (stop) return;
+      gaveUpLocal = true;
+      window.clearInterval(interval);
+      setGaveUp(true);
+    }, 90_000);
 
 
     // Volta do Mercado Pago / troca de aba: força checagem imediata.
     const onWake = () => {
-      if (document.visibilityState === "visible") void check();
+      if (!gaveUpLocal && document.visibilityState === "visible") void check();
     };
     window.addEventListener("focus", onWake);
     window.addEventListener("pageshow", onWake);
@@ -268,6 +289,7 @@ function ConfirmacaoPage() {
       stop = true;
       window.clearInterval(interval);
       window.clearTimeout(timeout);
+      window.clearTimeout(giveUpTimeout);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("pageshow", onWake);
       document.removeEventListener("visibilitychange", onWake);
@@ -312,9 +334,14 @@ function ConfirmacaoPage() {
     !paid &&
     !failedOnline &&
     !isPresencial &&
+    !gaveUp &&
     (isOnline || method == null || status == null || status === "pendente");
 
   const waitingTooLong = reconciling && timedOut;
+  // Tempo demais sem confirmação: trata como "não deu certo" pra efeito de
+  // mensagem e botões, igual a um pagamento recusado — mas com um texto
+  // honesto sobre o motivo mais provável (checkout abandonado).
+  const notCompleted = failedOnline || gaveUp;
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
@@ -414,14 +441,24 @@ function ConfirmacaoPage() {
       ) : (
         <>
           <div className="flex flex-col items-center text-center">
-            <span className="flex size-16 items-center justify-center rounded-full bg-[color:var(--success)]/12">
-              <CheckCircle2 className="size-9 text-[color:var(--success)]" />
+            <span
+              className={
+                notCompleted
+                  ? "flex size-16 items-center justify-center rounded-full bg-destructive/10"
+                  : "flex size-16 items-center justify-center rounded-full bg-[color:var(--success)]/12"
+              }
+            >
+              {notCompleted ? (
+                <AlertCircle className="size-9 text-destructive" />
+              ) : (
+                <CheckCircle2 className="size-9 text-[color:var(--success)]" />
+              )}
             </span>
             <h1 className="mt-4 text-xl font-semibold">
               {paid
                 ? "Pagamento confirmado!"
-                : isPresencial
-                  ? "Agendamento confirmado!"
+                : notCompleted
+                  ? "Pagamento não concluído"
                   : "Agendamento confirmado!"}
             </h1>
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -429,10 +466,10 @@ function ConfirmacaoPage() {
                 "Pagamento realizado online com sucesso."
               ) : isPresencial ? (
                 "Tudo certo! Você vai pagar presencialmente na barbearia."
+              ) : gaveUp ? (
+                "Não conseguimos confirmar esse pagamento — parece que o checkout foi fechado antes de concluir. Tente novamente ou escolha pagar presencialmente."
               ) : failedOnline ? (
                 "Não conseguimos confirmar o seu pagamento online. Tente novamente no checkout."
-              ) : isOnline && timedOut ? (
-                "Ainda não recebemos a confirmação do Mercado Pago. Atualize a página em instantes."
               ) : (
                 "O pagamento será feito presencialmente na barbearia."
               )}
@@ -473,14 +510,16 @@ function ConfirmacaoPage() {
                 className={
                   paid || isPresencial
                     ? "font-semibold text-[color:var(--success)]"
-                    : "font-medium"
+                    : notCompleted
+                      ? "font-semibold text-destructive"
+                      : "font-medium"
                 }
               >
                 {paid
                   ? "Pago"
                   : isPresencial
                     ? "Pagar na barbearia"
-                    : failedOnline
+                    : notCompleted
                       ? "Pagamento não confirmado"
                       : "Aguardando pagamento"}
               </span>
@@ -492,16 +531,32 @@ function ConfirmacaoPage() {
           </section>
 
           <div className="mt-6 grid gap-3">
-            <Button asChild variant="hero" size="xl" className="w-full">
-              <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>
-                <CalendarDays /> Ver meus agendamentos
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="xl" className="w-full">
-              <Link to="/pagamento/$appointmentId" params={{ appointmentId }}>
-                <ArrowLeft /> Voltar ao checkout
-              </Link>
-            </Button>
+            {notCompleted ? (
+              <Button asChild variant="hero" size="xl" className="w-full">
+                <Link to="/pagamento/$appointmentId" params={{ appointmentId }}>
+                  <ArrowLeft /> Tentar pagar novamente
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild variant="hero" size="xl" className="w-full">
+                <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>
+                  <CalendarDays /> Ver meus agendamentos
+                </Link>
+              </Button>
+            )}
+            {notCompleted ? (
+              <Button asChild variant="outline" size="xl" className="w-full">
+                <Link to="/meus-agendamentos" search={{ agendamento: appointmentId }}>
+                  <CalendarDays /> Ver meus agendamentos
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild variant="outline" size="xl" className="w-full">
+                <Link to="/pagamento/$appointmentId" params={{ appointmentId }}>
+                  <ArrowLeft /> Voltar ao checkout
+                </Link>
+              </Button>
+            )}
             <Button asChild variant="ghost" className="w-full">
               <Link to="/">Agendar outro horário</Link>
             </Button>
