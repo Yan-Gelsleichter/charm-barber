@@ -18,7 +18,7 @@ export const WEBHOOK_EVENTS = [
 ] as const;
 
 export function webhookUrlFor(appUrl: string) {
-  const base = (appUrl || "https://charm-barber.lovable.app").replace(/\/+$/, "");
+  const base = (appUrl || "https://www.appbarbearias.com.br").replace(/\/+$/, "");
   return `${base}/api/public/webhooks/mercadopago`;
 }
 

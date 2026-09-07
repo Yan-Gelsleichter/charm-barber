@@ -3,7 +3,7 @@
  * Usada para gerar links compartilháveis (QR Code, convites) que não devem
  * apontar para domínios internos de preview/desenvolvimento do Lovable.
  */
-export const PUBLIC_APP_URL = "https://charm-barber.lovable.app";
+export const PUBLIC_APP_URL = "https://www.appbarbearias.com.br";
 
 const INTERNAL_HOST_PATTERNS = [
   "localhost",

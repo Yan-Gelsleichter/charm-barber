@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const REDIRECT_URI = "https://charm-barber.lovable.app/api/public/mercadopago-oauth";
+const REDIRECT_URI = "https://www.appbarbearias.com.br/api/public/mercadopago-oauth";
 
 export const Route = createFileRoute("/api/public/mercadopago-connect")({
   server: {

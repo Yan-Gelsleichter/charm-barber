@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
 
           // Deve ser byte a byte igual à URL usada na autorização e cadastrada
           // na aplicação do Mercado Pago.
-          const redirectUri = "https://charm-barber.lovable.app/api/public/mercadopago-oauth";
+          const redirectUri = "https://www.appbarbearias.com.br/api/public/mercadopago-oauth";
 
 
           const tokenRes = await fetch("https://api.mercadopago.com/oauth/token", {
@@ -154,7 +154,7 @@ export const Route = createFileRoute("/api/public/mercadopago-oauth")({
           try {
             const result = await registerMpWebhook({
               accessToken: token.access_token,
-              appUrl: process.env["APP_URL"] || "https://charm-barber.lovable.app",
+              appUrl: process.env["APP_URL"] || "https://www.appbarbearias.com.br",
               applicationId: process.env["MP_CLIENT_ID"] ?? null,
               rotate: isReconnect,
             });
