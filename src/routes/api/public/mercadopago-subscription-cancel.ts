@@ -4,7 +4,19 @@ import { z } from "zod";
 import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
-/** Cancela uma assinatura, tanto pelo próprio cliente quanto pelo admin da barbearia. */
+/**
+ * Cancela uma assinatura, tanto pelo próprio cliente quanto pelo admin da
+ * barbearia.
+ *
+ * O cliente cancelando a PRÓPRIA assinatura ativa cancela a cobrança de
+ * verdade no Mercado Pago agora (nenhuma cobrança futura acontece), mas
+ * mantém o acesso até o fim do período já pago — só marca a intenção
+ * (cancel_at_period_end). Quem efetiva o status "cancelled" na data certa é
+ * o cron api/cron/process-plan-changes.ts, mesmo mecanismo já usado pra
+ * assinatura da plataforma. O admin cancelando em nome de um cliente (ou o
+ * cliente cancelando algo que nunca chegou a ficar ativo) continua
+ * cancelando na hora, como já era.
+ */
 
 const requestSchema = z.object({
   subscription_id: z.string().uuid(),
@@ -45,7 +57,7 @@ export const Route = createFileRoute("/api/public/mercadopago-subscription-cance
 
           const { data: sub, error: subError } = await admin
             .from("client_subscriptions")
-            .select("id, client_id, barbershop_id, status, mp_preapproval_id")
+            .select("id, client_id, barbershop_id, status, mp_preapproval_id, cancel_at_period_end, current_period_end")
             .eq("id", parsed.data.subscription_id)
             .maybeSingle();
           if (subError) {
@@ -59,6 +71,8 @@ export const Route = createFileRoute("/api/public/mercadopago-subscription-cance
                 barbershop_id: string;
                 status: string;
                 mp_preapproval_id: string | null;
+                cancel_at_period_end: boolean | null;
+                current_period_end: string | null;
               }
             | null;
           if (!subscription) return json({ error: "Assinatura não encontrada." }, 404);
@@ -82,6 +96,18 @@ export const Route = createFileRoute("/api/public/mercadopago-subscription-cance
           if (subscription.status === "cancelled") {
             return json({ ok: true, already_cancelled: true });
           }
+          if (subscription.cancel_at_period_end) {
+            return json({
+              ok: true,
+              already_scheduled: true,
+              effective_at: subscription.current_period_end,
+            });
+          }
+
+          // Só o próprio cliente, cancelando uma assinatura que já está
+          // ativa (com um período pago em andamento), ganha a carência até
+          // o fim do período. O admin cancelando continua imediato.
+          const graceful = isOwner && !isShopAdmin && subscription.status === "active";
 
           if (subscription.mp_preapproval_id) {
             const { data: shop } = await admin
@@ -114,6 +140,18 @@ export const Route = createFileRoute("/api/public/mercadopago-subscription-cance
                 // falha de comunicação com o Mercado Pago.
               }
             }
+          }
+
+          if (graceful) {
+            const { error: updateError } = await admin
+              .from("client_subscriptions")
+              .update({ cancel_at_period_end: true })
+              .eq("id", subscription.id);
+            if (updateError) {
+              console.error("Cancelar assinatura: falha ao agendar cancelamento", updateError);
+              return json({ error: "Não foi possível registrar o cancelamento." }, 500);
+            }
+            return json({ ok: true, effective_at: subscription.current_period_end });
           }
 
           const { error: updateError } = await admin

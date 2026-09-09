@@ -170,6 +170,42 @@ async function cancelClientPreapproval(admin: Admin, barbershopId: string, preap
   }
 }
 
+async function processClientSubscriptionCancellations(admin: Admin, nowIso: string) {
+  const { data, error } = await admin
+    .from("client_subscriptions")
+    .select("id")
+    .eq("cancel_at_period_end", true)
+    .eq("status", "active")
+    .lte("current_period_end", nowIso);
+  if (error) {
+    console.error("process-plan-changes: falha ao buscar cancelamentos de cliente pendentes", error);
+    return { processed: 0, canceled: 0 };
+  }
+
+  const rows = (data ?? []) as { id: string }[];
+  let canceled = 0;
+  for (const row of rows) {
+    // A preapproval já foi cancelada de verdade no Mercado Pago no momento
+    // do clique (mercadopago-subscription-cancel.ts) — aqui só rebaixa o
+    // acesso local, igual ao equivalente pra assinatura da plataforma.
+    const { data: updatedRows, error: updateError } = await admin
+      .from("client_subscriptions")
+      .update({ status: "cancelled", cancel_at_period_end: false })
+      .eq("id", row.id)
+      .eq("cancel_at_period_end", true)
+      .select("id");
+    if (updateError) {
+      console.error("process-plan-changes: falha ao efetivar cancelamento de cliente", {
+        id: row.id,
+        error: updateError,
+      });
+      continue;
+    }
+    if (Array.isArray(updatedRows) && updatedRows.length > 0) canceled += 1;
+  }
+  return { processed: rows.length, canceled };
+}
+
 async function processExpiredClientSubscriptions(admin: Admin) {
   const cutoff = new Date(
     Date.now() - PENDING_CLIENT_SUBSCRIPTION_EXPIRY_HOURS * 3_600_000,
@@ -224,9 +260,10 @@ export const Route = createFileRoute("/api/cron/process-plan-changes")({
         if (!admin) return new Response("misconfigured", { status: 500 });
 
         const nowIso = new Date().toISOString();
-        const [upgrades, cancellations, expiredClientSubscriptions] = await Promise.all([
+        const [upgrades, cancellations, clientCancellations, expiredClientSubscriptions] = await Promise.all([
           processUpgrades(admin, nowIso, request.url),
           processCancellations(admin, nowIso),
+          processClientSubscriptionCancellations(admin, nowIso),
           processExpiredClientSubscriptions(admin),
         ]);
 
@@ -236,6 +273,8 @@ export const Route = createFileRoute("/api/cron/process-plan-changes")({
           upgrade_failed: upgrades.failed,
           cancellations_processed: cancellations.processed,
           canceled: cancellations.canceled,
+          client_subscription_cancellations_processed: clientCancellations.processed,
+          client_subscriptions_canceled: clientCancellations.canceled,
           client_subscriptions_processed: expiredClientSubscriptions.processed,
           client_subscriptions_expired: expiredClientSubscriptions.expired,
         });

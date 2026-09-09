@@ -163,7 +163,14 @@ function MeusAgendamentosPage() {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      const list = (subs ?? []) as { id: string; plan_id: string; status: string; current_period_end: string | null }[];
+      const list = (subs ?? []) as {
+        id: string;
+        plan_id: string;
+        barbershop_id: string;
+        status: string;
+        current_period_end: string | null;
+        cancel_at_period_end: boolean | null;
+      }[];
       const planIds = Array.from(new Set(list.map((s) => s.plan_id)));
       const planNameById = new Map<string, string>();
       if (planIds.length > 0) {
@@ -177,10 +184,19 @@ function MeusAgendamentosPage() {
   const cancelSubscription = useMutation({
     mutationFn: async (subscriptionId: string) => {
       const token = session?.access_token;
-      await postPublicApi("/api/public/mercadopago-subscription-cancel", { subscription_id: subscriptionId }, token);
+      const result = await postPublicApi<{ effective_at?: string | null }>(
+        "/api/public/mercadopago-subscription-cancel",
+        { subscription_id: subscriptionId },
+        token,
+      );
+      return result?.effective_at ?? null;
     },
-    onSuccess: () => {
-      toast.success("Assinatura cancelada");
+    onSuccess: (effectiveAt) => {
+      toast.success(
+        effectiveAt
+          ? `Cancelamento realizado com sucesso! Seu acesso ao plano continua disponível até ${new Date(effectiveAt).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })}.`
+          : "Cancelamento realizado com sucesso!",
+      );
       qc.invalidateQueries({ queryKey: ["my-subscriptions", uid] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -257,30 +273,57 @@ function MeusAgendamentosPage() {
             Minha assinatura
           </h2>
           <div className="grid grid-cols-1 gap-2">
-            {subscriptionsQ.data.subs.map((s) => (
-              <div key={s.id} className="surface flex items-center justify-between gap-3 p-4">
-                <div className="flex items-center gap-3">
-                  <Repeat className="size-5 text-success" />
-                  <div>
-                    <p className="font-semibold">{subscriptionsQ.data.planNameById.get(s.plan_id) ?? "Plano"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {SUBSCRIPTION_STATUS_LABEL[s.status] ?? s.status}
-                      {s.current_period_end &&
-                        ` • próxima cobrança ${new Date(s.current_period_end).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })}`}
-                    </p>
+            {subscriptionsQ.data.subs.map((s) => {
+              const periodEndLabel = s.current_period_end
+                ? new Date(s.current_period_end).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })
+                : null;
+              return (
+                <div key={s.id} className="surface flex items-center justify-between gap-3 p-4">
+                  <div className="flex items-center gap-3">
+                    <Repeat className="size-5 text-success" />
+                    <div>
+                      <p className="font-semibold">{subscriptionsQ.data.planNameById.get(s.plan_id) ?? "Plano"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.cancel_at_period_end
+                          ? `Cancelamento agendado${periodEndLabel ? ` • acesso até ${periodEndLabel}` : ""}`
+                          : SUBSCRIPTION_STATUS_LABEL[s.status] ?? s.status}
+                        {!s.cancel_at_period_end &&
+                          periodEndLabel &&
+                          ` • próxima cobrança ${periodEndLabel}`}
+                      </p>
+                    </div>
                   </div>
+                  {s.cancel_at_period_end ? (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <Link to="/assinar/$barbershopId" params={{ barbershopId: s.barbershop_id }}>
+                          Assinar outro plano
+                        </Link>
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
+                        Voltar
+                      </Button>
+                    </div>
+                  ) : (
+                    (s.status === "active" || s.status === "authorized") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const message =
+                            s.status === "active"
+                              ? `Sua assinatura será cancelada, mas você continua com acesso normal${periodEndLabel ? ` até ${periodEndLabel}` : ""}. Depois disso, o plano deixa de valer. Confirmar?`
+                              : "Cancelar sua assinatura?";
+                          if (confirm(message)) cancelSubscription.mutate(s.id);
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    )
+                  )}
                 </div>
-                {(s.status === "active" || s.status === "authorized") && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => confirm("Cancelar sua assinatura?") && cancelSubscription.mutate(s.id)}
-                  >
-                    Cancelar
-                  </Button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
