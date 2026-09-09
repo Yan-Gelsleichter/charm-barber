@@ -334,16 +334,6 @@ function ConfirmacaoPage() {
     void qc.invalidateQueries({ queryKey: ["my-appointments"] });
   }, [paid, appointmentId, qc]);
 
-  // Aprovado no Mercado Pago: mostra a confirmação por alguns segundos antes
-  // de levar o cliente para seus horários (sem isso, o redirect era imediato
-  // e a tela de "Pagamento confirmado!" nunca chegava a aparecer).
-  useEffect(() => {
-    if (!paid || isPresencial) return;
-    const timeout = window.setTimeout(() => {
-      void navigate({ to: "/meus-agendamentos", search: { agendamento: appointmentId } });
-    }, 4000);
-    return () => window.clearTimeout(timeout);
-  }, [paid, isPresencial, navigate, appointmentId]);
 
 
 
@@ -571,7 +561,9 @@ function ConfirmacaoPage() {
                   <CalendarDays /> Ver meus agendamentos
                 </Link>
               </Button>
-            ) : (
+            ) : paid ? null : (
+              // Já pago não tem sentido "voltar ao checkout" — some pra não
+              // parecer que ainda falta fazer alguma coisa.
               <Button asChild variant="outline" size="xl" className="w-full">
                 <Link to="/pagamento/$appointmentId" params={{ appointmentId }}>
                   <ArrowLeft /> Voltar ao checkout
