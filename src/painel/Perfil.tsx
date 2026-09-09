@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell, CreditCard, Share2, Smartphone } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell, CreditCard, Share2, Smartphone, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
@@ -368,7 +368,32 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
           {change.isPending ? <Loader2 className="animate-spin" /> : <Save />} Atualizar senha
         </Button>
       </section>
+
+      {barber.is_admin && <SuporteSection />}
     </div>
+  );
+}
+
+const SUPORTE_WHATSAPP_URL = `https://wa.me/5531996245848?text=${encodeURIComponent(
+  "Olá, preciso de ajuda com o App Barbearias",
+)}`;
+
+function SuporteSection() {
+  return (
+    <section className="surface space-y-3 p-4">
+      <div className="flex items-center gap-2">
+        <MessageCircle className="text-muted-foreground" size={18} />
+        <h2 className="font-semibold">Suporte</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Precisa de ajuda com o App Barbearias? Fale com a gente pelo WhatsApp.
+      </p>
+      <Button asChild variant="outline">
+        <a href={SUPORTE_WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+          <MessageCircle /> Falar no WhatsApp
+        </a>
+      </Button>
+    </section>
   );
 }
 
