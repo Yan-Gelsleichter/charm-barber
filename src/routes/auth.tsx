@@ -86,6 +86,9 @@ function AuthPage() {
   const [invitedShopId, setInvitedShopId] = useState<string | null>(null);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [knownBarberDevice, setKnownBarberDevice] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [sendingReset, setSendingReset] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -159,6 +162,31 @@ function AuthPage() {
       setGoogleLoading(false);
       toast.error("Não foi possível entrar com Google", { description: error.message });
     }
+  }
+
+  async function onForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = z.string().trim().email("E-mail inválido").safeParse(resetEmail);
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0].message);
+      return;
+    }
+    setSendingReset(true);
+    // Mantém o mesmo contexto de barbearia (QR/link do cliente) no link que
+    // volta por e-mail, pra não reaparecer a chamada de dono de barbearia
+    // se o link acabar caindo de volta na tela de login por algum motivo.
+    const redirectTo = new URL("/redefinir-senha", window.location.origin);
+    if (invitedShopId) redirectTo.searchParams.set("barbershop_id", invitedShopId);
+    const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
+      redirectTo: redirectTo.toString(),
+    });
+    setSendingReset(false);
+    if (error) {
+      toast.error("Não foi possível enviar o link", { description: error.message });
+      return;
+    }
+    toast.success("Link enviado!", { description: "Confira seu e-mail para redefinir a senha." });
+    setShowForgotPassword(false);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -292,6 +320,19 @@ function AuthPage() {
           {loading ? <Loader2 className="animate-spin" /> : isSignup ? "Criar conta" : "Entrar"}
         </Button>
 
+        {!isSignup && (
+          <button
+            type="button"
+            onClick={() => {
+              setResetEmail(email);
+              setShowForgotPassword(true);
+            }}
+            className="block w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Esqueci minha senha
+          </button>
+        )}
+
         <div className="relative py-1 text-center">
           <span className="relative z-10 bg-card px-3 text-[11px] uppercase tracking-wider text-muted-foreground">
             ou
@@ -353,6 +394,26 @@ function AuthPage() {
           </p>
         </div>
       </form>
+
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Esqueci minha senha</DialogTitle>
+            <DialogDescription>
+              Informe o e-mail cadastrado e enviaremos um link para você criar uma senha nova.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onForgotPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email">E-mail</Label>
+              <EmailInput id="reset-email" value={resetEmail} onChange={setResetEmail} />
+            </div>
+            <Button type="submit" variant="hero" className="w-full" disabled={sendingReset}>
+              {sendingReset ? <Loader2 className="animate-spin" /> : "Enviar link de redefinição"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showTrialModal} onOpenChange={setShowTrialModal}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">

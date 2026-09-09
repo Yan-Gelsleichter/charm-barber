@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ComecarRouteImport } from './routes/comecar'
 import { Route as MeusAgendamentosRouteImport } from './routes/meus-agendamentos'
 import { Route as PainelRouteImport } from './routes/painel'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
 import { Route as AssinarBarbershopIdRouteImport } from './routes/assinar.$barbershopId'
 import { Route as AssinaturaConfirmadaSubscriptionIdRouteImport } from './routes/assinatura-confirmada.$subscriptionId'
@@ -68,6 +69,11 @@ const MeusAgendamentosRoute = MeusAgendamentosRouteImport.update({
 const PainelRoute = PainelRouteImport.update({
   id: '/painel',
   path: '/painel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgendarBarbeiroIdRoute = AgendarBarbeiroIdRouteImport.update({
@@ -252,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/comecar': typeof ComecarRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
@@ -289,6 +296,7 @@ export interface FileRoutesByTo {
   '/comecar': typeof ComecarRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
@@ -327,6 +335,7 @@ export interface FileRoutesById {
   '/comecar': typeof ComecarRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
@@ -366,6 +375,7 @@ export interface FileRouteTypes {
     | '/comecar'
     | '/meus-agendamentos'
     | '/painel'
+    | '/redefinir-senha'
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
@@ -403,6 +413,7 @@ export interface FileRouteTypes {
     | '/comecar'
     | '/meus-agendamentos'
     | '/painel'
+    | '/redefinir-senha'
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
@@ -440,6 +451,7 @@ export interface FileRouteTypes {
     | '/comecar'
     | '/meus-agendamentos'
     | '/painel'
+    | '/redefinir-senha'
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
@@ -478,6 +490,7 @@ export interface RootRouteChildren {
   ComecarRoute: typeof ComecarRoute
   MeusAgendamentosRoute: typeof MeusAgendamentosRoute
   PainelRoute: typeof PainelRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
   AssinarBarbershopIdRoute: typeof AssinarBarbershopIdRoute
   AssinaturaConfirmadaSubscriptionIdRoute: typeof AssinaturaConfirmadaSubscriptionIdRoute
@@ -545,6 +558,13 @@ declare module '@tanstack/react-router' {
       path: '/painel'
       fullPath: '/painel'
       preLoaderRoute: typeof PainelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agendar/$barbeiroId': {
@@ -766,6 +786,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComecarRoute: ComecarRoute,
   MeusAgendamentosRoute: MeusAgendamentosRoute,
   PainelRoute: PainelRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
   AgendarBarbeiroIdRoute: AgendarBarbeiroIdRoute,
   AssinarBarbershopIdRoute: AssinarBarbershopIdRoute,
   AssinaturaConfirmadaSubscriptionIdRoute:
