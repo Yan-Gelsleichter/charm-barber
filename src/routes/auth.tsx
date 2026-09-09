@@ -1,7 +1,22 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  Sparkles,
+  Check,
+  CalendarDays,
+  Users,
+  Scissors,
+  Repeat,
+  Percent,
+  Globe,
+  CreditCard,
+  Bell,
+  Wallet,
+  QrCode,
+  MessageCircle,
+} from "lucide-react";
 import { z } from "zod";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -10,11 +25,18 @@ import { useShopConfig } from "@/hooks/use-shop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { BrandTitle } from "@/components/Brand";
 import { EmailInput } from "@/components/EmailInput";
 import { PasswordInput } from "@/components/PasswordInput";
 import { PhoneInput } from "@/components/PhoneInput";
-import { phoneDigits } from "@/lib/format";
+import { brl, phoneDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Entrar — VIP BARBER" }] }),
@@ -26,6 +48,25 @@ const signInSchema = z.object({
   password: z.string().min(6, "Senha deve ter ao menos 6 caracteres"),
 });
 
+const TRIAL_PLANS: { label: string; price: number; caption?: string }[] = [
+  { label: "Mensal", price: 49 },
+  { label: "Anual", price: 39, caption: "equivalente a R$ 468,00/ano · compromisso de 12 meses" },
+];
+
+const TRIAL_BENEFITS: { icon: React.ElementType; text: string }[] = [
+  { icon: CalendarDays, text: "Agendamentos ilimitados" },
+  { icon: Users, text: "Profissionais ilimitados" },
+  { icon: Scissors, text: "Serviços ilimitados" },
+  { icon: Repeat, text: "Assinaturas ilimitadas" },
+  { icon: Percent, text: "Controle de comissão por barbeiro" },
+  { icon: Globe, text: "Agendamento online 24h" },
+  { icon: CreditCard, text: "Pagamento online via Mercado Pago" },
+  { icon: Bell, text: "Notificações automáticas (novo agendamento + lembrete 30 min antes)" },
+  { icon: Wallet, text: "Painel financeiro com histórico de faturamento" },
+  { icon: QrCode, text: "QR Code para vincular clientes automaticamente" },
+  { icon: MessageCircle, text: "Suporte via WhatsApp" },
+];
+
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -36,6 +77,7 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [invitedShopId, setInvitedShopId] = useState<string | null>(null);
+  const [showTrialModal, setShowTrialModal] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -268,13 +310,13 @@ function AuthPage() {
               <p className="text-[11px]">
                 Barbeiros: use o mesmo formulário para entrar. Cadastro de barbeiro é feito pelo admin.
               </p>
-              <p>
-                É dono de barbearia?{" "}
-                <Link to="/comecar" className="brand-text font-semibold">
-                  Comece seu teste grátis de 7 dias
-                </Link>
-                .
-              </p>
+              <button
+                type="button"
+                onClick={() => setShowTrialModal(true)}
+                className="brand-gradient flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98]"
+              >
+                <Sparkles className="size-4" />É dono de barbearia? Comece seu teste grátis de 7 dias
+              </button>
             </>
           )}
           <p>
@@ -286,6 +328,58 @@ function AuthPage() {
           </p>
         </div>
       </form>
+
+      <Dialog open={showTrialModal} onOpenChange={setShowTrialModal}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Teste grátis por 7 dias</DialogTitle>
+            <DialogDescription>
+              Sem cobrança nesse período — só depois dos 7 dias, se você continuar, é que a
+              assinatura começa a valer.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-3">
+            {TRIAL_PLANS.map((plan) => (
+              <div key={plan.label} className="surface p-3">
+                <p className="text-sm font-semibold">{plan.label}</p>
+                <p className="brand-text mt-1 text-lg font-bold">
+                  {brl(plan.price)}
+                  <span className="text-xs font-normal text-muted-foreground">/mês</span>
+                </p>
+                {plan.caption && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">{plan.caption}</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              O que está incluso
+            </p>
+            <ul className="space-y-1.5">
+              {TRIAL_BENEFITS.map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-start gap-2 text-sm">
+                  <Check className="mt-0.5 size-4 shrink-0 text-[color:var(--success)]" />
+                  <span className="text-muted-foreground">{text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="grid gap-2">
+            <Button asChild variant="hero" size="lg" className="w-full">
+              <Link to="/comecar">Continuar com teste grátis</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full">
+              <Link to="/comecar" search={{ intent: "assinar" }}>
+                Assinar agora
+              </Link>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

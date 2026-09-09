@@ -16,11 +16,18 @@ import { phoneDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/comecar")({
   head: () => ({ meta: [{ title: "Comece grátis — VIP BARBER" }] }),
+  validateSearch: (s: Record<string, unknown>): { intent?: "assinar" } => ({
+    intent: s.intent === "assinar" ? "assinar" : undefined,
+  }),
   component: ComecarPage,
 });
 
 function ComecarPage() {
   const navigate = useNavigate();
+  // Quem clicou em "Assinar agora" no modal do login pula direto pra tela de
+  // escolha de plano assim que a barbearia é criada, em vez de cair no
+  // painel normal em modo teste.
+  const { intent } = Route.useSearch();
   const [name, setName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -90,7 +97,11 @@ function ComecarPage() {
       }
 
       toast.success("Sua barbearia foi criada!", { description: "7 dias grátis começam agora." });
-      navigate({ to: "/painel" });
+      if (intent === "assinar") {
+        navigate({ to: "/painel", search: { tab: "dashboard", assinar: "1" } });
+      } else {
+        navigate({ to: "/painel" });
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível concluir o cadastro.");
     } finally {

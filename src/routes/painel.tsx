@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Lock,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -87,10 +88,11 @@ export const Route = createFileRoute("/painel")({
   head: () => ({ meta: [{ title: "Painel — VIP BARBER" }] }),
   validateSearch: (
     s: Record<string, unknown>,
-  ): { tab?: Tab; mp?: string; mp_msg?: string } => ({
+  ): { tab?: Tab; mp?: string; mp_msg?: string; assinar?: string } => ({
     tab: (s.tab as Tab) || ("dashboard" as Tab),
     mp: typeof s.mp === "string" ? s.mp : undefined,
     mp_msg: typeof s.mp_msg === "string" ? s.mp_msg : undefined,
+    assinar: typeof s.assinar === "string" ? s.assinar : undefined,
   }),
   component: PainelPage,
 });
@@ -105,7 +107,7 @@ function isTypingElement(el: EventTarget | null): boolean {
 function PainelPage() {
   const navigate = useNavigate();
   const loc = useLocation();
-  const { tab, mp, mp_msg } = Route.useSearch();
+  const { tab, mp, mp_msg, assinar } = Route.useSearch();
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
@@ -315,6 +317,25 @@ WHERE user_id = '${currentUid}';`;
     );
   }
 
+  // Veio do "Assinar agora" no modal do login: a barbearia acabou de ser
+  // criada (ainda em teste, não bloqueada) e a pessoa já pediu pra ir direto
+  // pra tela de planos, em vez de cair no painel normal.
+  const wantsToSubscribeNow =
+    assinar === "1" && barber.is_admin && subscriptionGate.data?.subscription_status !== "active";
+  if (wantsToSubscribeNow) {
+    return (
+      <SubscriptionBlockedScreen
+        reason="welcome"
+        isAdmin={barber.is_admin}
+        accessToken={session.access_token}
+        subscriptionData={subscriptionGate.data}
+        onSignOut={handleSignOut}
+        signingOut={signingOut}
+        onDismiss={() => navigate({ to: "/painel", search: { tab: "dashboard" } })}
+      />
+    );
+  }
+
   const items = NAV.filter(
     (n) =>
       (!n.adminOnly || barber.is_admin) &&
@@ -415,26 +436,37 @@ WHERE user_id = '${currentUid}';`;
   );
 }
 
+type ScreenReason = SubscriptionGateReason | "welcome";
+
 const SUBSCRIPTION_GATE_COPY: Record<
-  SubscriptionGateReason,
-  { title: string; message: string; icon: React.ElementType }
+  ScreenReason,
+  { title: string; message: string; icon: React.ElementType; tone: "alert" | "neutral" }
 > = {
   trial_expired: {
     title: "Seu teste grátis acabou",
     message:
       "O período de 7 dias de teste terminou. Assine um plano para continuar usando o painel.",
     icon: Lock,
+    tone: "alert",
   },
   past_due: {
     title: "Pagamento pendente",
     message:
       "Identificamos uma falha no pagamento da sua assinatura. Regularize para continuar usando o painel.",
     icon: AlertTriangle,
+    tone: "alert",
   },
   canceled: {
     title: "Assinatura cancelada",
     message: "Sua assinatura foi cancelada. Assine novamente para continuar usando o painel.",
     icon: Lock,
+    tone: "alert",
+  },
+  welcome: {
+    title: "Escolha seu plano",
+    message: "Você optou por assinar direto. Escolha um plano abaixo para continuar.",
+    icon: Sparkles,
+    tone: "neutral",
   },
 };
 
@@ -457,21 +489,27 @@ function SubscriptionBlockedScreen({
   subscriptionData,
   onSignOut,
   signingOut,
+  onDismiss,
 }: {
-  reason: SubscriptionGateReason;
+  reason: ScreenReason;
   isAdmin: boolean;
   accessToken: string;
   subscriptionData: SubscriptionStatusResponse | undefined;
   onSignOut: () => void;
   signingOut: boolean;
+  /** Só passado no modo "welcome": permite seguir sem assinar agora (o teste grátis continua normal). */
+  onDismiss?: () => void;
 }) {
   const copy = SUBSCRIPTION_GATE_COPY[reason];
   const Icon = copy.icon;
+  const isAlert = copy.tone === "alert";
 
-  // Só ambíguo pro caso de trial nunca assinado: subscription_id fica preso
-  // no último valor mesmo depois de a barbearia reassinar, então em
-  // past_due/canceled sempre mostramos os planos de novo (é a ação certa).
-  const awaitingConfirmation = reason === "trial_expired" && !!subscriptionData?.subscription_id;
+  // Só ambíguo pro caso de trial nunca assinado (ou o convite direto do
+  // "Assinar agora" no cadastro): subscription_id fica preso no último valor
+  // mesmo depois de a barbearia reassinar, então em past_due/canceled sempre
+  // mostramos os planos de novo (é a ação certa).
+  const awaitingConfirmation =
+    (reason === "trial_expired" || reason === "welcome") && !!subscriptionData?.subscription_id;
   const [showPlansAnyway, setShowPlansAnyway] = useState(false);
 
   const subscribe = useMutation({
@@ -493,8 +531,13 @@ function SubscriptionBlockedScreen({
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-5 py-20 text-center">
       <BrandMark size={48} />
-      <div className="mt-4 flex size-14 items-center justify-center rounded-full bg-destructive/10">
-        <Icon className="size-7 text-destructive" />
+      <div
+        className={cn(
+          "mt-4 flex size-14 items-center justify-center rounded-full",
+          isAlert ? "bg-destructive/10" : "bg-[color:var(--brand-from)]/10",
+        )}
+      >
+        <Icon className={cn("size-7", isAlert ? "text-destructive" : "text-[var(--brand-from)]")} />
       </div>
       <h1 className="mt-4 text-xl font-semibold">{copy.title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{copy.message}</p>
@@ -548,6 +591,11 @@ function SubscriptionBlockedScreen({
       )}
 
       <div className="mt-6 grid w-full gap-2">
+        {onDismiss && (
+          <Button variant="ghost" onClick={onDismiss}>
+            Continuar com teste grátis
+          </Button>
+        )}
         <Button variant="outline" onClick={onSignOut} disabled={signingOut}>
           <LogOut /> Sair
         </Button>
