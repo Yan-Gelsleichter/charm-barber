@@ -27,6 +27,7 @@ import type { Barber } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   mpRedirectUri,
@@ -36,6 +37,7 @@ import {
 type ShopRow = {
   mp_user_id?: string | null;
   payout_mode?: string | null;
+  allow_local_payment?: boolean | null;
 };
 
 const MODES: { id: PayoutMode; title: string; desc: string; icon: React.ElementType }[] = [
@@ -218,11 +220,11 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
     queryFn: async () => {
       const full = await supabase
         .from("barbershops" as never)
-        .select("id, mp_user_id, payout_mode")
+        .select("id, mp_user_id, payout_mode, allow_local_payment")
         .eq("id", shopId!)
         .maybeSingle();
       if (!full.error) return (full.data as ShopRow | null) ?? null;
-      // Coluna payout_mode ainda não existe no banco.
+      // Colunas novas podem ainda não existir no banco.
       const { data, error } = await supabase
         .from("barbershops" as never)
         .select("id, mp_user_id")
@@ -275,6 +277,42 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
 
 
   const connected = !!statusQ.data?.mp_user_id;
+  // Ativado por padrão: só considera desativado se a coluna existir e
+  // estiver explicitamente false (evita tratar "coluna ainda não migrada"
+  // como se o presencial tivesse sido desligado).
+  const allowLocalPayment = statusQ.data?.allow_local_payment !== false;
+  const [confirmDisableLocalPayment, setConfirmDisableLocalPayment] = useState(false);
+
+  const saveAllowLocalPayment = useMutation({
+    mutationFn: async (next: boolean) => {
+      if (!shopId) throw new Error("Sua conta não está vinculada a uma barbearia");
+      const { data, error } = await supabase
+        .from("barbershops" as never)
+        .update({ allow_local_payment: next } as never)
+        .eq("id", shopId)
+        .select("id, allow_local_payment")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Sem permissão para alterar esta barbearia");
+      return (data as ShopRow).allow_local_payment !== false;
+    },
+    onSuccess: (saved: boolean) => {
+      toast.success(
+        saved
+          ? "Pagamento presencial reativado."
+          : "Pagamento presencial desativado — clientes só podem pagar online.",
+      );
+      qc.setQueryData(["mp-status", shopId], (prev: ShopRow | null | undefined) =>
+        prev ? { ...prev, allow_local_payment: saved } : prev,
+      );
+      qc.invalidateQueries({ queryKey: ["mp-status", shopId] });
+    },
+    onError: (e: Error) => {
+      toast.error("Não foi possível salvar", {
+        description: `${e.message}. Rode docs/add-allow-local-payment.sql no Supabase.`,
+      });
+    },
+  });
 
   function connect() {
     if (!shopId) {
@@ -377,6 +415,61 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
           {connected ? "Reconectar com Mercado Pago" : "Conectar com Mercado Pago"}
         </Button>
       </section>
+
+      <section className="surface space-y-3 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-medium">Permitir pagamento presencial</p>
+            <p className="text-xs text-muted-foreground">
+              Ativado (padrão), o cliente pode escolher "Pagar presencialmente" ao agendar.
+              Desativado, ele só consegue agendar pagando online (Pix ou cartão) na hora.
+            </p>
+          </div>
+          <Switch
+            checked={allowLocalPayment}
+            onCheckedChange={(next) => {
+              if (next) {
+                saveAllowLocalPayment.mutate(true);
+              } else {
+                setConfirmDisableLocalPayment(true);
+              }
+            }}
+            disabled={!connected || saveAllowLocalPayment.isPending}
+            aria-label="Permitir pagamento presencial"
+          />
+        </div>
+        {!connected && (
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <AlertCircle className="size-3" /> Conecte o Mercado Pago acima antes de mexer nessa opção.
+          </p>
+        )}
+      </section>
+
+      <AlertDialog open={confirmDisableLocalPayment} onOpenChange={setConfirmDisableLocalPayment}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar pagamento presencial?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ao desativar o pagamento presencial, todos os clientes que agendarem pelo app só
+              conseguirão confirmar o horário pagando online (Pix ou cartão). Tem certeza?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saveAllowLocalPayment.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                saveAllowLocalPayment.mutate(false, {
+                  onSuccess: () => setConfirmDisableLocalPayment(false),
+                });
+              }}
+              disabled={saveAllowLocalPayment.isPending}
+            >
+              {saveAllowLocalPayment.isPending ? "Desativando…" : "Desativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

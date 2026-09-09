@@ -47,6 +47,9 @@ function PagamentoPage() {
   // Só oferece "Pagar Online" quando a barbearia (ou o barbeiro, no modo
   // dividido) já conectou a própria conta do Mercado Pago — o dinheiro do
   // cliente nunca passa por uma conta intermediária da plataforma.
+  // "Pagar presencialmente" some quando o admin exigiu pagamento online
+  // (allow_presencial=false) — a rota já garante isso só valer com uma
+  // conexão de verdade ativa, nunca deixando o cliente sem opção nenhuma.
   const connectionQ = useQuery({
     queryKey: ["mp-connection", appointmentId],
     queryFn: async () => {
@@ -54,8 +57,13 @@ function PagamentoPage() {
         `/api/public/mercadopago-connection?appointment_id=${encodeURIComponent(appointmentId)}`,
         { cache: "no-store" },
       ).catch(() => null);
-      const body = (await res?.json().catch(() => null)) as { connected?: boolean } | null;
-      return body?.connected === true;
+      const body = (await res?.json().catch(() => null)) as
+        | { connected?: boolean; allow_presencial?: boolean }
+        | null;
+      return {
+        connected: body?.connected === true,
+        allowPresencial: body?.allow_presencial !== false,
+      };
     },
   });
 
@@ -275,7 +283,7 @@ function PagamentoPage() {
 
       {!paid && (
         <div className="mt-5 grid gap-3">
-          {connectionQ.data === true && (
+          {connectionQ.data?.connected === true && (
             <Button
               variant="hero"
               size="xl"
@@ -287,20 +295,22 @@ function PagamentoPage() {
               {startCheckout.isPending ? "Abrindo pagamento…" : "Pagar Online (Pix ou Cartão)"}
             </Button>
           )}
-          {connectionQ.data === false && (
+          {connectionQ.data?.connected === false && (
             <p className="text-center text-xs text-muted-foreground">
               Pagamento online ainda não disponível nesta barbearia.
             </p>
           )}
-          <Button
-            variant="outline"
-            size="xl"
-            className="w-full"
-            disabled={busy}
-            onClick={() => payLocal.mutate()}
-          >
-            <Store /> Pagar presencialmente
-          </Button>
+          {(connectionQ.data?.allowPresencial ?? true) && (
+            <Button
+              variant="outline"
+              size="xl"
+              className="w-full"
+              disabled={busy}
+              onClick={() => payLocal.mutate()}
+            >
+              <Store /> Pagar presencialmente
+            </Button>
+          )}
         </div>
       )}
     </main>

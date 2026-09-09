@@ -62,11 +62,16 @@ export const Route = createFileRoute("/api/public/mercadopago-connection")({
 
           const { data: shop } = await admin
             .from("barbershops")
-            .select("mp_access_token, payout_mode")
+            .select("mp_access_token, payout_mode, allow_local_payment")
             .eq("id", barbershopId)
             .maybeSingle();
-          const shopRow = shop as { mp_access_token?: string | null; payout_mode?: string | null } | null;
+          const shopRow = shop as {
+            mp_access_token?: string | null;
+            payout_mode?: string | null;
+            allow_local_payment?: boolean | null;
+          } | null;
 
+          let connected = hasToken(shopRow?.mp_access_token);
           if (shopRow?.payout_mode === "split" && barberId) {
             const { data: barber } = await admin
               .from("barbers")
@@ -74,10 +79,16 @@ export const Route = createFileRoute("/api/public/mercadopago-connection")({
               .eq("id", barberId)
               .maybeSingle();
             const barberToken = (barber as { mp_access_token?: string | null } | null)?.mp_access_token;
-            if (hasToken(barberToken)) return json({ connected: true });
+            if (hasToken(barberToken)) connected = true;
           }
 
-          return json({ connected: hasToken(shopRow?.mp_access_token) });
+          // "Pagar presencialmente" só some quando o admin desativou
+          // explicitamente (allow_local_payment=false) E existe de fato uma
+          // conta conectada agora — nunca deixa o cliente sem nenhuma opção
+          // se a conexão cair depois de o admin desativar o presencial.
+          const allowPresencial = !(connected && shopRow?.allow_local_payment === false);
+
+          return json({ connected, allow_presencial: allowPresencial });
         } catch (error) {
           console.error("[mercadopago-connection] erro inesperado", error);
           return json({ connected: false });
