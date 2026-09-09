@@ -157,10 +157,53 @@ export function BarbeirosTab() {
       if (data && typeof data === "object" && "error" in data && data.error) {
         throw new Error(String((data as { error: unknown }).error));
       }
+
+      // A exclusão do barbeiro já apaga (por cascata no banco) os vínculos
+      // dele em subscription_plan_barbers. Se isso deixou algum plano dessa
+      // barbearia sem nenhum barbeiro, o plano fica sem ninguém pra atender
+      // — desativa automaticamente pra não continuar oferecido aos clientes.
+      const shopId = b.barbershop_id;
+      let deactivatedPlanNames: string[] = [];
+      if (shopId) {
+        const { data: activePlans } = await supabase
+          .from("subscription_plans")
+          .select("id, name")
+          .eq("barbershop_id", shopId)
+          .eq("active", true);
+        const planIds = (activePlans ?? []).map((p) => p.id);
+        if (planIds.length > 0) {
+          const { data: links } = await supabase
+            .from("subscription_plan_barbers")
+            .select("plan_id")
+            .in("plan_id", planIds);
+          const plansWithBarber = new Set((links ?? []).map((l) => l.plan_id));
+          const orphaned = (activePlans ?? []).filter((p) => !plansWithBarber.has(p.id));
+          if (orphaned.length > 0) {
+            await supabase
+              .from("subscription_plans")
+              .update({ active: false })
+              .in(
+                "id",
+                orphaned.map((p) => p.id),
+              );
+            deactivatedPlanNames = orphaned.map((p) => p.name);
+          }
+        }
+      }
+      return { deactivatedPlanNames };
     },
-    onSuccess: () => {
+    onSuccess: ({ deactivatedPlanNames }) => {
       toast.success("Barbeiro excluído");
+      if (deactivatedPlanNames.length > 0) {
+        toast.warning(
+          deactivatedPlanNames.length === 1
+            ? `O plano "${deactivatedPlanNames[0]}" foi desativado automaticamente por ficar sem nenhum barbeiro.`
+            : `Os planos ${deactivatedPlanNames.map((n) => `"${n}"`).join(", ")} foram desativados automaticamente por ficarem sem nenhum barbeiro.`,
+          { duration: 8000 },
+        );
+      }
       qc.invalidateQueries({ queryKey: ["barbers-painel"] });
+      qc.invalidateQueries({ queryKey: ["subscription-plans"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

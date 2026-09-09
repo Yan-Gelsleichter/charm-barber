@@ -2,17 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 import { createPlatformPreapproval, cancelPlatformPreapproval } from "@/lib/platform-subscription.server";
+import { mpPlatformCredentials } from "@/lib/mp-platform.server";
 
 /**
  * Chamada periodicamente por um scheduler externo (com
  * "Authorization: Bearer <CRON_SECRET>", mesmo padrão de
- * api/cron/appointment-reminders.ts). Efetiva, na data certa
- * (current_period_ends_at), as duas transições de plano que o admin pode
- * agendar sem cobrança imediata pelo painel:
- *   - upgrade mensal → anual (pending_plan_change='yearly')
- *   - cancelamento (cancel_at_period_end=true) — a preapproval já foi
- *     cancelada de verdade no Mercado Pago no momento do clique; aqui só
- *     rebaixa o acesso local pra "canceled".
+ * api/cron/appointment-reminders.ts). Faz manutenção periódica de assinaturas:
+ *   - upgrade mensal → anual da PLATAFORMA (pending_plan_change='yearly'),
+ *     na data certa (current_period_ends_at)
+ *   - cancelamento da assinatura da PLATAFORMA (cancel_at_period_end=true) —
+ *     a preapproval já foi cancelada de verdade no Mercado Pago no momento
+ *     do clique; aqui só rebaixa o acesso local pra "canceled"
+ *   - expira assinaturas de CLIENTE (client_subscriptions) que ficaram
+ *     "pending" por checkout abandonado — nunca confirmadas pelo Mercado Pago
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -129,6 +131,83 @@ async function processCancellations(admin: Admin, nowIso: string) {
   return { processed: rows.length, canceled };
 }
 
+// Checkout abandonado (cliente foi ao Mercado Pago mas nunca concluiu a
+// autorização): sem isso, a assinatura fica "pending" pra sempre.
+const PENDING_CLIENT_SUBSCRIPTION_EXPIRY_HOURS = 24;
+
+type PendingClientSubscriptionRow = {
+  id: string;
+  barbershop_id: string;
+  mp_preapproval_id: string | null;
+};
+
+/** Best-effort: mesma resolução de token de mercadopago-subscription-cancel.ts. */
+async function cancelClientPreapproval(admin: Admin, barbershopId: string, preapprovalId: string) {
+  const { data: shop } = await admin
+    .from("barbershops")
+    .select("mp_access_token")
+    .eq("id", barbershopId)
+    .maybeSingle();
+  const platform = mpPlatformCredentials();
+  const token =
+    String((shop as { mp_access_token?: string | null } | null)?.mp_access_token ?? "").trim() ||
+    platform?.accessToken ||
+    "";
+  if (!token) return false;
+  try {
+    const res = await fetch(
+      `https://api.mercadopago.com/preapproval/${encodeURIComponent(preapprovalId)}`,
+      {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      },
+    );
+    return res.ok;
+  } catch (error) {
+    console.error("process-plan-changes: falha ao cancelar preapproval de cliente", { preapprovalId, error });
+    return false;
+  }
+}
+
+async function processExpiredClientSubscriptions(admin: Admin) {
+  const cutoff = new Date(
+    Date.now() - PENDING_CLIENT_SUBSCRIPTION_EXPIRY_HOURS * 3_600_000,
+  ).toISOString();
+  const { data, error } = await admin
+    .from("client_subscriptions")
+    .select("id, barbershop_id, mp_preapproval_id")
+    .eq("status", "pending")
+    .lte("created_at", cutoff);
+  if (error) {
+    console.error("process-plan-changes: falha ao buscar assinaturas de cliente pendentes vencidas", error);
+    return { processed: 0, expired: 0 };
+  }
+
+  const rows = (data ?? []) as PendingClientSubscriptionRow[];
+  let expired = 0;
+  for (const row of rows) {
+    if (row.mp_preapproval_id) {
+      await cancelClientPreapproval(admin, row.barbershop_id, row.mp_preapproval_id);
+    }
+    const { data: updatedRows, error: updateError } = await admin
+      .from("client_subscriptions")
+      .update({ status: "cancelled" })
+      .eq("id", row.id)
+      .eq("status", "pending")
+      .select("id");
+    if (updateError) {
+      console.error("process-plan-changes: falha ao expirar assinatura de cliente", {
+        id: row.id,
+        error: updateError,
+      });
+      continue;
+    }
+    if (Array.isArray(updatedRows) && updatedRows.length > 0) expired += 1;
+  }
+  return { processed: rows.length, expired };
+}
+
 export const Route = createFileRoute("/api/cron/process-plan-changes")({
   server: {
     handlers: {
@@ -145,9 +224,10 @@ export const Route = createFileRoute("/api/cron/process-plan-changes")({
         if (!admin) return new Response("misconfigured", { status: 500 });
 
         const nowIso = new Date().toISOString();
-        const [upgrades, cancellations] = await Promise.all([
+        const [upgrades, cancellations, expiredClientSubscriptions] = await Promise.all([
           processUpgrades(admin, nowIso, request.url),
           processCancellations(admin, nowIso),
+          processExpiredClientSubscriptions(admin),
         ]);
 
         return Response.json({
@@ -156,6 +236,8 @@ export const Route = createFileRoute("/api/cron/process-plan-changes")({
           upgrade_failed: upgrades.failed,
           cancellations_processed: cancellations.processed,
           canceled: cancellations.canceled,
+          client_subscriptions_processed: expiredClientSubscriptions.processed,
+          client_subscriptions_expired: expiredClientSubscriptions.expired,
         });
       },
     },

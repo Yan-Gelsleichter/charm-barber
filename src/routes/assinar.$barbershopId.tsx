@@ -133,6 +133,17 @@ function AssinarPage() {
     return groups;
   }, [planServicesQ.data, serviceById]);
 
+  // Nunca oferece um plano sem nenhum barbeiro vinculado (pode ficar assim se
+  // o único barbeiro do plano for excluído depois de criado) — mesmo que por
+  // algum motivo ele ainda esteja marcado como "ativo". Enquanto o vínculo
+  // ainda está carregando, não filtra nada pra não esconder um plano válido
+  // por uma fração de segundo.
+  const visiblePlans = useMemo(() => {
+    const plans = plansQ.data ?? [];
+    if (planBarbersQ.isLoading) return plans;
+    return plans.filter((p) => (barbersByPlan.get(p.id) ?? []).length > 0);
+  }, [plansQ.data, planBarbersQ.isLoading, barbersByPlan]);
+
   const subscribe = useMutation({
     mutationFn: async (planId: string) => {
       const result = await postPublicApi<{ subscription_id?: string; init_point?: string; error?: string }>(
@@ -184,14 +195,14 @@ function AssinarPage() {
         </div>
       )}
 
-      {!plansQ.isLoading && (plansQ.data ?? []).length === 0 && (
+      {!plansQ.isLoading && !planBarbersQ.isLoading && visiblePlans.length === 0 && (
         <div className="surface p-8 text-center text-sm text-muted-foreground">
           Nenhum plano disponível nesta barbearia no momento.
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-4">
-        {plansQ.data?.map((plan) => (
+        {visiblePlans.map((plan) => (
           <div key={plan.id} className="surface p-5">
             <div className="flex items-baseline justify-between">
               <h2 className="text-lg font-semibold">{plan.name}</h2>

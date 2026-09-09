@@ -163,10 +163,14 @@ export function PlanosTab({ barber }: { barber: Barber }) {
     queryKey: ["client-subscriptions", shopId],
     enabled: !!shopId,
     queryFn: async () => {
+      // Canceladas (inclusive as que expiram sozinhas por falta de pagamento)
+      // não aparecem aqui — não sobra nada pro admin fazer com elas, só
+      // acumulariam sem utilidade na lista de assinantes.
       const { data, error } = await supabase
         .from("client_subscriptions")
         .select("*")
         .eq("barbershop_id", shopId!)
+        .neq("status", "cancelled")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as ClientSubscription[];
