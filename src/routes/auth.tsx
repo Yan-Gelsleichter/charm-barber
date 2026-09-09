@@ -48,6 +48,13 @@ const signInSchema = z.object({
   password: z.string().min(6, "Senha deve ter ao menos 6 caracteres"),
 });
 
+/**
+ * Lembrança de longo prazo: "esse aparelho já fez login como barbeiro/admin
+ * alguma vez". Usada só pra esconder a chamada "É dono de barbearia?" de
+ * quem claramente já tem conta de barbearia — nunca pra travar nada.
+ */
+const KNOWN_BARBER_DEVICE_KEY = "known_barber_device";
+
 const TRIAL_PLANS: { label: string; price: number; caption?: string }[] = [
   { label: "Mensal", price: 49 },
   { label: "Anual", price: 39, caption: "equivalente a R$ 468,00/ano · compromisso de 12 meses" },
@@ -78,6 +85,7 @@ function AuthPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [invitedShopId, setInvitedShopId] = useState<string | null>(null);
   const [showTrialModal, setShowTrialModal] = useState(false);
+  const [knownBarberDevice, setKnownBarberDevice] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -102,11 +110,19 @@ function AuthPage() {
         /* ignore */
       }
     }
+    try {
+      if (localStorage.getItem(KNOWN_BARBER_DEVICE_KEY) === "1") setKnownBarberDevice(true);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const { data: shop } = useShopConfig(invitedShopId);
   const shopName = shop?.business_name?.trim() || null;
-
+  // Contexto de convite (cliente vinculado a uma barbearia) ou aparelho que já
+  // logou como barbeiro/dono antes: nenhum dos dois precisa ver a chamada
+  // pra criar uma barbearia nova.
+  const hideOwnerCta = !!invitedShopId || knownBarberDevice;
 
   async function routeByRole(userId: string) {
     const { data: userData } = await supabase.auth.getUser();
@@ -120,6 +136,13 @@ function AuthPage() {
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle();
+    if (b) {
+      try {
+        localStorage.setItem(KNOWN_BARBER_DEVICE_KEY, "1");
+      } catch {
+        /* ignore */
+      }
+    }
     navigate({ to: b ? "/painel" : "/meus-agendamentos" });
   }
 
@@ -310,13 +333,15 @@ function AuthPage() {
               <p className="text-[11px]">
                 Barbeiros: use o mesmo formulário para entrar. Cadastro de barbeiro é feito pelo admin.
               </p>
-              <button
-                type="button"
-                onClick={() => setShowTrialModal(true)}
-                className="brand-gradient flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98]"
-              >
-                <Sparkles className="size-4" />É dono de barbearia? Comece seu teste grátis de 7 dias
-              </button>
+              {!hideOwnerCta && (
+                <button
+                  type="button"
+                  onClick={() => setShowTrialModal(true)}
+                  className="brand-gradient flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98]"
+                >
+                  <Sparkles className="size-4" />É dono de barbearia? Comece seu teste grátis de 7 dias
+                </button>
+              )}
             </>
           )}
           <p>
