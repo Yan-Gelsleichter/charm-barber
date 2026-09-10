@@ -27,6 +27,10 @@ import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/pub
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
 import { Route as ApiPublicAppointmentPushTokenRouteImport } from './routes/api/public/appointment-push-token'
 import { Route as ApiPublicBarbershopBySlugRouteImport } from './routes/api/public/barbershop-by-slug'
+import { Route as ApiPublicCaixaMarkPaidRouteImport } from './routes/api/public/caixa-mark-paid'
+import { Route as ApiPublicCaixaWalkinCreateRouteImport } from './routes/api/public/caixa-walkin-create'
+import { Route as ApiPublicCaixaWalkinDeleteRouteImport } from './routes/api/public/caixa-walkin-delete'
+import { Route as ApiPublicCaixaWalkinUpdateRouteImport } from './routes/api/public/caixa-walkin-update'
 import { Route as ApiPublicCreateBarbershopRouteImport } from './routes/api/public/create-barbershop'
 import { Route as ApiPublicEnsureBarbershopSlugRouteImport } from './routes/api/public/ensure-barbershop-slug'
 import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
@@ -142,6 +146,29 @@ const ApiPublicBarbershopBySlugRoute =
   ApiPublicBarbershopBySlugRouteImport.update({
     id: '/api/public/barbershop-by-slug',
     path: '/api/public/barbershop-by-slug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCaixaMarkPaidRoute = ApiPublicCaixaMarkPaidRouteImport.update({
+  id: '/api/public/caixa-mark-paid',
+  path: '/api/public/caixa-mark-paid',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicCaixaWalkinCreateRoute =
+  ApiPublicCaixaWalkinCreateRouteImport.update({
+    id: '/api/public/caixa-walkin-create',
+    path: '/api/public/caixa-walkin-create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCaixaWalkinDeleteRoute =
+  ApiPublicCaixaWalkinDeleteRouteImport.update({
+    id: '/api/public/caixa-walkin-delete',
+    path: '/api/public/caixa-walkin-delete',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCaixaWalkinUpdateRoute =
+  ApiPublicCaixaWalkinUpdateRouteImport.update({
+    id: '/api/public/caixa-walkin-update',
+    path: '/api/public/caixa-walkin-update',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicCreateBarbershopRoute =
@@ -271,6 +298,10 @@ export interface FileRoutesByFullPath {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
+  '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
+  '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
+  '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
@@ -309,6 +340,10 @@ export interface FileRoutesByTo {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
+  '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
+  '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
+  '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
@@ -348,6 +383,10 @@ export interface FileRoutesById {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
+  '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
+  '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
+  '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
@@ -388,6 +427,10 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/caixa-mark-paid'
+    | '/api/public/caixa-walkin-create'
+    | '/api/public/caixa-walkin-delete'
+    | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
@@ -426,6 +469,10 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/caixa-mark-paid'
+    | '/api/public/caixa-walkin-create'
+    | '/api/public/caixa-walkin-delete'
+    | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
@@ -464,6 +511,10 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/caixa-mark-paid'
+    | '/api/public/caixa-walkin-create'
+    | '/api/public/caixa-walkin-delete'
+    | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
     | '/api/public/mercadopago-connect'
@@ -503,6 +554,10 @@ export interface RootRouteChildren {
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
   ApiPublicAppointmentPushTokenRoute: typeof ApiPublicAppointmentPushTokenRoute
   ApiPublicBarbershopBySlugRoute: typeof ApiPublicBarbershopBySlugRoute
+  ApiPublicCaixaMarkPaidRoute: typeof ApiPublicCaixaMarkPaidRoute
+  ApiPublicCaixaWalkinCreateRoute: typeof ApiPublicCaixaWalkinCreateRoute
+  ApiPublicCaixaWalkinDeleteRoute: typeof ApiPublicCaixaWalkinDeleteRoute
+  ApiPublicCaixaWalkinUpdateRoute: typeof ApiPublicCaixaWalkinUpdateRoute
   ApiPublicCreateBarbershopRoute: typeof ApiPublicCreateBarbershopRoute
   ApiPublicEnsureBarbershopSlugRoute: typeof ApiPublicEnsureBarbershopSlugRoute
   ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
@@ -649,6 +704,34 @@ declare module '@tanstack/react-router' {
       path: '/api/public/barbershop-by-slug'
       fullPath: '/api/public/barbershop-by-slug'
       preLoaderRoute: typeof ApiPublicBarbershopBySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/caixa-mark-paid': {
+      id: '/api/public/caixa-mark-paid'
+      path: '/api/public/caixa-mark-paid'
+      fullPath: '/api/public/caixa-mark-paid'
+      preLoaderRoute: typeof ApiPublicCaixaMarkPaidRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/caixa-walkin-create': {
+      id: '/api/public/caixa-walkin-create'
+      path: '/api/public/caixa-walkin-create'
+      fullPath: '/api/public/caixa-walkin-create'
+      preLoaderRoute: typeof ApiPublicCaixaWalkinCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/caixa-walkin-delete': {
+      id: '/api/public/caixa-walkin-delete'
+      path: '/api/public/caixa-walkin-delete'
+      fullPath: '/api/public/caixa-walkin-delete'
+      preLoaderRoute: typeof ApiPublicCaixaWalkinDeleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/caixa-walkin-update': {
+      id: '/api/public/caixa-walkin-update'
+      path: '/api/public/caixa-walkin-update'
+      fullPath: '/api/public/caixa-walkin-update'
+      preLoaderRoute: typeof ApiPublicCaixaWalkinUpdateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/create-barbershop': {
@@ -800,6 +883,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
   ApiPublicAppointmentPushTokenRoute: ApiPublicAppointmentPushTokenRoute,
   ApiPublicBarbershopBySlugRoute: ApiPublicBarbershopBySlugRoute,
+  ApiPublicCaixaMarkPaidRoute: ApiPublicCaixaMarkPaidRoute,
+  ApiPublicCaixaWalkinCreateRoute: ApiPublicCaixaWalkinCreateRoute,
+  ApiPublicCaixaWalkinDeleteRoute: ApiPublicCaixaWalkinDeleteRoute,
+  ApiPublicCaixaWalkinUpdateRoute: ApiPublicCaixaWalkinUpdateRoute,
   ApiPublicCreateBarbershopRoute: ApiPublicCreateBarbershopRoute,
   ApiPublicEnsureBarbershopSlugRoute: ApiPublicEnsureBarbershopSlugRoute,
   ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,

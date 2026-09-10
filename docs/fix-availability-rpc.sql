@@ -5,6 +5,10 @@
 -- INTERVALOS OCUPADOS (sem nome, telefone ou e-mail de quem
 -- quer que seja), permitindo calcular a disponibilidade real.
 -- Rode este bloco no SQL Editor do Supabase.
+--
+-- Atualização: agora também ignora atendimentos avulsos (is_walk_in=true,
+-- ver docs/add-walk-in-appointments.sql) — eles não devem bloquear a
+-- agenda de ninguém. Rode add-walk-in-appointments.sql ANTES deste.
 -- =========================================================
 
 CREATE OR REPLACE FUNCTION public.barber_busy_intervals(
@@ -23,7 +27,8 @@ AS $$
            a.appointment_time,
            a.status,
            coalesce(a.customer_name, '') AS customer_name,
-           coalesce(s.duration_minutes, 30) AS duration_minutes
+           coalesce(s.duration_minutes, 30) AS duration_minutes,
+           coalesce(a.is_walk_in, false) AS is_walk_in
     FROM public.appointments a
     LEFT JOIN public.services s ON s.id = a.service_id
     WHERE a.barber_id = p_barber_id
@@ -49,6 +54,7 @@ AS $$
     AND lower(coalesce(r.status, '')) NOT LIKE 'cancelado:%'
     AND upper(r.customer_name) NOT LIKE 'CANCELADO:%'
     AND r.id::text NOT IN (SELECT target_id FROM cancelled WHERE target_id <> '')
+    AND r.is_walk_in = false
 
   UNION ALL
 

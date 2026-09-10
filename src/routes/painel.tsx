@@ -20,6 +20,7 @@ import {
   Lock,
   AlertTriangle,
   Sparkles,
+  Banknote,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { brl } from "@/lib/format";
 import { postPublicApi } from "@/lib/api-fetch";
 
+import { CaixaTab } from "@/painel/Caixa";
 import { DashboardTab } from "@/painel/Dashboard";
 import { AgendaTab } from "@/painel/Agenda";
 import { ServicosTab } from "@/painel/Servicos";
@@ -55,6 +57,7 @@ import { PlanosTab } from "@/painel/Planos";
 import { ProducaoTab } from "@/painel/Producao";
 
 type Tab =
+  | "caixa"
   | "dashboard"
   | "agenda"
   | "servicos"
@@ -69,6 +72,7 @@ type Tab =
   | "producao";
 
 const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
+  { id: "caixa", label: "Caixa", icon: Banknote, adminOnly: true },
   { id: "dashboard", label: "Painel", icon: LayoutDashboard },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
   { id: "clientes", label: "Clientes", icon: UserRound },
@@ -89,7 +93,10 @@ export const Route = createFileRoute("/painel")({
   validateSearch: (
     s: Record<string, unknown>,
   ): { tab?: Tab; mp?: string; mp_msg?: string; assinar?: string } => ({
-    tab: (s.tab as Tab) || ("dashboard" as Tab),
+    // Sem valor-padrão aqui de propósito: `tab` ausente na URL (vs. um
+    // `tab` explícito) é o sinal usado no componente pra decidir se o admin
+    // deve ser redirecionado pro Caixa no primeiro acesso.
+    tab: typeof s.tab === "string" ? (s.tab as Tab) : undefined,
     mp: typeof s.mp === "string" ? s.mp : undefined,
     mp_msg: typeof s.mp_msg === "string" ? s.mp_msg : undefined,
     assinar: typeof s.assinar === "string" ? s.assinar : undefined,
@@ -107,7 +114,8 @@ function isTypingElement(el: EventTarget | null): boolean {
 function PainelPage() {
   const navigate = useNavigate();
   const loc = useLocation();
-  const { tab, mp, mp_msg, assinar } = Route.useSearch();
+  const { tab: tabParam, mp, mp_msg, assinar } = Route.useSearch();
+  const tab: Tab = tabParam ?? "dashboard";
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
@@ -148,6 +156,14 @@ function PainelPage() {
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
   }, [loading, session, navigate]);
+
+  // Nenhuma aba explícita na URL: admin cai direto no Caixa (barbeiro comum
+  // continua caindo no Painel/Dashboard, como sempre).
+  useEffect(() => {
+    if (!loading && barber?.is_admin && tabParam === undefined) {
+      navigate({ to: "/painel", search: { tab: "caixa" }, replace: true });
+    }
+  }, [loading, barber, tabParam, navigate]);
 
   if (loading) {
     return (
@@ -382,6 +398,7 @@ WHERE user_id = '${currentUid}';`;
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
+        {tab === "caixa" && barber.is_admin && <CaixaTab barber={barber} />}
         {tab === "dashboard" && <DashboardTab barber={barber} />}
         {tab === "agenda" && <AgendaTab barber={barber} />}
         {tab === "servicos" && <ServicosTab barber={barber} />}

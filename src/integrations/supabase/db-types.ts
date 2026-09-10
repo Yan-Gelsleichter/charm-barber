@@ -78,6 +78,7 @@ export type Appointment = {
   push_token?: string | null;
   reminder_sent_at?: string | null;
   barber_reminder_sent_at?: string | null;
+  is_walk_in?: boolean | null;
 };
 export type AppointmentInsert = {
   id?: string;
@@ -98,6 +99,7 @@ export type AppointmentInsert = {
   push_token?: string | null;
   reminder_sent_at?: string | null;
   barber_reminder_sent_at?: string | null;
+  is_walk_in?: boolean | null;
 };
 
 
