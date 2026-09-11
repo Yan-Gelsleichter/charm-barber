@@ -166,10 +166,12 @@ export function CaixaTab({ barber }: { barber: Barber }) {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {CARDS.map((c) => (
-          <div key={c.key} className="surface flex flex-col items-center gap-1 p-3 text-center">
-            <span className="text-xs uppercase tracking-wider text-muted-foreground">{c.label}</span>
+          <div className="surface flex flex-col gap-1 p-3 sm:items-center sm:text-center" key={c.key}>
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs">
+              {c.label}
+            </span>
             <span className="brand-text text-xl font-bold">{brl(totaisHook.totais[c.key].valor)}</span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground sm:text-xs">
               {totaisHook.totais[c.key].qtd} atendimento{totaisHook.totais[c.key].qtd === 1 ? "" : "s"}
             </span>
           </div>
@@ -221,13 +223,62 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           Nenhum atendimento neste dia.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-1 gap-2 sm:gap-3">
           {itensDoDia.map((a) => {
             const isWalkIn = !!a.is_walk_in;
             const valor = a.service_price_snapshot ?? totaisHook.servicosMap.get(a.service_id)?.price ?? 0;
+            const avulsoBadge = (
+              <span className="inline-flex items-center rounded-full border border-[color:var(--brand-from)]/40 bg-[color:var(--brand-from)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-from)]">
+                Avulso
+              </span>
+            );
+            const editDeleteButtons = (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={() => {
+                    setEditing(a);
+                    setFormOpen(true);
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-destructive"
+                  onClick={() => setDeleting(a)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </>
+            );
             return (
-              <div key={a.id} className="surface flex flex-col gap-3 p-4">
-                <div className="flex items-center justify-between gap-3">
+              <div key={a.id} className="surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4">
+                {/* Layout mobile — linha única, tudo lado a lado com quebra natural. */}
+                <div className="flex items-start justify-between gap-3 sm:hidden">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold">{fmtTime(a.appointment_time)}</span>
+                      <p className="truncate font-medium">{a.customer_name}</p>
+                      <PaymentBadge status={a.payment_status} compact />
+                      {isWalkIn && avulsoBadge}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {totaisHook.servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
+                      {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="text-sm font-semibold">{brl(valor)}</span>
+                    {isWalkIn && editDeleteButtons}
+                  </div>
+                </div>
+
+                {/* Layout desktop — horário e valor em destaque, centralizados. */}
+                <div className="hidden items-center justify-between gap-3 sm:flex">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="shrink-0 text-xl font-bold tabular-nums">
                       {fmtTime(a.appointment_time)}
@@ -236,11 +287,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-medium">{a.customer_name}</p>
                         <PaymentBadge status={a.payment_status} compact />
-                        {isWalkIn && (
-                          <span className="inline-flex items-center rounded-full border border-[color:var(--brand-from)]/40 bg-[color:var(--brand-from)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-from)]">
-                            Avulso
-                          </span>
-                        )}
+                        {isWalkIn && avulsoBadge}
                       </div>
                       <p className="truncate text-sm text-muted-foreground">
                         {totaisHook.servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
@@ -250,34 +297,12 @@ export function CaixaTab({ barber }: { barber: Barber }) {
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <span className="text-xl font-bold tabular-nums">{brl(valor)}</span>
-                    {isWalkIn && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7"
-                          onClick={() => {
-                            setEditing(a);
-                            setFormOpen(true);
-                          }}
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-destructive"
-                          onClick={() => setDeleting(a)}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </>
-                    )}
+                    {isWalkIn && editDeleteButtons}
                   </div>
                 </div>
 
                 {a.payment_status === "pendente" && (
-                  <div className="flex flex-wrap justify-center gap-2 border-t border-border/50 pt-3">
+                  <div className="flex flex-wrap gap-2 sm:justify-center sm:border-t sm:border-border/50 sm:pt-3">
                     {PAYMENT_METHODS.map((m) => (
                       <Button
                         key={m.id}
