@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate, Link, useLocation } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -157,10 +157,16 @@ function PainelPage() {
     if (!loading && !session) navigate({ to: "/auth" });
   }, [loading, session, navigate]);
 
-  // Nenhuma aba explícita na URL: admin cai direto no Caixa (barbeiro comum
-  // continua caindo no Painel/Dashboard, como sempre).
+  // Nenhuma aba explícita na URL (ou uma URL antiga/favoritada apontando pro
+  // "dashboard" padrão): admin cai direto no Caixa. Só verifica uma vez por
+  // carregamento da página — clicar em "Painel" na barra durante o uso não
+  // remonta o componente, então isso nunca briga com uma navegação explícita
+  // (barbeiro comum continua caindo no Painel/Dashboard, como sempre).
+  const appliedDefaultTabRef = useRef(false);
   useEffect(() => {
-    if (!loading && barber?.is_admin && tabParam === undefined) {
+    if (appliedDefaultTabRef.current || loading || !barber) return;
+    appliedDefaultTabRef.current = true;
+    if (barber.is_admin && (tabParam === undefined || tabParam === "dashboard")) {
       navigate({ to: "/painel", search: { tab: "caixa" }, replace: true });
     }
   }, [loading, barber, tabParam, navigate]);

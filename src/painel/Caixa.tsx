@@ -687,7 +687,7 @@ function WalkinDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-md">
+      <DialogContent className="flex h-[85vh] max-h-[85vh] flex-col overflow-hidden sm:max-w-md">
         <DialogHeader className="shrink-0">
           <DialogTitle>
             {isEdit ? "Editar atendimento avulso" : isAddService ? "Adicionar serviço" : "Novo atendimento avulso"}
@@ -699,7 +699,7 @@ function WalkinDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto pr-1">
+        <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain pr-1">
           {lockedFields ? (
             <div className="surface grid gap-1 p-3 text-sm">
               <p>
