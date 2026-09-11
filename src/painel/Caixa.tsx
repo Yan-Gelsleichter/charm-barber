@@ -627,6 +627,9 @@ function WalkinDialog({
   const [nome, setNome] = useState(() => initialState().nome);
   const [preco, setPreco] = useState(() => initialState().preco);
   const [quando, setQuando] = useState(() => initialState().quando);
+  // Só usado ao criar um avulso novo — editar e adicionar serviço não mexem
+  // no status inicial de pagamento.
+  const [statusInicial, setStatusInicial] = useState<"pago" | "pendente">("pago");
 
   // Reabre o formulário do zero a cada vez (criar, editar ou adicionar serviço a outro registro).
   const [openedFor, setOpenedFor] = useState<string | null>(null);
@@ -639,6 +642,7 @@ function WalkinDialog({
     setNome(s.nome);
     setPreco(s.preco);
     setQuando(s.quando);
+    setStatusInicial("pago");
   }
   if (!open && openedFor !== null) setOpenedFor(null);
 
@@ -666,7 +670,11 @@ function WalkinDialog({
           token,
         );
       } else {
-        await postPublicApi("/api/public/caixa-walkin-create", body, token);
+        await postPublicApi(
+          "/api/public/caixa-walkin-create",
+          { ...body, payment_status: statusInicial },
+          token,
+        );
       }
     },
     onSuccess: () => {
@@ -799,6 +807,39 @@ function WalkinDialog({
               </label>
             )}
           </div>
+
+          {!isEdit && !isAddService && (
+            <div className="grid gap-1 text-xs text-muted-foreground">
+              Status inicial
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { id: "pago", label: "Pago" },
+                    { id: "pendente", label: "Pendente" },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setStatusInicial(opt.id)}
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-center text-sm font-medium transition",
+                      statusInicial === opt.id
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-card/60 text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {statusInicial === "pendente" && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Aparece na lista com os botões Dinheiro/Pix/Cartão pra confirmar o pagamento depois.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <Button

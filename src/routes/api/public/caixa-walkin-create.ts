@@ -5,10 +5,17 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
 /**
  * Cria um atendimento avulso (presencial, registrado direto pelo admin no
- * balcão, sem passar pelo app). Já nasce "pago" e marcado is_walk_in=true —
- * não conta como horário ocupado pra ninguém (ver docs/fix-availability-rpc.sql
- * e src/lib/availability.ts). barbershop_id vem sempre do admin logado, nunca
+ * balcão, sem passar pelo app). Marcado is_walk_in=true — não conta como
+ * horário ocupado pra ninguém (ver docs/fix-availability-rpc.sql e
+ * src/lib/availability.ts). barbershop_id vem sempre do admin logado, nunca
  * do corpo da requisição.
+ *
+ * Status inicial: o admin escolhe "Pago" (padrão, mesma atendimento pago na
+ * hora) ou "Pendente" (barbearias que atendem primeiro e fecham a conta
+ * depois — aparece com os mesmos botões Dinheiro/Pix/Cartão da lista). Um
+ * serviço extra vinculado a outro agendamento (parent_appointment_id) nasce
+ * sempre pendente, independente do que for enviado — é resolvido separado do
+ * que já foi pago no agendamento original.
  */
 
 const requestSchema = z.object({
@@ -17,6 +24,7 @@ const requestSchema = z.object({
   customer_name: z.string().trim().min(1).max(120),
   price: z.number().nonnegative(),
   appointment_time: z.string().min(1),
+  payment_status: z.enum(["pago", "pendente"]).optional(),
   // Só usado pelo fluxo "Adicionar serviço" no Caixa: vincula esse avulso a
   // um agendamento do app já existente, pra aparecer agrupado com ele.
   parent_appointment_id: z.string().uuid().optional(),
@@ -109,6 +117,10 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
             0,
           );
 
+          const isExtra = !!parsed.data.parent_appointment_id;
+          const paymentStatus = isExtra ? "pendente" : (parsed.data.payment_status ?? "pago");
+          const paid = paymentStatus === "pago";
+
           const inserted = await admin
             .from("appointments")
             .insert({
@@ -120,9 +132,9 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
               customer_phone: "",
               appointment_time: appointmentTime.toISOString(),
               status: "confirmado",
-              payment_status: "pago",
-              payment_method: "presencial",
-              paid_at: new Date().toISOString(),
+              payment_status: paymentStatus,
+              payment_method: paid ? "presencial" : null,
+              paid_at: paid ? new Date().toISOString() : null,
               service_price_snapshot: parsed.data.price,
               duration_minutes_snapshot: totalDuration,
               is_walk_in: true,
