@@ -836,27 +836,29 @@ function WalkinDialog({
               />
             </label>
             {!lockedFields && (
-              // Empilhados (não lado a lado): a data por extenso ("11 de
-              // set. de 2026") já ocupa sozinha quase toda a largura do
-              // modal no celular — dividir a linha ao meio fazia a caixa da
-              // data invadir a da hora.
-              <div className="grid gap-3">
-                <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+              // Lado a lado, mas cada caixa com overflow-hidden própria: a
+              // data por extenso ("11 de set. de 2026") é mais larga que a
+              // hora, então a coluna da data é maior — e, se ainda assim o
+              // controle nativo do celular tentar renderizar mais largo que
+              // sua caixa, fica cortado nela mesma em vez de vazar por cima
+              // da caixa da hora.
+              <div className="grid grid-cols-[3fr_2fr] gap-3">
+                <label className="grid min-w-0 gap-1 overflow-hidden text-xs text-muted-foreground">
                   Data
                   <Input
                     type="date"
                     value={quando.split("T")[0] ?? ""}
                     onChange={(e) => setQuando(`${e.target.value}T${quando.split("T")[1] ?? "00:00"}`)}
-                    className="w-full min-w-0"
+                    className="w-full min-w-0 max-w-full overflow-hidden"
                   />
                 </label>
-                <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                <label className="grid min-w-0 gap-1 overflow-hidden text-xs text-muted-foreground">
                   Hora
                   <Input
                     type="time"
                     value={quando.split("T")[1] ?? ""}
                     onChange={(e) => setQuando(`${quando.split("T")[0] ?? ""}T${e.target.value}`)}
-                    className="w-full min-w-0"
+                    className="w-full min-w-0 max-w-full overflow-hidden"
                   />
                 </label>
               </div>
