@@ -699,7 +699,7 @@ function WalkinDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain pr-1">
+        <div className="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
           {lockedFields ? (
             <div className="surface grid gap-1 p-3 text-sm">
               <p>
@@ -835,7 +835,12 @@ function WalkinDialog({
             {!lockedFields && (
               <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                 Data e hora
-                <Input type="datetime-local" value={quando} onChange={(e) => setQuando(e.target.value)} />
+                <Input
+                  type="datetime-local"
+                  value={quando}
+                  onChange={(e) => setQuando(e.target.value)}
+                  className="w-full min-w-0 max-w-full"
+                />
               </label>
             )}
           </div>
