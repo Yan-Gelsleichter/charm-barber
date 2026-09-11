@@ -56,12 +56,16 @@ async function bearerToken(): Promise<string | undefined> {
   return session?.access_token;
 }
 
-function serviceNamesOf(a: Appointment, servicosMap: Map<string, Service>): string {
+// Nunca descarta um id que não resolveu (serviço apagado do catálogo depois
+// de usado) — senão "Corte + Pezinho" vira só "Pezinho" quando um dos dois
+// some do mapa de serviços.
+function serviceNameListOf(a: Appointment, servicosMap: Map<string, Service>): string[] {
   const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
-  // Nunca descarta um id que não resolveu (serviço apagado do catálogo depois
-  // de usado) — senão "Corte + Pezinho" vira só "Pezinho" quando um dos dois
-  // some do mapa de serviços.
-  return ids.map((id) => servicosMap.get(id)?.name ?? "Serviço removido").join(" + ");
+  return ids.map((id) => servicosMap.get(id)?.name ?? "Serviço removido");
+}
+
+function serviceNamesOf(a: Appointment, servicosMap: Map<string, Service>): string {
+  return serviceNameListOf(a, servicosMap).join(" + ");
 }
 
 export function CaixaTab({ barber }: { barber: Barber }) {
@@ -219,7 +223,6 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     const isWalkIn = !!a.is_walk_in;
     const isExtra = isWalkIn && !!a.parent_appointment_id;
     const valor = valorDe(a);
-    const nomes = serviceNamesOf(a, totaisHook.servicosMap);
     const total = valor + kids.reduce((sum, k) => sum + valorDe(k), 0);
     const tagLabel = isExtra ? "Serviço extra" : isWalkIn ? "Avulso" : null;
     const tagBadge = tagLabel && (
@@ -298,43 +301,32 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         </div>
 
         {/* Linhas de serviço (original + extras) num grid só, pra todos os
-            valores ficarem alinhados na mesma coluna, com o Total no rodapé. */}
+            valores ficarem alinhados na mesma coluna, com o Total no rodapé.
+            Sem ícones por linha — toda edição passa pelo cabeçalho. */}
         <div className="overflow-hidden rounded-lg border border-border/60">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-2 gap-y-1.5 bg-secondary/30 px-3 py-2 text-sm">
-            <span className="min-w-0 truncate">{nomes}</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-x-2 gap-y-1.5 bg-secondary/30 px-3 py-2 text-sm">
+            <div className="min-w-0">
+              {serviceNameListOf(a, totaisHook.servicosMap).map((nome, i) => (
+                <p key={i} className="break-words">
+                  {nome}
+                </p>
+              ))}
+            </div>
             <PaymentBadge status={a.payment_status} compact />
             <span className="text-right font-medium tabular-nums">{brl(valor)}</span>
-            <span />
 
             {kids.map((k) => (
               <Fragment key={k.id}>
-                <span className="min-w-0 truncate text-muted-foreground">
-                  + {serviceNamesOf(k, totaisHook.servicosMap)}
-                </span>
+                <div className="min-w-0 text-muted-foreground">
+                  {serviceNameListOf(k, totaisHook.servicosMap).map((nome, i) => (
+                    <p key={i} className="break-words">
+                      {i === 0 ? "+ " : ""}
+                      {nome}
+                    </p>
+                  ))}
+                </div>
                 <PaymentBadge status={k.payment_status} compact />
                 <span className="text-right font-medium tabular-nums">{brl(valorDe(k))}</span>
-                <div className="flex items-center gap-0.5 justify-self-end">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6"
-                    onClick={() => {
-                      setEditing(k);
-                      setAddServiceTo(null);
-                      setFormOpen(true);
-                    }}
-                  >
-                    <Pencil className="size-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 text-destructive"
-                    onClick={() => setDeleting(k)}
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </div>
               </Fragment>
             ))}
           </div>
@@ -460,6 +452,9 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         selectedDate={selectedDate}
         editing={editing}
         addServiceTo={addServiceTo}
+        existingExtras={addServiceTo ? (childrenByParent.get(addServiceTo.id) ?? []) : []}
+        servicosMap={totaisHook.servicosMap}
+        onListChanged={() => qc.invalidateQueries({ queryKey: ["caixa-dia"] })}
         onSaved={() => {
           setFormOpen(false);
           setEditing(null);
@@ -555,19 +550,27 @@ function WalkinDialog({
   onOpenChange,
   barbeiros,
   servicosPorBarbeiro,
+  servicosMap,
   selectedDate,
   editing,
   addServiceTo,
+  existingExtras,
+  onListChanged,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   barbeiros: Barber[];
   servicosPorBarbeiro: Map<string, Service[]>;
+  servicosMap: Map<string, Service>;
   selectedDate: Date;
   editing: Appointment | null;
-  /** Agendamento do app ao qual um serviço extra está sendo adicionado (fluxo "editar" de um agendamento real). */
+  /** Agendamento (do app ou avulso) ao qual serviços extras podem ser adicionados/removidos. */
   addServiceTo: Appointment | null;
+  /** Serviços extras já vinculados a `addServiceTo`, pra listar e permitir remover. */
+  existingExtras: Appointment[];
+  /** Avisa que a lista mudou (adicionou/removeu um extra) sem fechar o modal. */
+  onListChanged: () => void;
   onSaved: () => void;
 }) {
   const isEdit = !!editing;
@@ -643,10 +646,29 @@ function WalkinDialog({
       }
     },
     onSuccess: () => {
-      toast.success(
-        isEdit ? "Atendimento avulso atualizado" : isAddService ? "Serviço extra adicionado" : "Atendimento avulso registrado",
-      );
+      if (isAddService) {
+        // Fica no modal — o admin pode querer remover outro extra ou
+        // adicionar mais um em seguida. Só a lista é atualizada.
+        toast.success("Serviço extra adicionado");
+        setServiceIds([]);
+        setPreco("");
+        onListChanged();
+        return;
+      }
+      toast.success(isEdit ? "Atendimento avulso atualizado" : "Atendimento avulso registrado");
       onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeExtra = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const token = await bearerToken();
+      await postPublicApi("/api/public/caixa-walkin-delete", { appointment_id: appointmentId }, token);
+    },
+    onSuccess: () => {
+      toast.success("Serviço extra removido");
+      onListChanged();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -662,7 +684,7 @@ function WalkinDialog({
           </DialogTitle>
           <DialogDescription>
             {isAddService
-              ? `Serviço extra pedido na hora por ${addServiceTo?.customer_name}. Fica pendente, separado do que já foi pago, e você resolve pelo Caixa.`
+              ? "Serviços extras pedidos na hora neste agendamento — ficam pendentes, separados do que já foi pago, e você resolve pelo Caixa."
               : "Cliente atendido no balcão, sem passar pelo app. Já entra como pago e não ocupa o horário na agenda."}
           </DialogDescription>
         </DialogHeader>
@@ -713,8 +735,43 @@ function WalkinDialog({
             </>
           )}
 
+          {isAddService && existingExtras.length > 0 && (
+            <div className="grid gap-1 text-xs text-muted-foreground">
+              Extras já adicionados
+              <div className="grid gap-1.5">
+                {existingExtras.map((extra) => (
+                  <div
+                    key={extra.id}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      {serviceNameListOf(extra, servicosMap).map((n, i) => (
+                        <p key={i} className="truncate text-foreground">
+                          {n}
+                        </p>
+                      ))}
+                      <p className="text-[11px] text-muted-foreground">
+                        {extra.payment_status === "pago" ? "Pago" : "Pendente"} ·{" "}
+                        {brl(extra.service_price_snapshot ?? servicosMap.get(extra.service_id)?.price ?? 0)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 text-destructive"
+                      disabled={removeExtra.isPending}
+                      onClick={() => removeExtra.mutate(extra.id)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-1 text-xs text-muted-foreground">
-            Serviço (pode escolher mais de um)
+            {isAddService ? "Adicionar novo serviço" : "Serviço (pode escolher mais de um)"}
             <div className="grid grid-cols-1 gap-2">
               {servicos.length === 0 && (
                 <p className="text-xs text-muted-foreground">
