@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -333,14 +334,20 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       </AlertDialog>
 
       <Dialog open={relatorioOpen} onOpenChange={setRelatorioOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent showCloseButton={false} className="overflow-visible sm:max-w-2xl">
+          <DialogClose className="absolute left-1/2 top-0 flex size-10 -translate-x-1/2 -translate-y-[calc(100%+10px)] items-center justify-center rounded-full border border-border bg-background shadow-md ring-offset-background transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+            <X className="size-5" />
+            <span className="sr-only">Fechar</span>
+          </DialogClose>
           <DialogHeader>
             <DialogTitle>Relatório de repasse</DialogTitle>
             <DialogDescription>
               Total a repassar por barbeiro, separado por origem do pagamento.
             </DialogDescription>
           </DialogHeader>
-          {relatorioOpen && <CaixaRelatorioRepasse barber={barber} />}
+          <div className="max-h-[75vh] overflow-y-auto">
+            {relatorioOpen && <CaixaRelatorioRepasse barber={barber} />}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
