@@ -167,11 +167,9 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {CARDS.map((c) => (
           <div key={c.key} className="surface flex flex-col items-center gap-1 p-3 text-center">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              {c.label}
-            </span>
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">{c.label}</span>
             <span className="brand-text text-xl font-bold">{brl(totaisHook.totais[c.key].valor)}</span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {totaisHook.totais[c.key].qtd} atendimento{totaisHook.totais[c.key].qtd === 1 ? "" : "s"}
             </span>
           </div>
@@ -229,9 +227,9 @@ export function CaixaTab({ barber }: { barber: Barber }) {
             const valor = a.service_price_snapshot ?? totaisHook.servicosMap.get(a.service_id)?.price ?? 0;
             return (
               <div key={a.id} className="surface flex flex-col gap-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span className="shrink-0 pt-0.5 text-lg font-bold tabular-nums">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="shrink-0 text-xl font-bold tabular-nums">
                       {fmtTime(a.appointment_time)}
                     </span>
                     <div className="min-w-0">
@@ -239,7 +237,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
                         <p className="truncate font-medium">{a.customer_name}</p>
                         <PaymentBadge status={a.payment_status} compact />
                         {isWalkIn && (
-                          <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          <span className="inline-flex items-center rounded-full border border-[color:var(--brand-from)]/40 bg-[color:var(--brand-from)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-from)]">
                             Avulso
                           </span>
                         )}
@@ -251,7 +249,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <span className="text-sm font-semibold">{brl(valor)}</span>
+                    <span className="text-xl font-bold tabular-nums">{brl(valor)}</span>
                     {isWalkIn && (
                       <>
                         <Button
@@ -279,7 +277,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
                 </div>
 
                 {a.payment_status === "pendente" && (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap justify-center gap-2 border-t border-border/50 pt-3">
                     {PAYMENT_METHODS.map((m) => (
                       <Button
                         key={m.id}
