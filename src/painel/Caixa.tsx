@@ -1,16 +1,6 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Loader2,
-  Pencil,
-  Trash2,
-  FileText,
-  X,
-  CornerDownRight,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -68,8 +58,10 @@ async function bearerToken(): Promise<string | undefined> {
 
 function serviceNamesOf(a: Appointment, servicosMap: Map<string, Service>): string {
   const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
-  const names = ids.map((id) => servicosMap.get(id)?.name).filter((n): n is string => !!n);
-  return names.join(" + ") || "Serviço";
+  // Nunca descarta um id que não resolveu (serviço apagado do catálogo depois
+  // de usado) — senão "Corte + Pezinho" vira só "Pezinho" quando um dos dois
+  // some do mapa de serviços.
+  return ids.map((id) => servicosMap.get(id)?.name ?? "Serviço removido").join(" + ");
 }
 
 export function CaixaTab({ barber }: { barber: Barber }) {
@@ -219,11 +211,18 @@ export function CaixaTab({ barber }: { barber: Barber }) {
 
   const isLoading = totaisHook.isLoading || diaQ.isLoading;
 
-  function renderRow(a: Appointment, isChild: boolean) {
+  function valorDe(x: Appointment) {
+    return x.service_price_snapshot ?? totaisHook.servicosMap.get(x.service_id)?.price ?? 0;
+  }
+
+  function renderRow(a: Appointment, kids: Appointment[]) {
     const isWalkIn = !!a.is_walk_in;
     const isExtra = isWalkIn && !!a.parent_appointment_id;
-    const valor = a.service_price_snapshot ?? totaisHook.servicosMap.get(a.service_id)?.price ?? 0;
+    const valor = valorDe(a);
     const nomes = serviceNamesOf(a, totaisHook.servicosMap);
+    const hasBreakdown = kids.length > 0;
+    const total = valor + kids.reduce((sum, k) => sum + valorDe(k), 0);
+    const displayValor = hasBreakdown ? total : valor;
     const tagLabel = isExtra ? "Serviço extra" : isWalkIn ? "Avulso" : null;
     const tagBadge = tagLabel && (
       <span className="inline-flex items-center rounded-full border border-[color:var(--brand-from)]/40 bg-[color:var(--brand-from)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-from)]">
@@ -278,34 +277,30 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       </>
     );
 
+    // Cada linha pendente (o atendimento original e/ou cada serviço extra)
+    // resolve o próprio pagamento separadamente — o original pode já estar
+    // pago enquanto o extra ainda não.
+    const pendingLines = [a, ...kids].filter((x) => x.payment_status === "pendente");
+
     return (
-      <div
-        key={a.id}
-        className={cn(
-          "surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4",
-          isChild && "ml-4 border-l-2 border-[color:var(--brand-from)]/30 sm:ml-8",
-        )}
-      >
-        {isChild && (
-          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-            <CornerDownRight className="size-3" /> vinculado a este atendimento
-          </div>
-        )}
+      <div key={a.id} className="surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4">
         {/* Layout mobile — linha única, tudo lado a lado com quebra natural. */}
         <div className="flex items-start justify-between gap-3 sm:hidden">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold">{fmtTime(a.appointment_time)}</span>
               <p className="truncate font-medium">{a.customer_name}</p>
-              <PaymentBadge status={a.payment_status} compact />
+              {!hasBreakdown && <PaymentBadge status={a.payment_status} compact />}
               {tagBadge}
             </div>
-            <p className="truncate text-xs text-muted-foreground">
-              {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
-            </p>
+            {!hasBreakdown && (
+              <p className="truncate text-xs text-muted-foreground">
+                {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
+              </p>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <span className="text-sm font-semibold">{brl(valor)}</span>
+            <span className="text-sm font-semibold">{brl(displayValor)}</span>
             {actionButtons}
           </div>
         </div>
@@ -317,32 +312,94 @@ export function CaixaTab({ barber }: { barber: Barber }) {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="truncate font-medium">{a.customer_name}</p>
-                <PaymentBadge status={a.payment_status} compact />
+                {!hasBreakdown && <PaymentBadge status={a.payment_status} compact />}
                 {tagBadge}
               </div>
-              <p className="truncate text-sm text-muted-foreground">
-                {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
-              </p>
+              {!hasBreakdown && (
+                <p className="truncate text-sm text-muted-foreground">
+                  {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <span className="text-xl font-bold tabular-nums">{brl(valor)}</span>
+            <span className="text-xl font-bold tabular-nums">{brl(displayValor)}</span>
             {actionButtons}
           </div>
         </div>
 
-        {a.payment_status === "pendente" && (
-          <div className="flex flex-wrap gap-2 sm:justify-center sm:border-t sm:border-border/50 sm:pt-3">
-            {PAYMENT_METHODS.map((m) => (
-              <Button
-                key={m.id}
-                variant="outline"
-                size="sm"
-                disabled={markPaid.isPending}
-                onClick={() => markPaid.mutate({ appointmentId: a.id, method: m.id })}
-              >
-                {m.label}
-              </Button>
+        {/* Detalhamento — só quando existe serviço extra vinculado. */}
+        {hasBreakdown && (
+          <div className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-sm">
+            <p className="mb-1 text-xs text-muted-foreground">{barbeiroNome.get(a.barber_id) ?? "Barbeiro"}</p>
+            <div className="flex items-center justify-between gap-2 py-0.5">
+              <span className="min-w-0 truncate">{nomes}</span>
+              <div className="flex shrink-0 items-center gap-2">
+                <PaymentBadge status={a.payment_status} compact />
+                <span className="font-medium tabular-nums">{brl(valor)}</span>
+              </div>
+            </div>
+            {kids.map((k) => (
+              <div key={k.id} className="flex items-center justify-between gap-2 py-0.5">
+                <span className="min-w-0 truncate text-muted-foreground">
+                  + {serviceNamesOf(k, totaisHook.servicosMap)}
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  <PaymentBadge status={k.payment_status} compact />
+                  <span className="font-medium tabular-nums">{brl(valorDe(k))}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    onClick={() => {
+                      setEditing(k);
+                      setAddServiceTo(null);
+                      setFormOpen(true);
+                    }}
+                  >
+                    <Pencil className="size-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 text-destructive"
+                    onClick={() => setDeleting(k)}
+                  >
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <div className="mt-1 flex items-center justify-between gap-2 border-t border-border/60 pt-1 font-semibold">
+              <span>Total</span>
+              <span className="tabular-nums">{brl(total)}</span>
+            </div>
+          </div>
+        )}
+
+        {pendingLines.length > 0 && (
+          <div className="space-y-2 sm:border-t sm:border-border/50 sm:pt-3">
+            {pendingLines.map((line) => (
+              <div key={line.id} className="flex flex-col gap-1">
+                {hasBreakdown && (
+                  <p className="text-xs text-muted-foreground">
+                    Confirmar pagamento de "{serviceNamesOf(line, totaisHook.servicosMap)}":
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2 sm:justify-center">
+                  {PAYMENT_METHODS.map((m) => (
+                    <Button
+                      key={m.id}
+                      variant="outline"
+                      size="sm"
+                      disabled={markPaid.isPending}
+                      onClick={() => markPaid.mutate({ appointmentId: line.id, method: m.id })}
+                    >
+                      {m.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -420,12 +477,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:gap-3">
-          {rowsToRender.map((a) => (
-            <Fragment key={a.id}>
-              {renderRow(a, false)}
-              {(childrenByParent.get(a.id) ?? []).map((child) => renderRow(child, true))}
-            </Fragment>
-          ))}
+          {rowsToRender.map((a) => renderRow(a, childrenByParent.get(a.id) ?? []))}
         </div>
       )}
 

@@ -114,7 +114,10 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
             const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
             const svList = ids.map((id) => svMap.get(id)).filter((s): s is Service => !!s);
             const sv = svList[0];
-            const nomes = svList.map((s) => s.name).join(" + ");
+            // Nunca descarta um id que não resolveu (serviço apagado do
+            // catálogo depois de usado) — senão "Corte + Pezinho" vira só
+            // "Pezinho" quando um dos dois some do mapa de serviços.
+            const nomes = ids.map((id) => svMap.get(id)?.name ?? "Serviço removido").join(" + ");
             const cancelado = a.status === "cancelado";
             return (
               <div

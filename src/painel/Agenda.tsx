@@ -576,7 +576,10 @@ export function AgendaTab({ barber }: { barber: Barber }) {
             {ativos.map((a) => {
               const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
               const svList = ids.map((id) => servicesMap.get(id)).filter((s): s is Service => !!s);
-              const nomes = svList.map((s) => s.name).join(" + ");
+              // Nunca descarta um id que não resolveu (serviço apagado do
+              // catálogo depois de usado) — senão "Corte + Pezinho" vira só
+              // "Pezinho" quando um dos dois some do mapa de serviços.
+              const nomes = ids.map((id) => servicesMap.get(id)?.name ?? "Serviço removido").join(" + ");
               const preco = a.service_price_snapshot ?? svList.reduce((sum, s) => sum + s.price, 0);
               const duracao =
                 a.duration_minutes_snapshot ?? svList.reduce((sum, s) => sum + s.duration_minutes, 0) ?? 30;

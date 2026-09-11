@@ -104,7 +104,12 @@ export function DashboardTab({ barber }: { barber: Barber }) {
             {hoje.map((a) => {
               const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
               const svList = ids.map((id) => freshServices.find((s) => s.id === id)).filter((s): s is Service => !!s);
-              const nomes = svList.map((s) => s.name).join(" + ");
+              // Nunca descarta um id que não resolveu (serviço apagado do
+              // catálogo depois de usado) — senão "Corte + Pezinho" vira só
+              // "Pezinho" quando um dos dois some do mapa de serviços.
+              const nomes = ids
+                .map((id) => freshServices.find((s) => s.id === id)?.name ?? "Serviço removido")
+                .join(" + ");
               const preco =
                 a.service_price_snapshot ?? (svList.length ? svList.reduce((sum, s) => sum + s.price, 0) : null);
               const duracao =
@@ -156,7 +161,12 @@ export function DashboardTab({ barber }: { barber: Barber }) {
             {proximos.map((a) => {
               const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
               const svList = ids.map((id) => freshServices.find((s) => s.id === id)).filter((s): s is Service => !!s);
-              const nomes = svList.map((s) => s.name).join(" + ");
+              // Nunca descarta um id que não resolveu (serviço apagado do
+              // catálogo depois de usado) — senão "Corte + Pezinho" vira só
+              // "Pezinho" quando um dos dois some do mapa de serviços.
+              const nomes = ids
+                .map((id) => freshServices.find((s) => s.id === id)?.name ?? "Serviço removido")
+                .join(" + ");
               const preco =
                 a.service_price_snapshot ?? (svList.length ? svList.reduce((sum, s) => sum + s.price, 0) : null);
               return (
