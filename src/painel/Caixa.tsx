@@ -68,6 +68,23 @@ function serviceNamesOf(a: Appointment, servicosMap: Map<string, Service>): stri
   return serviceNameListOf(a, servicosMap).join(" + ");
 }
 
+/**
+ * Um item por serviço do agendamento, cada um com o próprio valor (preço
+ * atual do catálogo) — o valor travado (service_price_snapshot) só existe
+ * somado por agendamento, então essa é a melhor aproximação pra mostrar
+ * cada serviço na própria linha, com seu próprio valor, como pedido.
+ */
+function serviceLineItems(
+  a: Appointment,
+  servicosMap: Map<string, Service>,
+): { id: string; name: string; price: number }[] {
+  const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
+  return ids.map((id) => {
+    const sv = servicosMap.get(id);
+    return { id, name: sv?.name ?? "Serviço removido", price: sv?.price ?? 0 };
+  });
+}
+
 export function CaixaTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
 
@@ -300,35 +317,28 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           <div className="flex shrink-0 items-center gap-1">{actionButtons}</div>
         </div>
 
-        {/* Linhas de serviço (original + extras) num grid só, pra todos os
-            valores ficarem alinhados na mesma coluna, com o Total no rodapé.
+        {/* Uma linha por SERVIÇO (não por agendamento) — o mesmo padrão do
+            agendamento vindo do app, com cada serviço no seu próprio valor.
             Sem ícones por linha — toda edição passa pelo cabeçalho. */}
         <div className="overflow-hidden rounded-lg border border-border/60">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-x-2 gap-y-1.5 bg-secondary/30 px-3 py-2 text-sm">
-            <div className="min-w-0">
-              {serviceNameListOf(a, totaisHook.servicosMap).map((nome, i) => (
-                <p key={i} className="break-words">
-                  {nome}
-                </p>
-              ))}
-            </div>
-            <PaymentBadge status={a.payment_status} compact />
-            <span className="text-right font-medium tabular-nums">{brl(valor)}</span>
-
-            {kids.map((k) => (
-              <Fragment key={k.id}>
-                <div className="min-w-0 text-muted-foreground">
-                  {serviceNameListOf(k, totaisHook.servicosMap).map((nome, i) => (
-                    <p key={i} className="break-words">
-                      {i === 0 ? "+ " : ""}
-                      {nome}
-                    </p>
-                  ))}
-                </div>
-                <PaymentBadge status={k.payment_status} compact />
-                <span className="text-right font-medium tabular-nums">{brl(valorDe(k))}</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1.5 bg-secondary/30 px-3 py-2 text-sm">
+            {serviceLineItems(a, totaisHook.servicosMap).map((item) => (
+              <Fragment key={`${a.id}:${item.id}`}>
+                <span className="min-w-0 truncate">{item.name}</span>
+                <PaymentBadge status={a.payment_status} compact />
+                <span className="text-right font-medium tabular-nums">{brl(item.price)}</span>
               </Fragment>
             ))}
+
+            {kids.flatMap((k) =>
+              serviceLineItems(k, totaisHook.servicosMap).map((item) => (
+                <Fragment key={`${k.id}:${item.id}`}>
+                  <span className="min-w-0 truncate text-muted-foreground">+ {item.name}</span>
+                  <PaymentBadge status={k.payment_status} compact />
+                  <span className="text-right font-medium tabular-nums">{brl(item.price)}</span>
+                </Fragment>
+              )),
+            )}
           </div>
           <div className="flex items-center justify-between bg-[color:var(--brand-from)]/10 px-3 py-2">
             <span className="text-sm font-semibold">Total</span>
