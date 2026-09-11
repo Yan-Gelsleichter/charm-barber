@@ -9,6 +9,12 @@
 -- Atualização: agora também ignora atendimentos avulsos (is_walk_in=true,
 -- ver docs/add-walk-in-appointments.sql) — eles não devem bloquear a
 -- agenda de ninguém. Rode add-walk-in-appointments.sql ANTES deste.
+--
+-- Atualização: agora usa duration_minutes_snapshot (soma travada da
+-- duração de todos os serviços do agendamento, ver
+-- docs/add-multi-service-appointments.sql) quando disponível, caindo de
+-- volta pro serviço único em agendamentos antigos. Rode
+-- add-multi-service-appointments.sql ANTES deste.
 -- =========================================================
 
 CREATE OR REPLACE FUNCTION public.barber_busy_intervals(
@@ -27,7 +33,7 @@ AS $$
            a.appointment_time,
            a.status,
            coalesce(a.customer_name, '') AS customer_name,
-           coalesce(s.duration_minutes, 30) AS duration_minutes,
+           coalesce(a.duration_minutes_snapshot, s.duration_minutes, 30) AS duration_minutes,
            coalesce(a.is_walk_in, false) AS is_walk_in
     FROM public.appointments a
     LEFT JOIN public.services s ON s.id = a.service_id

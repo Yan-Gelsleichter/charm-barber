@@ -27,6 +27,7 @@ import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/pub
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
 import { Route as ApiPublicAppointmentPushTokenRouteImport } from './routes/api/public/appointment-push-token'
 import { Route as ApiPublicBarbershopBySlugRouteImport } from './routes/api/public/barbershop-by-slug'
+import { Route as ApiPublicCaixaAppointmentCancelRouteImport } from './routes/api/public/caixa-appointment-cancel'
 import { Route as ApiPublicCaixaMarkPaidRouteImport } from './routes/api/public/caixa-mark-paid'
 import { Route as ApiPublicCaixaWalkinCreateRouteImport } from './routes/api/public/caixa-walkin-create'
 import { Route as ApiPublicCaixaWalkinDeleteRouteImport } from './routes/api/public/caixa-walkin-delete'
@@ -146,6 +147,12 @@ const ApiPublicBarbershopBySlugRoute =
   ApiPublicBarbershopBySlugRouteImport.update({
     id: '/api/public/barbershop-by-slug',
     path: '/api/public/barbershop-by-slug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCaixaAppointmentCancelRoute =
+  ApiPublicCaixaAppointmentCancelRouteImport.update({
+    id: '/api/public/caixa-appointment-cancel',
+    path: '/api/public/caixa-appointment-cancel',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicCaixaMarkPaidRoute = ApiPublicCaixaMarkPaidRouteImport.update({
@@ -298,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/caixa-appointment-cancel': typeof ApiPublicCaixaAppointmentCancelRoute
   '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
   '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
   '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
@@ -340,6 +348,7 @@ export interface FileRoutesByTo {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/caixa-appointment-cancel': typeof ApiPublicCaixaAppointmentCancelRoute
   '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
   '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
   '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
@@ -383,6 +392,7 @@ export interface FileRoutesById {
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
+  '/api/public/caixa-appointment-cancel': typeof ApiPublicCaixaAppointmentCancelRoute
   '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
   '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
   '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
@@ -427,6 +437,7 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/caixa-appointment-cancel'
     | '/api/public/caixa-mark-paid'
     | '/api/public/caixa-walkin-create'
     | '/api/public/caixa-walkin-delete'
@@ -469,6 +480,7 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/caixa-appointment-cancel'
     | '/api/public/caixa-mark-paid'
     | '/api/public/caixa-walkin-create'
     | '/api/public/caixa-walkin-delete'
@@ -511,6 +523,7 @@ export interface FileRouteTypes {
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
     | '/api/public/barbershop-by-slug'
+    | '/api/public/caixa-appointment-cancel'
     | '/api/public/caixa-mark-paid'
     | '/api/public/caixa-walkin-create'
     | '/api/public/caixa-walkin-delete'
@@ -554,6 +567,7 @@ export interface RootRouteChildren {
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
   ApiPublicAppointmentPushTokenRoute: typeof ApiPublicAppointmentPushTokenRoute
   ApiPublicBarbershopBySlugRoute: typeof ApiPublicBarbershopBySlugRoute
+  ApiPublicCaixaAppointmentCancelRoute: typeof ApiPublicCaixaAppointmentCancelRoute
   ApiPublicCaixaMarkPaidRoute: typeof ApiPublicCaixaMarkPaidRoute
   ApiPublicCaixaWalkinCreateRoute: typeof ApiPublicCaixaWalkinCreateRoute
   ApiPublicCaixaWalkinDeleteRoute: typeof ApiPublicCaixaWalkinDeleteRoute
@@ -704,6 +718,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/barbershop-by-slug'
       fullPath: '/api/public/barbershop-by-slug'
       preLoaderRoute: typeof ApiPublicBarbershopBySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/caixa-appointment-cancel': {
+      id: '/api/public/caixa-appointment-cancel'
+      path: '/api/public/caixa-appointment-cancel'
+      fullPath: '/api/public/caixa-appointment-cancel'
+      preLoaderRoute: typeof ApiPublicCaixaAppointmentCancelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/caixa-mark-paid': {
@@ -883,6 +904,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
   ApiPublicAppointmentPushTokenRoute: ApiPublicAppointmentPushTokenRoute,
   ApiPublicBarbershopBySlugRoute: ApiPublicBarbershopBySlugRoute,
+  ApiPublicCaixaAppointmentCancelRoute: ApiPublicCaixaAppointmentCancelRoute,
   ApiPublicCaixaMarkPaidRoute: ApiPublicCaixaMarkPaidRoute,
   ApiPublicCaixaWalkinCreateRoute: ApiPublicCaixaWalkinCreateRoute,
   ApiPublicCaixaWalkinDeleteRoute: ApiPublicCaixaWalkinDeleteRoute,

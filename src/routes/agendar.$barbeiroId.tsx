@@ -45,7 +45,7 @@ function AgendarPage() {
   const qc = useQueryClient();
 
   const { session } = useSession();
-  const [serviceId, setServiceId] = useState<string | null>(servico ?? null);
+  const [serviceIds, setServiceIds] = useState<string[]>(servico ? [servico] : []);
   const [date, setDate] = useState<Date | undefined>(() => (data ? new Date(`${data}T12:00:00`) : new Date()));
   const [slotIso, setSlotIso] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -141,7 +141,9 @@ function AgendarPage() {
 
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, appointment_time, service_id, status, customer_phone, customer_name")
+        .select(
+          "id, appointment_time, service_id, duration_minutes_snapshot, status, customer_phone, customer_name",
+        )
         .eq("barber_id", barbeiroId)
         .gte("appointment_time", start.toISOString())
         .lt("appointment_time", end.toISOString());
@@ -164,37 +166,51 @@ function AgendarPage() {
       }
 
       return {
-        appointments: data as Pick<Appointment, "id" | "appointment_time" | "service_id" | "status" | "customer_phone" | "customer_name">[],
+        appointments: data as Pick<
+          Appointment,
+          | "id"
+          | "appointment_time"
+          | "service_id"
+          | "duration_minutes_snapshot"
+          | "status"
+          | "customer_phone"
+          | "customer_name"
+        >[],
         blocks,
       };
     },
 
   });
 
-  const service = servicesQ.data?.find((s) => s.id === serviceId) ?? null;
   const servicesMap = useMemo(
     () => new Map<string, Service>((servicesQ.data ?? []).map((s) => [s.id, s])),
     [servicesQ.data],
   );
+  const selectedServices = useMemo(
+    () => serviceIds.map((id) => servicesMap.get(id)).filter((s): s is Service => !!s),
+    [serviceIds, servicesMap],
+  );
+  const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration_minutes, 0);
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
 
   const slots = useMemo(() => {
     // Só monta os horários quando a agenda do dia já chegou, senão tudo apareceria livre.
-    if (!date || !service || !hoursQ.data || !agendaQ.data) return [];
+    if (!date || selectedServices.length === 0 || !hoursQ.data || !agendaQ.data) return [];
     const appointments = filterActiveAppointments(agendaQ.data.appointments ?? []).filter((a) => a.id !== remarcar);
 
     return buildSlots({
       date,
-      service,
+      durationMinutes: totalDuration,
       hours: hoursQ.data,
       appointments,
       servicesMap,
       blocks: agendaQ.data?.blocks ?? [],
     });
-  }, [date, service, hoursQ.data, agendaQ.data, servicesMap, remarcar]);
+  }, [date, selectedServices.length, totalDuration, hoursQ.data, agendaQ.data, servicesMap, remarcar]);
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!service || !slotIso) throw new Error("Selecione serviço e horário");
+      if (selectedServices.length === 0 || !slotIso) throw new Error("Selecione serviço e horário");
       const customerName = clientName.trim();
       // Limpeza obrigatória do telefone: remove parênteses, espaços, traços
       // e qualquer outro caractere não numérico antes de enviar para a API.
@@ -209,7 +225,7 @@ function AgendarPage() {
       // appointments + clients na mesma transação do banco.
       const appointmentBody = {
         barber_id: barbeiroId,
-        service_id: service.id,
+        service_ids: serviceIds,
         customer_name: customerName,
         // Segunda barreira de segurança: garante dígitos puros mesmo se a
         // fonte do valor vier mascarada por autofill do navegador.
@@ -225,7 +241,7 @@ function AgendarPage() {
         appointment?: {
           id: string;
           barber_id: string;
-          service_id: string;
+          service_ids: string[];
           customer_phone: string;
           appointment_time: string;
         };
@@ -246,7 +262,7 @@ function AgendarPage() {
         !confirmed ||
         confirmed.id !== payload.id ||
         confirmed.barber_id !== barbeiroId ||
-        confirmed.service_id !== service.id ||
+        JSON.stringify(confirmed.service_ids ?? []) !== JSON.stringify(serviceIds) ||
         confirmed.customer_phone !== customerPhone ||
         new Date(confirmed.appointment_time).getTime() !== new Date(slotIso).getTime()
       ) {
@@ -260,14 +276,14 @@ function AgendarPage() {
       // navegar com uma resposta de API que não esteja fisicamente consultável.
       const persisted = await supabase
         .from("appointments")
-        .select("id, barber_id, service_id, customer_name, customer_phone, appointment_time")
+        .select("id, barber_id, service_ids, customer_name, customer_phone, appointment_time")
         .eq("id", createdId)
         .maybeSingle();
       if (
         persisted.error ||
         !persisted.data ||
         persisted.data.barber_id !== barbeiroId ||
-        persisted.data.service_id !== service.id ||
+        JSON.stringify(persisted.data.service_ids ?? []) !== JSON.stringify(serviceIds) ||
         persisted.data.customer_name.trim() !== customerName ||
         persisted.data.customer_phone !== customerPhone ||
         new Date(persisted.data.appointment_time).getTime() !== new Date(slotIso).getTime()
@@ -375,8 +391,8 @@ function AgendarPage() {
         </header>
       )}
 
-      {/* Step 1 — serviço */}
-      <Step title="1. Escolha o serviço">
+      {/* Step 1 — serviço(s) */}
+      <Step title="1. Escolha o serviço (pode escolher mais de um)">
         {servicesQ.isLoading && <Skeleton />}
         {servicesQ.data?.length === 0 && (
           <p className="text-sm text-muted-foreground">
@@ -384,41 +400,51 @@ function AgendarPage() {
           </p>
         )}
         <div className="grid grid-cols-1 gap-2">
-          {servicesQ.data?.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                setServiceId(s.id);
-                setSlotIso(null);
-                setCreateError(null);
-              }}
-              className={cn(
-                "flex items-center justify-between rounded-xl border p-4 text-left transition-all",
-                serviceId === s.id
-                  ? "brand-gradient-soft border-transparent shadow-[var(--shadow-elev)]"
-                  : "border-border bg-card/60 hover:border-border/80",
-              )}
-            >
-              <div>
-                <p className="font-medium">{s.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  <Clock className="mr-1 inline size-3" />
-                  {s.duration_minutes} min
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="brand-text font-bold">{brl(s.price)}</p>
-                {serviceId === s.id && (
-                  <Check className="ml-auto mt-1 size-4 text-[color:var(--success)]" />
+          {servicesQ.data?.map((s) => {
+            const selected = serviceIds.includes(s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => {
+                  setServiceIds((current) =>
+                    current.includes(s.id)
+                      ? current.filter((id) => id !== s.id)
+                      : [...current, s.id],
+                  );
+                  setSlotIso(null);
+                  setCreateError(null);
+                }}
+                className={cn(
+                  "flex items-center justify-between rounded-xl border p-4 text-left transition-all",
+                  selected
+                    ? "brand-gradient-soft border-transparent shadow-[var(--shadow-elev)]"
+                    : "border-border bg-card/60 hover:border-border/80",
                 )}
-              </div>
-            </button>
-          ))}
+              >
+                <div>
+                  <p className="font-medium">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    <Clock className="mr-1 inline size-3" />
+                    {s.duration_minutes} min
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="brand-text font-bold">{brl(s.price)}</p>
+                  {selected && <Check className="ml-auto mt-1 size-4 text-[color:var(--success)]" />}
+                </div>
+              </button>
+            );
+          })}
         </div>
+        {selectedServices.length > 1 && (
+          <p className="mt-2 px-1 text-xs text-muted-foreground">
+            {selectedServices.length} serviços selecionados · {totalDuration} min · {brl(totalPrice)}
+          </p>
+        )}
       </Step>
 
       {/* Step 2 — data */}
-      {service && (
+      {selectedServices.length > 0 && (
         <Step title="2. Escolha a data">
           <div className="surface flex justify-center p-2">
             <Calendar
@@ -441,7 +467,7 @@ function AgendarPage() {
       )}
 
       {/* Step 3 — horário */}
-      {service && date && (
+      {selectedServices.length > 0 && date && (
         <Step title="3. Escolha o horário">
           {(hoursQ.isPending || agendaQ.isPending || agendaQ.isFetching) && <Skeleton />}
           {!hoursQ.isPending && !agendaQ.isPending && !agendaQ.isFetching && slots.length === 0 && (
@@ -478,7 +504,7 @@ function AgendarPage() {
       )}
 
       {/* Step 4 — confirmação */}
-      {service && slotIso && (
+      {selectedServices.length > 0 && slotIso && (
         <Step title="4. Confirmar">
           <div className="space-y-4">
             <div className="surface grid gap-3 p-4">
@@ -503,14 +529,18 @@ function AgendarPage() {
             <div className="surface space-y-3 p-4 text-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Serviço</p>
-                  <p className="font-semibold">{service.name}</p>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                    {selectedServices.length > 1 ? "Serviços" : "Serviço"}
+                  </p>
+                  <p className="font-semibold">
+                    {selectedServices.map((s) => s.name).join(" + ")}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     <Clock className="mr-1 inline size-3" />
-                    {service.duration_minutes} min
+                    {totalDuration} min
                   </p>
                 </div>
-                <p className="brand-text font-bold">{brl(service.price)}</p>
+                <p className="brand-text font-bold">{brl(totalPrice)}</p>
               </div>
               <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3">
                 <div>

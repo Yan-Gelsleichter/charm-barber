@@ -92,17 +92,21 @@ function parseTime(hms: string, base: Date): Date {
 export function buildSlots(params: {
   date: Date;
   hours: WorkingHour[];
-  service: Service;
-  appointments: Array<Pick<Appointment, "id" | "appointment_time" | "service_id" | "status"> & Partial<Pick<Appointment, "customer_name">>>;
+  /** Duração do que está sendo agendado agora, já somada quando há mais de um serviço escolhido. */
+  durationMinutes: number;
+  appointments: Array<
+    Pick<Appointment, "id" | "appointment_time" | "service_id" | "status"> &
+      Partial<Pick<Appointment, "customer_name" | "duration_minutes_snapshot">>
+  >;
   servicesMap: Map<string, Service>;
   blocks?: Array<{ start_time: string; end_time: string }>;
 }): Slot[] {
-  const { date, hours, service, appointments, servicesMap, blocks = [] } = params;
+  const { date, hours, durationMinutes, appointments, servicesMap, blocks = [] } = params;
   const dow = date.getDay();
   const works = hours.filter((h) => Number(h.weekday) === dow);
   if (works.length === 0) return [];
 
-  const dur = service.duration_minutes;
+  const dur = durationMinutes;
 
   const inactiveIds = cancelledAppointmentIds(appointments);
   const busy: Array<[number, number]> = appointments
@@ -112,7 +116,7 @@ export function buildSlots(params: {
       const block = blockInfo(a);
       if (block) return [s, block.end.getTime()] as [number, number];
       const sv = servicesMap.get(a.service_id);
-      const d = sv?.duration_minutes ?? dur;
+      const d = a.duration_minutes_snapshot ?? sv?.duration_minutes ?? dur;
       return [s, s + d * 60_000] as [number, number];
     });
 

@@ -13,10 +13,13 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 
 const requestSchema = z.object({
   barber_id: z.string().uuid(),
-  service_id: z.string().uuid(),
+  service_ids: z.array(z.string().uuid()).min(1),
   customer_name: z.string().trim().min(1).max(120),
   price: z.number().nonnegative(),
   appointment_time: z.string().min(1),
+  // Só usado pelo fluxo "Adicionar serviço" no Caixa: vincula esse avulso a
+  // um agendamento do app já existente, pra aparecer agrupado com ele.
+  parent_appointment_id: z.string().uuid().optional(),
 });
 
 function json(body: unknown, status = 200) {
@@ -66,16 +69,34 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
             return json({ error: "Barbeiro não pertence a essa barbearia." }, 400);
           }
 
-          const { data: targetService } = await admin
+          const { data: targetServicesData } = await admin
             .from("services")
-            .select("id, barber_id")
-            .eq("id", parsed.data.service_id)
-            .maybeSingle();
-          if (
-            !targetService ||
-            (targetService as { barber_id?: string | null }).barber_id !== parsed.data.barber_id
-          ) {
+            .select("id, barber_id, duration_minutes")
+            .in("id", parsed.data.service_ids);
+          const targetServices = (targetServicesData ?? []) as {
+            id: string;
+            barber_id: string | null;
+            duration_minutes: number | null;
+          }[];
+          const allServicesValid =
+            targetServices.length === parsed.data.service_ids.length &&
+            targetServices.every((s) => s.barber_id === parsed.data.barber_id);
+          if (!allServicesValid) {
             return json({ error: "Serviço não pertence a esse barbeiro." }, 400);
+          }
+
+          if (parsed.data.parent_appointment_id) {
+            const { data: parent } = await admin
+              .from("appointments")
+              .select("id, barbershop_id")
+              .eq("id", parsed.data.parent_appointment_id)
+              .maybeSingle();
+            if (
+              !parent ||
+              (parent as { barbershop_id?: string | null }).barbershop_id !== barbershopId
+            ) {
+              return json({ error: "Agendamento original não encontrado." }, 400);
+            }
           }
 
           const appointmentTime = new Date(parsed.data.appointment_time);
@@ -83,11 +104,17 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
             return json({ error: "Data/hora inválida." }, 400);
           }
 
+          const totalDuration = targetServices.reduce(
+            (sum, s) => sum + Number(s.duration_minutes ?? 30),
+            0,
+          );
+
           const inserted = await admin
             .from("appointments")
             .insert({
               barber_id: parsed.data.barber_id,
-              service_id: parsed.data.service_id,
+              service_id: parsed.data.service_ids[0],
+              service_ids: parsed.data.service_ids,
               barbershop_id: barbershopId,
               customer_name: parsed.data.customer_name,
               customer_phone: "",
@@ -97,7 +124,9 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
               payment_method: "presencial",
               paid_at: new Date().toISOString(),
               service_price_snapshot: parsed.data.price,
+              duration_minutes_snapshot: totalDuration,
               is_walk_in: true,
+              parent_appointment_id: parsed.data.parent_appointment_id ?? null,
             })
             .select("*")
             .maybeSingle();

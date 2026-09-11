@@ -11,7 +11,7 @@ import { fmtDate, fmtTime } from "@/lib/format";
 
 const requestSchema = z.object({
   barber_id: z.string().uuid(),
-  service_id: z.string().uuid(),
+  service_ids: z.array(z.string().uuid()).min(1),
   customer_name: z.string().min(2),
   customer_phone: z.string().regex(/^\d{8,15}$/),
   email: z.string().email().nullable().optional(),
@@ -83,36 +83,53 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           }
           const appointmentTimeIso = parsedTime.toISOString();
 
-          const [barberResult, serviceResult] = await Promise.all([
+          const [barberResult, servicesResult] = await Promise.all([
             admin.from("barbers").select("id, barbershop_id").eq("id", d.barber_id).maybeSingle(),
             admin
               .from("services")
-              .select("id, barber_id, barbershop_id, price, name")
-              .eq("id", d.service_id)
-              .maybeSingle(),
+              .select("id, barber_id, barbershop_id, price, name, duration_minutes")
+              .in("id", d.service_ids),
           ]);
           const barber = barberResult.data;
-          const service = serviceResult.data;
-          if (
-            barberResult.error ||
-            serviceResult.error ||
-            !barber ||
-            !service ||
-            (service.barber_id && service.barber_id !== d.barber_id) ||
-            (service.barbershop_id && service.barbershop_id !== barber.barbershop_id)
-          ) {
+          const services = (servicesResult.data ?? []) as {
+            id: string;
+            barber_id: string | null;
+            barbershop_id: string | null;
+            price: number | null;
+            name: string;
+            duration_minutes: number | null;
+          }[];
+          const servicesById = new Map(services.map((s) => [s.id, s]));
+          const allServicesValid =
+            services.length === d.service_ids.length &&
+            services.every(
+              (s) =>
+                (!s.barber_id || s.barber_id === d.barber_id) &&
+                (!s.barbershop_id || s.barbershop_id === barber?.barbershop_id),
+            );
+          if (barberResult.error || servicesResult.error || !barber || !allServicesValid) {
             return json({ error: "Erro ao salvar agendamento: barbeiro ou serviço inválido." }, 400);
           }
+          // Preserva a ordem escolhida pelo cliente (o primeiro é o "principal",
+          // usado como service_id legado).
+          const orderedServices = d.service_ids.map((id) => servicesById.get(id)!);
+          const totalPrice = orderedServices.reduce((sum, s) => sum + Number(s.price ?? 0), 0);
+          const totalDuration = orderedServices.reduce(
+            (sum, s) => sum + Number(s.duration_minutes ?? 30),
+            0,
+          );
+          const serviceNames = orderedServices.map((s) => s.name ?? "Serviço").join(" + ");
 
           // Cobertura por assinatura: não depende de qual barbeiro atende, só
-          // da identidade do cliente e do serviço escolhido nesta barbearia.
+          // da identidade do cliente e dos serviços escolhidos nesta barbearia
+          // (o plano precisa cobrir TODOS eles).
           let subscriptionCoverage: { subscriptionId: string } | null = null;
           if (barber.barbershop_id) {
             try {
               const { findActiveSubscriptionCoverage } = await import("@/lib/subscription.server");
               subscriptionCoverage = await findActiveSubscriptionCoverage(admin, {
                 barbershopId: barber.barbershop_id,
-                serviceId: d.service_id,
+                serviceIds: d.service_ids,
                 barberId: d.barber_id,
                 userId,
                 phone: d.customer_phone,
@@ -129,7 +146,11 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             .from("appointments")
             .insert({
               barber_id: d.barber_id,
-              service_id: d.service_id,
+              // service_id (singular) fica gravado como o primeiro serviço
+              // escolhido — mantém compatibilidade com qualquer leitura antiga
+              // que ainda espere um único serviço por agendamento.
+              service_id: orderedServices[0].id,
+              service_ids: d.service_ids,
               customer_name: d.customer_name.trim(),
               customer_phone: d.customer_phone,
               email: d.email?.trim().toLowerCase() || null,
@@ -138,20 +159,22 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               payment_status: subscriptionCoverage ? "coberto_por_assinatura" : "pendente",
               covered_by_subscription_id: subscriptionCoverage?.subscriptionId ?? null,
               barbershop_id: barber.barbershop_id,
-              // Preço travado no momento do agendamento — relatórios (Produção,
-              // histórico) não devem mudar retroativamente se o preço do
-              // serviço for alterado depois.
-              service_price_snapshot: Number(service.price ?? 0),
+              // Preço e duração travados no momento do agendamento (soma de
+              // todos os serviços escolhidos) — relatórios (Produção,
+              // histórico) e a disponibilidade não devem mudar retroativamente
+              // se o preço/duração de um serviço for alterado depois.
+              service_price_snapshot: totalPrice,
+              duration_minutes_snapshot: totalDuration,
             })
             .select(
-              "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status, covered_by_subscription_id",
+              "id, barber_id, service_id, service_ids, customer_name, customer_phone, appointment_time, payment_status, covered_by_subscription_id",
             )
             .single();
 
           if (created.error || !created.data) {
             console.error("[appointment-create] insert de appointments falhou", {
               barberId: d.barber_id,
-              serviceId: d.service_id,
+              serviceIds: d.service_ids,
               appointmentTime: appointmentTimeIso,
               message: created.error?.message,
               details: created.error?.details,
@@ -172,7 +195,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           const persistedResult = await admin
             .from("appointments")
             .select(
-              "id, barber_id, service_id, customer_name, customer_phone, appointment_time, payment_status, covered_by_subscription_id",
+              "id, barber_id, service_id, service_ids, customer_name, customer_phone, appointment_time, payment_status, covered_by_subscription_id",
             )
             .eq("id", savedAppointment.id)
             .maybeSingle();
@@ -192,11 +215,12 @@ export const Route = createFileRoute("/api/public/appointment-create")({
 
           const confirmedAppointment = persistedResult.data;
           const savedTime = new Date(confirmedAppointment.appointment_time).getTime();
+          const savedServiceIds = (confirmedAppointment.service_ids ?? []) as string[];
           if (
             confirmedAppointment.customer_phone !== d.customer_phone ||
             confirmedAppointment.customer_name.trim() !== d.customer_name.trim() ||
             confirmedAppointment.barber_id !== d.barber_id ||
-            confirmedAppointment.service_id !== d.service_id ||
+            JSON.stringify(savedServiceIds) !== JSON.stringify(d.service_ids) ||
             savedTime !== parsedTime.getTime()
           ) {
             console.error("[appointment-create] appointment confirmado diverge da solicitação", {
@@ -224,7 +248,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               const { sendPush } = await import("@/lib/push.server");
               const { invalidTokens } = await sendPush(tokens, {
                 title: "Novo agendamento",
-                body: `${d.customer_name.trim()} marcou ${service.name ?? "um horário"} para ${fmtDate(appointmentTimeIso)} às ${fmtTime(appointmentTimeIso)}`,
+                body: `${d.customer_name.trim()} marcou ${serviceNames || "um horário"} para ${fmtDate(appointmentTimeIso)} às ${fmtTime(appointmentTimeIso)}`,
                 url: "/painel",
               });
               if (invalidTokens.length > 0) {

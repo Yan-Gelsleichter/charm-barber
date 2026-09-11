@@ -1,6 +1,16 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Loader2,
+  Pencil,
+  Trash2,
+  FileText,
+  X,
+  CornerDownRight,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +42,7 @@ import { brazilDateKey, brazilDayBounds, brazilDateTime, BRAZIL_TIME_ZONE } from
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 import { useFaturamentoTotais, type Periodo } from "@/hooks/use-faturamento-totais";
 import { CaixaRelatorioRepasse } from "@/painel/CaixaRelatorioRepasse";
+import { cn } from "@/lib/utils";
 
 const CARDS: { key: Periodo; label: string }[] = [
   { key: "hoje", label: "Hoje" },
@@ -53,6 +64,12 @@ function keyOfDay(y: number, m0: number, d: number) {
 async function bearerToken(): Promise<string | undefined> {
   const session = (await supabase.auth.getSession()).data.session;
   return session?.access_token;
+}
+
+function serviceNamesOf(a: Appointment, servicosMap: Map<string, Service>): string {
+  const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
+  const names = ids.map((id) => servicosMap.get(id)?.name).filter((n): n is string => !!n);
+  return names.join(" + ") || "Serviço";
 }
 
 export function CaixaTab({ barber }: { barber: Barber }) {
@@ -113,6 +130,27 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     [diaQ.data],
   );
 
+  // Agrupa "serviço extra" (is_walk_in=true + parent_appointment_id) logo
+  // abaixo do agendamento original, em vez de espalhado na lista.
+  const { rowsToRender, childrenByParent } = useMemo(() => {
+    const topLevel = itensDoDia.filter((a) => !a.parent_appointment_id);
+    const topLevelIds = new Set(topLevel.map((a) => a.id));
+    const children = new Map<string, Appointment[]>();
+    for (const a of itensDoDia) {
+      if (a.parent_appointment_id && topLevelIds.has(a.parent_appointment_id)) {
+        const list = children.get(a.parent_appointment_id) ?? [];
+        list.push(a);
+        children.set(a.parent_appointment_id, list);
+      }
+    }
+    // Se por algum motivo o "pai" não está na lista do dia, mostra o extra
+    // como uma linha normal em vez de escondê-lo.
+    const orphanExtras = itensDoDia.filter(
+      (a) => a.parent_appointment_id && !topLevelIds.has(a.parent_appointment_id),
+    );
+    return { rowsToRender: [...topLevel, ...orphanExtras], childrenByParent: children };
+  }, [itensDoDia]);
+
   const markPaid = useMutation({
     mutationFn: async ({
       appointmentId,
@@ -137,7 +175,9 @@ export function CaixaTab({ barber }: { barber: Barber }) {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
+  const [addServiceTo, setAddServiceTo] = useState<Appointment | null>(null);
   const [deleting, setDeleting] = useState<Appointment | null>(null);
+  const [cancelling, setCancelling] = useState<Appointment | null>(null);
   const [relatorioOpen, setRelatorioOpen] = useState(false);
 
   const deleteWalkin = useMutation({
@@ -153,7 +193,162 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const cancelAppointment = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const token = await bearerToken();
+      return postPublicApi<{ was_paid?: boolean }>(
+        "/api/public/caixa-appointment-cancel",
+        { appointment_id: appointmentId },
+        token,
+      );
+    },
+    onSuccess: (result) => {
+      if (result?.was_paid) {
+        toast.warning("Agendamento cancelado", {
+          description: "Já estava pago online — providencie o estorno pelo Mercado Pago manualmente, se necessário.",
+          duration: 8000,
+        });
+      } else {
+        toast.success("Agendamento cancelado");
+      }
+      qc.invalidateQueries({ queryKey: ["caixa-dia"] });
+      setCancelling(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const isLoading = totaisHook.isLoading || diaQ.isLoading;
+
+  function renderRow(a: Appointment, isChild: boolean) {
+    const isWalkIn = !!a.is_walk_in;
+    const isExtra = isWalkIn && !!a.parent_appointment_id;
+    const valor = a.service_price_snapshot ?? totaisHook.servicosMap.get(a.service_id)?.price ?? 0;
+    const nomes = serviceNamesOf(a, totaisHook.servicosMap);
+    const tagLabel = isExtra ? "Serviço extra" : isWalkIn ? "Avulso" : null;
+    const tagBadge = tagLabel && (
+      <span className="inline-flex items-center rounded-full border border-[color:var(--brand-from)]/40 bg-[color:var(--brand-from)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-from)]">
+        {tagLabel}
+      </span>
+    );
+    const actionButtons = isWalkIn ? (
+      <>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => {
+            setEditing(a);
+            setAddServiceTo(null);
+            setFormOpen(true);
+          }}
+        >
+          <Pencil className="size-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-destructive"
+          onClick={() => setDeleting(a)}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </>
+    ) : (
+      <>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => {
+            setAddServiceTo(a);
+            setEditing(null);
+            setFormOpen(true);
+          }}
+        >
+          <Pencil className="size-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-destructive"
+          onClick={() => setCancelling(a)}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </>
+    );
+
+    return (
+      <div
+        key={a.id}
+        className={cn(
+          "surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4",
+          isChild && "ml-4 border-l-2 border-[color:var(--brand-from)]/30 sm:ml-8",
+        )}
+      >
+        {isChild && (
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <CornerDownRight className="size-3" /> vinculado a este atendimento
+          </div>
+        )}
+        {/* Layout mobile — linha única, tudo lado a lado com quebra natural. */}
+        <div className="flex items-start justify-between gap-3 sm:hidden">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold">{fmtTime(a.appointment_time)}</span>
+              <p className="truncate font-medium">{a.customer_name}</p>
+              <PaymentBadge status={a.payment_status} compact />
+              {tagBadge}
+            </div>
+            <p className="truncate text-xs text-muted-foreground">
+              {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <span className="text-sm font-semibold">{brl(valor)}</span>
+            {actionButtons}
+          </div>
+        </div>
+
+        {/* Layout desktop — horário e valor em destaque, centralizados. */}
+        <div className="hidden items-center justify-between gap-3 sm:flex">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="shrink-0 text-xl font-bold tabular-nums">{fmtTime(a.appointment_time)}</span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate font-medium">{a.customer_name}</p>
+                <PaymentBadge status={a.payment_status} compact />
+                {tagBadge}
+              </div>
+              <p className="truncate text-sm text-muted-foreground">
+                {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <span className="text-xl font-bold tabular-nums">{brl(valor)}</span>
+            {actionButtons}
+          </div>
+        </div>
+
+        {a.payment_status === "pendente" && (
+          <div className="flex flex-wrap gap-2 sm:justify-center sm:border-t sm:border-border/50 sm:pt-3">
+            {PAYMENT_METHODS.map((m) => (
+              <Button
+                key={m.id}
+                variant="outline"
+                size="sm"
+                disabled={markPaid.isPending}
+                onClick={() => markPaid.mutate({ appointmentId: a.id, method: m.id })}
+              >
+                {m.label}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -207,6 +402,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           size="sm"
           onClick={() => {
             setEditing(null);
+            setAddServiceTo(null);
             setFormOpen(true);
           }}
         >
@@ -218,107 +414,18 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         <div className="flex justify-center py-16">
           <Loader2 className="animate-spin" />
         </div>
-      ) : itensDoDia.length === 0 ? (
+      ) : rowsToRender.length === 0 ? (
         <div className="surface p-6 text-center text-sm text-muted-foreground">
           Nenhum atendimento neste dia.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:gap-3">
-          {itensDoDia.map((a) => {
-            const isWalkIn = !!a.is_walk_in;
-            const valor = a.service_price_snapshot ?? totaisHook.servicosMap.get(a.service_id)?.price ?? 0;
-            const avulsoBadge = (
-              <span className="inline-flex items-center rounded-full border border-[color:var(--brand-from)]/40 bg-[color:var(--brand-from)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-from)]">
-                Avulso
-              </span>
-            );
-            const editDeleteButtons = (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7"
-                  onClick={() => {
-                    setEditing(a);
-                    setFormOpen(true);
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-destructive"
-                  onClick={() => setDeleting(a)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </>
-            );
-            return (
-              <div key={a.id} className="surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4">
-                {/* Layout mobile — linha única, tudo lado a lado com quebra natural. */}
-                <div className="flex items-start justify-between gap-3 sm:hidden">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold">{fmtTime(a.appointment_time)}</span>
-                      <p className="truncate font-medium">{a.customer_name}</p>
-                      <PaymentBadge status={a.payment_status} compact />
-                      {isWalkIn && avulsoBadge}
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {totaisHook.servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
-                      {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <span className="text-sm font-semibold">{brl(valor)}</span>
-                    {isWalkIn && editDeleteButtons}
-                  </div>
-                </div>
-
-                {/* Layout desktop — horário e valor em destaque, centralizados. */}
-                <div className="hidden items-center justify-between gap-3 sm:flex">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="shrink-0 text-xl font-bold tabular-nums">
-                      {fmtTime(a.appointment_time)}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate font-medium">{a.customer_name}</p>
-                        <PaymentBadge status={a.payment_status} compact />
-                        {isWalkIn && avulsoBadge}
-                      </div>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {totaisHook.servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
-                        {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <span className="text-xl font-bold tabular-nums">{brl(valor)}</span>
-                    {isWalkIn && editDeleteButtons}
-                  </div>
-                </div>
-
-                {a.payment_status === "pendente" && (
-                  <div className="flex flex-wrap gap-2 sm:justify-center sm:border-t sm:border-border/50 sm:pt-3">
-                    {PAYMENT_METHODS.map((m) => (
-                      <Button
-                        key={m.id}
-                        variant="outline"
-                        size="sm"
-                        disabled={markPaid.isPending}
-                        onClick={() => markPaid.mutate({ appointmentId: a.id, method: m.id })}
-                      >
-                        {m.label}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {rowsToRender.map((a) => (
+            <Fragment key={a.id}>
+              {renderRow(a, false)}
+              {(childrenByParent.get(a.id) ?? []).map((child) => renderRow(child, true))}
+            </Fragment>
+          ))}
         </div>
       )}
 
@@ -326,15 +433,20 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         open={formOpen}
         onOpenChange={(open) => {
           setFormOpen(open);
-          if (!open) setEditing(null);
+          if (!open) {
+            setEditing(null);
+            setAddServiceTo(null);
+          }
         }}
         barbeiros={barbeiros}
         servicosPorBarbeiro={servicosPorBarbeiro}
         selectedDate={selectedDate}
         editing={editing}
+        addServiceTo={addServiceTo}
         onSaved={() => {
           setFormOpen(false);
           setEditing(null);
+          setAddServiceTo(null);
           qc.invalidateQueries({ queryKey: ["caixa-dia"] });
         }}
       />
@@ -355,6 +467,33 @@ export function CaixaTab({ barber }: { barber: Barber }) {
               onClick={() => deleting && deleteWalkin.mutate(deleting.id)}
             >
               {deleteWalkin.isPending ? <Loader2 className="size-4 animate-spin" /> : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!cancelling} onOpenChange={(open) => !open && setCancelling(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar agendamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O agendamento de {cancelling?.customer_name} fica marcado como cancelado (continua no
+              histórico) e o horário é liberado na agenda.
+              {cancelling?.payment_status === "pago" && (
+                <span className="mt-2 block font-medium text-destructive">
+                  Esse agendamento já foi pago online — providencie o estorno pelo Mercado Pago
+                  manualmente, se necessário.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelAppointment.isPending}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelAppointment.isPending}
+              onClick={() => cancelling && cancelAppointment.mutate(cancelling.id)}
+            >
+              {cancelAppointment.isPending ? <Loader2 className="size-4 animate-spin" /> : "Cancelar agendamento"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -401,6 +540,7 @@ function WalkinDialog({
   servicosPorBarbeiro,
   selectedDate,
   editing,
+  addServiceTo,
   onSaved,
 }: {
   open: boolean;
@@ -409,33 +549,44 @@ function WalkinDialog({
   servicosPorBarbeiro: Map<string, Service[]>;
   selectedDate: Date;
   editing: Appointment | null;
+  /** Agendamento do app ao qual um serviço extra está sendo adicionado (fluxo "editar" de um agendamento real). */
+  addServiceTo: Appointment | null;
   onSaved: () => void;
 }) {
   const isEdit = !!editing;
-  const [barberId, setBarberId] = useState(editing?.barber_id ?? "");
-  const [serviceId, setServiceId] = useState(editing?.service_id ?? "");
-  const [nome, setNome] = useState(editing?.customer_name ?? "");
-  const [preco, setPreco] = useState(String(editing?.service_price_snapshot ?? ""));
-  const [quando, setQuando] = useState(
-    editing
-      ? localDateTimeValue(new Date(editing.appointment_time), fmtTime(editing.appointment_time))
-      : localDateTimeValue(selectedDate),
-  );
+  const isAddService = !isEdit && !!addServiceTo;
+  const lockedFields = isAddService;
 
-  // Reabre o formulário do zero a cada vez (criar ou editar outro registro).
+  function initialState() {
+    const base = editing ?? addServiceTo;
+    return {
+      barberId: base?.barber_id ?? "",
+      serviceIds: isAddService ? [] : base?.service_ids?.length ? base.service_ids : base ? [base.service_id] : [],
+      nome: base?.customer_name ?? "",
+      preco: isAddService ? "" : String(base?.service_price_snapshot ?? ""),
+      quando: base
+        ? localDateTimeValue(new Date(base.appointment_time), fmtTime(base.appointment_time))
+        : localDateTimeValue(selectedDate),
+    };
+  }
+
+  const [barberId, setBarberId] = useState(() => initialState().barberId);
+  const [serviceIds, setServiceIds] = useState<string[]>(() => initialState().serviceIds);
+  const [nome, setNome] = useState(() => initialState().nome);
+  const [preco, setPreco] = useState(() => initialState().preco);
+  const [quando, setQuando] = useState(() => initialState().quando);
+
+  // Reabre o formulário do zero a cada vez (criar, editar ou adicionar serviço a outro registro).
   const [openedFor, setOpenedFor] = useState<string | null>(null);
-  const key = editing?.id ?? "novo";
+  const key = editing ? `edit:${editing.id}` : addServiceTo ? `add:${addServiceTo.id}` : "novo";
   if (open && openedFor !== key) {
     setOpenedFor(key);
-    setBarberId(editing?.barber_id ?? "");
-    setServiceId(editing?.service_id ?? "");
-    setNome(editing?.customer_name ?? "");
-    setPreco(String(editing?.service_price_snapshot ?? ""));
-    setQuando(
-      editing
-        ? localDateTimeValue(new Date(editing.appointment_time), fmtTime(editing.appointment_time))
-        : localDateTimeValue(selectedDate),
-    );
+    const s = initialState();
+    setBarberId(s.barberId);
+    setServiceIds(s.serviceIds);
+    setNome(s.nome);
+    setPreco(s.preco);
+    setQuando(s.quando);
   }
   if (!open && openedFor !== null) setOpenedFor(null);
 
@@ -449,85 +600,137 @@ function WalkinDialog({
       const appointment_time = brazilDateTime(new Date(y, m - 1, d), timePart).toISOString();
       const body = {
         barber_id: barberId,
-        service_id: serviceId,
+        service_ids: serviceIds,
         customer_name: nome.trim(),
         price: Number(preco.replace(",", ".")) || 0,
         appointment_time,
       };
       if (isEdit) {
         await postPublicApi("/api/public/caixa-walkin-update", { appointment_id: editing!.id, ...body }, token);
+      } else if (isAddService) {
+        await postPublicApi(
+          "/api/public/caixa-walkin-create",
+          { ...body, parent_appointment_id: addServiceTo!.id },
+          token,
+        );
       } else {
         await postPublicApi("/api/public/caixa-walkin-create", body, token);
       }
     },
     onSuccess: () => {
-      toast.success(isEdit ? "Atendimento avulso atualizado" : "Atendimento avulso registrado");
+      toast.success(
+        isEdit ? "Atendimento avulso atualizado" : isAddService ? "Serviço extra adicionado" : "Atendimento avulso registrado",
+      );
       onSaved();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const podeSalvar = !!barberId && !!serviceId && nome.trim().length > 0 && !!quando;
+  const podeSalvar = !!barberId && serviceIds.length > 0 && nome.trim().length > 0 && !!quando;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar atendimento avulso" : "Novo atendimento avulso"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Editar atendimento avulso" : isAddService ? "Adicionar serviço" : "Novo atendimento avulso"}
+          </DialogTitle>
           <DialogDescription>
-            Cliente atendido no balcão, sem passar pelo app. Já entra como pago e não ocupa o
-            horário na agenda.
+            {isAddService
+              ? `Serviço extra pedido na hora por ${addServiceTo?.customer_name}. Fica pendente, separado do que já foi pago, e você resolve pelo Caixa.`
+              : "Cliente atendido no balcão, sem passar pelo app. Já entra como pago e não ocupa o horário na agenda."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-3">
-          <label className="grid gap-1 text-xs text-muted-foreground">
-            Barbeiro
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              value={barberId}
-              onChange={(e) => {
-                setBarberId(e.target.value);
-                setServiceId("");
-                setPreco("");
-              }}
-            >
-              <option value="">Selecione um barbeiro</option>
-              {barbeiros.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {lockedFields ? (
+            <div className="surface grid gap-1 p-3 text-sm">
+              <p>
+                <span className="text-muted-foreground">Barbeiro:</span>{" "}
+                <span className="font-medium">
+                  {barbeiros.find((b) => b.id === barberId)?.name ?? "—"}
+                </span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Cliente:</span>{" "}
+                <span className="font-medium">{nome}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Horário:</span>{" "}
+                <span className="font-medium">{fmtTime(addServiceTo!.appointment_time)}</span>
+              </p>
+            </div>
+          ) : (
+            <>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Barbeiro
+                <select
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  value={barberId}
+                  onChange={(e) => {
+                    setBarberId(e.target.value);
+                    setServiceIds([]);
+                    setPreco("");
+                  }}
+                >
+                  <option value="">Selecione um barbeiro</option>
+                  {barbeiros.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Nome do cliente
+                <Input value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
+              </label>
+            </>
+          )}
 
-          <label className="grid gap-1 text-xs text-muted-foreground">
-            Serviço
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              value={serviceId}
-              disabled={!barberId}
-              onChange={(e) => {
-                setServiceId(e.target.value);
-                const s = servicos.find((x) => x.id === e.target.value);
-                if (s) setPreco(String(s.price));
-              }}
-            >
-              <option value="">Selecione um serviço</option>
-              {servicos.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid gap-1 text-xs text-muted-foreground">
+            Serviço (pode escolher mais de um)
+            <div className="grid grid-cols-1 gap-2">
+              {servicos.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {barberId ? "Esse barbeiro não tem serviços cadastrados." : "Selecione um barbeiro primeiro."}
+                </p>
+              )}
+              {servicos.map((s) => {
+                const selected = serviceIds.includes(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() =>
+                      setServiceIds((current) => {
+                        const next = current.includes(s.id)
+                          ? current.filter((id) => id !== s.id)
+                          : [...current, s.id];
+                        const total = next.reduce(
+                          (sum, id) => sum + (servicos.find((x) => x.id === id)?.price ?? 0),
+                          0,
+                        );
+                        setPreco(String(total));
+                        return next;
+                      })
+                    }
+                    className={cn(
+                      "flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition",
+                      selected
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-card/60 text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    <span>{s.name}</span>
+                    <span className="shrink-0 font-semibold">{brl(s.price)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-          <label className="grid gap-1 text-xs text-muted-foreground">
-            Nome do cliente
-            <Input value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
+          <div className={cn("grid gap-3", lockedFields ? "grid-cols-1" : "grid-cols-2")}>
             <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
               Valor cobrado
               <Input
@@ -537,10 +740,12 @@ function WalkinDialog({
                 placeholder="0,00"
               />
             </label>
-            <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-              Data e hora
-              <Input type="datetime-local" value={quando} onChange={(e) => setQuando(e.target.value)} />
-            </label>
+            {!lockedFields && (
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                Data e hora
+                <Input type="datetime-local" value={quando} onChange={(e) => setQuando(e.target.value)} />
+              </label>
+            )}
           </div>
         </div>
 
@@ -550,7 +755,15 @@ function WalkinDialog({
           disabled={!podeSalvar || save.isPending}
           onClick={() => save.mutate()}
         >
-          {save.isPending ? <Loader2 className="animate-spin" /> : isEdit ? "Salvar alterações" : "Registrar atendimento"}
+          {save.isPending ? (
+            <Loader2 className="animate-spin" />
+          ) : isEdit ? (
+            "Salvar alterações"
+          ) : isAddService ? (
+            "Adicionar serviço"
+          ) : (
+            "Registrar atendimento"
+          )}
         </Button>
       </DialogContent>
     </Dialog>

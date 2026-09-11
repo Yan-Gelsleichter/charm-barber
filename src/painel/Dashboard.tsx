@@ -102,11 +102,15 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid grid-cols-1 gap-2">
             {hoje.map((a) => {
-              const sv = freshServices.find((s) => s.id === a.service_id);
-              const preco = a.service_price_snapshot ?? sv?.price ?? null;
-              const fim =
-                new Date(a.appointment_time).getTime() +
-                (sv?.duration_minutes ?? 30) * 60_000;
+              const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
+              const svList = ids.map((id) => freshServices.find((s) => s.id === id)).filter((s): s is Service => !!s);
+              const nomes = svList.map((s) => s.name).join(" + ");
+              const preco =
+                a.service_price_snapshot ?? (svList.length ? svList.reduce((sum, s) => sum + s.price, 0) : null);
+              const duracao =
+                a.duration_minutes_snapshot ??
+                (svList.length ? svList.reduce((sum, s) => sum + s.duration_minutes, 0) : 30);
+              const fim = new Date(a.appointment_time).getTime() + duracao * 60_000;
               const atendido = fim <= now.getTime();
               return (
                 <div
@@ -117,7 +121,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{a.customer_name}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {sv?.name ?? "Serviço"} · {fmtTime(a.appointment_time)}
+                        {nomes || "Serviço"} · {fmtTime(a.appointment_time)}
                       </p>
                     </div>
                     <span className="brand-text shrink-0 font-bold">
@@ -150,15 +154,18 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid grid-cols-1 gap-2">
             {proximos.map((a) => {
-              const sv = freshServices.find((s) => s.id === a.service_id);
-              const preco = a.service_price_snapshot ?? sv?.price ?? null;
+              const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
+              const svList = ids.map((id) => freshServices.find((s) => s.id === id)).filter((s): s is Service => !!s);
+              const nomes = svList.map((s) => s.name).join(" + ");
+              const preco =
+                a.service_price_snapshot ?? (svList.length ? svList.reduce((sum, s) => sum + s.price, 0) : null);
               return (
                 <div key={a.id} className="surface flex flex-col gap-2 p-4">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{a.customer_name}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {sv?.name ?? "Serviço"} ·{" "}
+                        {nomes || "Serviço"} ·{" "}
                         {new Date(a.appointment_time).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })} ·{" "}
                         {fmtTime(a.appointment_time)}
                       </p>

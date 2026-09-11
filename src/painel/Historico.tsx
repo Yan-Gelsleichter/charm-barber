@@ -111,7 +111,10 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
       ) : (
         <div className="grid grid-cols-1 gap-2">
           {historico.map((a) => {
-            const sv = svMap.get(a.service_id);
+            const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
+            const svList = ids.map((id) => svMap.get(id)).filter((s): s is Service => !!s);
+            const sv = svList[0];
+            const nomes = svList.map((s) => s.name).join(" + ");
             const cancelado = a.status === "cancelado";
             return (
               <div
@@ -126,7 +129,7 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
                     {a.customer_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {sv?.name ?? "Serviço"} · {fmtDateTime(a.appointment_time)}
+                    {nomes || "Serviço"} · {fmtDateTime(a.appointment_time)}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
@@ -136,7 +139,10 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
                   ) : (
                     <span className="brand-text font-bold">
                       {a.service_price_snapshot != null || sv
-                        ? brl(a.service_price_snapshot ?? sv!.price)
+                        ? brl(
+                            a.service_price_snapshot ??
+                              svList.reduce((sum, s) => sum + s.price, 0),
+                          )
                         : "—"}
                     </span>
                   )}

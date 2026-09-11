@@ -13,7 +13,7 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 const requestSchema = z.object({
   appointment_id: z.string().uuid(),
   barber_id: z.string().uuid(),
-  service_id: z.string().uuid(),
+  service_ids: z.array(z.string().uuid()).min(1),
   customer_name: z.string().trim().min(1).max(120),
   price: z.number().nonnegative(),
   appointment_time: z.string().min(1),
@@ -82,15 +82,19 @@ export const Route = createFileRoute("/api/public/caixa-walkin-update")({
             return json({ error: "Barbeiro não pertence a essa barbearia." }, 400);
           }
 
-          const { data: targetService } = await admin
+          const { data: targetServicesData } = await admin
             .from("services")
-            .select("id, barber_id")
-            .eq("id", parsed.data.service_id)
-            .maybeSingle();
-          if (
-            !targetService ||
-            (targetService as { barber_id?: string | null }).barber_id !== parsed.data.barber_id
-          ) {
+            .select("id, barber_id, duration_minutes")
+            .in("id", parsed.data.service_ids);
+          const targetServices = (targetServicesData ?? []) as {
+            id: string;
+            barber_id: string | null;
+            duration_minutes: number | null;
+          }[];
+          const allServicesValid =
+            targetServices.length === parsed.data.service_ids.length &&
+            targetServices.every((s) => s.barber_id === parsed.data.barber_id);
+          if (!allServicesValid) {
             return json({ error: "Serviço não pertence a esse barbeiro." }, 400);
           }
 
@@ -99,14 +103,21 @@ export const Route = createFileRoute("/api/public/caixa-walkin-update")({
             return json({ error: "Data/hora inválida." }, 400);
           }
 
+          const totalDuration = targetServices.reduce(
+            (sum, s) => sum + Number(s.duration_minutes ?? 30),
+            0,
+          );
+
           const updated = await admin
             .from("appointments")
             .update({
               barber_id: parsed.data.barber_id,
-              service_id: parsed.data.service_id,
+              service_id: parsed.data.service_ids[0],
+              service_ids: parsed.data.service_ids,
               customer_name: parsed.data.customer_name,
               appointment_time: appointmentTime.toISOString(),
               service_price_snapshot: parsed.data.price,
+              duration_minutes_snapshot: totalDuration,
             })
             .eq("id", parsed.data.appointment_id)
             .eq("is_walk_in", true)

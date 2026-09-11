@@ -145,7 +145,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   const [novoNome, setNovoNome] = useState("");
   const [novoTelefone, setNovoTelefone] = useState("");
   const [novoEmail, setNovoEmail] = useState("");
-  const [novoServico, setNovoServico] = useState("");
+  const [novoServicos, setNovoServicos] = useState<string[]>([]);
 
   const criarAgendamento = useMutation({
     mutationFn: async (inicio: Date) => {
@@ -153,7 +153,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       if (!nome) throw new Error("Informe o nome do cliente.");
       const telefone = novoTelefone.trim();
       if (telefone.replace(/\D/g, "").length < 10) throw new Error("Informe um telefone válido.");
-      if (!novoServico) throw new Error("Selecione um serviço.");
+      if (novoServicos.length === 0) throw new Error("Selecione ao menos um serviço.");
       // Usa a API central: agendamento + cliente na mesma transação.
       const { data: sessionData } = await supabase.auth.getSession();
       const payload = await postPublicApi<{
@@ -164,7 +164,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         appointment?: {
           id: string;
           barber_id: string;
-          service_id: string;
+          service_ids: string[];
           customer_name: string;
           customer_phone: string;
           appointment_time: string;
@@ -174,7 +174,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         "/api/public/appointment-create",
         {
           barber_id: barber.id,
-          service_id: novoServico,
+          service_ids: novoServicos,
           customer_name: nome,
           customer_phone: telefone.replace(/\D/g, ""),
           email: novoEmail.trim() || null,
@@ -189,7 +189,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         !savedAppointment ||
         savedAppointment.id !== payload.id ||
         savedAppointment.barber_id !== barber.id ||
-        savedAppointment.service_id !== novoServico ||
+        JSON.stringify(savedAppointment.service_ids ?? []) !== JSON.stringify(novoServicos) ||
         savedAppointment.customer_phone !== telefone.replace(/\D/g, "") ||
         savedAppointment.customer_name.trim() !== nome ||
         new Date(savedAppointment.appointment_time).getTime() !== inicio.getTime()
@@ -204,6 +204,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       setNovoNome("");
       setNovoTelefone("");
       setNovoEmail("");
+      setNovoServicos([]);
       setNovoOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -268,7 +269,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     if (!refService || !q.data || !directAppointments.appointments) return [];
     return buildSlots({
       date,
-      service: refService,
+      durationMinutes: refService.duration_minutes,
       hours: q.data.hours,
       appointments: directAppointments.appointments,
       servicesMap,
@@ -276,28 +277,35 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     });
   }, [date, refService, q.data, servicesMap, directAppointments.appointments]);
 
+  const novoServicosDuracao = novoServicos.reduce(
+    (sum, id) => sum + (servicesMap.get(id)?.duration_minutes ?? 0),
+    0,
+  );
   const novoSlots = useMemo(() => {
-    const sv = servicesMap.get(novoServico);
-    if (!sv || !q.data || !directAppointments.appointments) return [];
+    if (novoServicos.length === 0 || !q.data || !directAppointments.appointments) return [];
     return buildSlots({
       date,
-      service: sv,
+      durationMinutes: novoServicosDuracao,
       hours: q.data.hours,
       appointments: directAppointments.appointments,
       servicesMap,
       blocks: q.data.blocks,
     });
-  }, [date, novoServico, q.data, servicesMap, directAppointments.appointments]);
+  }, [date, novoServicos, novoServicosDuracao, q.data, servicesMap, directAppointments.appointments]);
 
 
 
   const reschedSlots = useMemo(() => {
     if (!reschedTarget || !q.data || !reschedQ.data) return [];
     const sv = servicesMap.get(reschedTarget.service_id);
-    if (!sv) return [];
+    // Preserva a duração total (soma travada) do agendamento original, não
+    // só a duração do primeiro/único serviço — senão um horário multi-serviço
+    // remarcado ficaria curto demais e conflitaria com o próximo cliente.
+    const durationMinutes = reschedTarget.duration_minutes_snapshot ?? sv?.duration_minutes;
+    if (!durationMinutes) return [];
     return buildSlots({
       date: new Date(`${reschedDate}T00:00:00`),
-      service: sv,
+      durationMinutes,
       hours: q.data.hours,
       appointments: reschedQ.data.appointments.filter((a) => a.id !== reschedTarget.id),
       servicesMap,
@@ -389,24 +397,49 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               </label>
 
             </div>
-            <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
-              Serviço
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                value={novoServico}
-                onChange={(e) => setNovoServico(e.target.value)}
-              >
-                <option value="">Selecione um serviço</option>
-                {(q.data?.services ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} · {s.duration_minutes} min · {brl(s.price)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
+              Serviço (pode escolher mais de um)
+              <div className="grid grid-cols-1 gap-2">
+                {(q.data?.services ?? []).map((s) => {
+                  const selected = novoServicos.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() =>
+                        setNovoServicos((current) =>
+                          current.includes(s.id)
+                            ? current.filter((id) => id !== s.id)
+                            : [...current, s.id],
+                        )
+                      }
+                      className={cn(
+                        "flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition",
+                        selected
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card/60 text-muted-foreground hover:border-primary/50",
+                      )}
+                    >
+                      <span>
+                        {s.name} · {s.duration_minutes} min
+                      </span>
+                      <span className="shrink-0 font-semibold">{brl(s.price)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {novoServicos.length > 1 && (
+                <p>
+                  {novoServicos.length} serviços · {novoServicosDuracao} min ·{" "}
+                  {brl(
+                    novoServicos.reduce((sum, id) => sum + (servicesMap.get(id)?.price ?? 0), 0),
+                  )}
+                </p>
+              )}
+            </div>
 
-            {!novoServico ? (
-              <p className="text-xs text-muted-foreground">Selecione um serviço para ver os horários.</p>
+            {novoServicos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Selecione ao menos um serviço para ver os horários.</p>
             ) : novoSlots.length === 0 ? (
               <p className="text-xs text-muted-foreground">Sem expediente neste dia.</p>
             ) : (
@@ -541,9 +574,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid grid-cols-1 gap-2">
             {ativos.map((a) => {
-              const sv = servicesMap.get(a.service_id);
-              const fim =
-                new Date(a.appointment_time).getTime() + (sv?.duration_minutes ?? 30) * 60_000;
+              const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
+              const svList = ids.map((id) => servicesMap.get(id)).filter((s): s is Service => !!s);
+              const nomes = svList.map((s) => s.name).join(" + ");
+              const preco = a.service_price_snapshot ?? svList.reduce((sum, s) => sum + s.price, 0);
+              const duracao =
+                a.duration_minutes_snapshot ?? svList.reduce((sum, s) => sum + s.duration_minutes, 0) ?? 30;
+              const fim = new Date(a.appointment_time).getTime() + duracao * 60_000;
               const atendido = fim <= Date.now();
               return (
                 <div
@@ -559,11 +596,11 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                         {a.customer_name}
                       </p>
                       <p className="truncate text-sm text-muted-foreground">
-                        {sv?.name ?? "Serviço"} · {sv?.duration_minutes ?? "?"} min
+                        {nomes || "Serviço"} · {duracao} min
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-semibold text-primary">{sv ? brl(sv.price) : "—"}</p>
+                      <p className="text-sm font-semibold text-primary">{brl(preco)}</p>
                       <p className="text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</p>
                     </div>
                   </div>

@@ -79,6 +79,9 @@ export type Appointment = {
   reminder_sent_at?: string | null;
   barber_reminder_sent_at?: string | null;
   is_walk_in?: boolean | null;
+  service_ids?: string[] | null;
+  duration_minutes_snapshot?: number | null;
+  parent_appointment_id?: string | null;
 };
 export type AppointmentInsert = {
   id?: string;
@@ -100,6 +103,9 @@ export type AppointmentInsert = {
   reminder_sent_at?: string | null;
   barber_reminder_sent_at?: string | null;
   is_walk_in?: boolean | null;
+  service_ids?: string[] | null;
+  duration_minutes_snapshot?: number | null;
+  parent_appointment_id?: string | null;
 };
 
 

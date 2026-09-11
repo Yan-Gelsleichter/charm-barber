@@ -54,15 +54,17 @@ export async function findOrCreateSubscriberClient(
 
 /**
  * Verifica se a pessoa (por login, telefone ou e-mail) tem uma assinatura
- * ativa nesta barbearia cujo plano cobre o serviço informado E inclui o
- * barbeiro escolhido no agendamento — cada plano só é "de graça" com os
- * barbeiros que o admin marcou nele.
+ * ativa nesta barbearia cujo plano cobre TODOS os serviços escolhidos E
+ * inclui o barbeiro escolhido no agendamento — cada plano só é "de graça"
+ * com os barbeiros que o admin marcou nele, e um agendamento com mais de um
+ * serviço só é coberto se o plano cobrir cada um deles (senão o cliente
+ * pagaria a menos por um serviço fora do plano).
  */
 export async function findActiveSubscriptionCoverage(
   admin: Admin,
   opts: {
     barbershopId: string;
-    serviceId: string;
+    serviceIds: string[];
     barberId: string;
     userId?: string | null;
     phone?: string | null;
@@ -73,7 +75,7 @@ export async function findActiveSubscriptionCoverage(
   if (opts.userId) filters.push(`user_id.eq.${opts.userId}`);
   if (opts.phone) filters.push(`whatsapp.eq.${opts.phone}`);
   if (opts.email) filters.push(`email.eq.${opts.email.trim().toLowerCase()}`);
-  if (filters.length === 0) return null;
+  if (filters.length === 0 || opts.serviceIds.length === 0) return null;
 
   const clientRows = await admin
     .from("clients")
@@ -96,8 +98,8 @@ export async function findActiveSubscriptionCoverage(
   const [planServiceRows, planBarberRows] = await Promise.all([
     admin
       .from("subscription_plan_services")
-      .select("plan_id")
-      .eq("service_id", opts.serviceId)
+      .select("plan_id, service_id")
+      .in("service_id", opts.serviceIds)
       .in("plan_id", planIds),
     admin
       .from("subscription_plan_barbers")
@@ -105,14 +107,24 @@ export async function findActiveSubscriptionCoverage(
       .eq("barber_id", opts.barberId)
       .in("plan_id", planIds),
   ]);
-  const serviceCoveredPlanIds = new Set(
-    ((planServiceRows.data ?? []) as { plan_id: string }[]).map((p) => p.plan_id),
+  // Um plano só cobre o agendamento se tiver uma linha pra CADA serviço
+  // escolhido — não basta cobrir um deles.
+  const servicesPerPlan = new Map<string, Set<string>>();
+  for (const row of (planServiceRows.data ?? []) as { plan_id: string; service_id: string }[]) {
+    const set = servicesPerPlan.get(row.plan_id) ?? new Set<string>();
+    set.add(row.service_id);
+    servicesPerPlan.set(row.plan_id, set);
+  }
+  const allServicesCoveredPlanIds = new Set(
+    Array.from(servicesPerPlan.entries())
+      .filter(([, services]) => opts.serviceIds.every((id) => services.has(id)))
+      .map(([planId]) => planId),
   );
   const barberCoveredPlanIds = new Set(
     ((planBarberRows.data ?? []) as { plan_id: string }[]).map((p) => p.plan_id),
   );
   const match = subscriptions.find(
-    (s) => serviceCoveredPlanIds.has(s.plan_id) && barberCoveredPlanIds.has(s.plan_id),
+    (s) => allServicesCoveredPlanIds.has(s.plan_id) && barberCoveredPlanIds.has(s.plan_id),
   );
   return match ? { subscriptionId: match.id } : null;
 }

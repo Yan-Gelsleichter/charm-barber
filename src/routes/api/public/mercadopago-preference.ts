@@ -91,7 +91,8 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
             sessionEmail = userData.user?.email?.trim().toLowerCase() ?? null;
           }
 
-          const BASE_COLUMNS = "id, service_id, barber_id, barbershop_id, customer_name, email";
+          const BASE_COLUMNS =
+            "id, service_id, service_ids, service_price_snapshot, barber_id, barbershop_id, customer_name, email";
           let appointmentQuery = await admin
             .from("appointments")
             .select(`${BASE_COLUMNS}, payment_status, mp_payment_id`)
@@ -114,6 +115,8 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           const appointment = appointmentQuery.data as {
             id: string;
             service_id: string;
+            service_ids?: string[] | null;
+            service_price_snapshot?: number | null;
             barber_id: string | null;
             barbershop_id: string | null;
             customer_name: string | null;
@@ -208,14 +211,26 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           }
 
 
-          const { data: service } = await admin
+          const serviceIds = appointment.service_ids?.length
+            ? appointment.service_ids
+            : [appointment.service_id];
+          const { data: servicesData } = await admin
             .from("services")
-            .select("name, price")
-            .eq("id", appointment.service_id)
-            .maybeSingle();
-          if (!service) return json({ error: "Serviço do agendamento não encontrado." }, 404);
+            .select("id, name, price")
+            .in("id", serviceIds);
+          const services = (servicesData ?? []) as { id: string; name: string; price: number | null }[];
+          if (services.length === 0) return json({ error: "Serviço do agendamento não encontrado." }, 404);
+          // Mantém a ordem escolhida no agendamento pros itens da preferência.
+          const orderedServices = serviceIds
+            .map((id) => services.find((s) => s.id === id))
+            .filter((s): s is (typeof services)[number] => !!s);
 
-          const amount = Number((service as { price?: number | null }).price ?? 0);
+          // Valor travado na hora do agendamento (soma de todos os serviços) —
+          // só cai pro preço ao vivo somado em agendamentos antigos sem snapshot.
+          const amount =
+            appointment.service_price_snapshot != null
+              ? Number(appointment.service_price_snapshot)
+              : orderedServices.reduce((sum, s) => sum + Number(s.price ?? 0), 0);
           if (!(amount > 0)) return json({ error: "O serviço não possui um preço válido." }, 400);
 
           const shopFee = barberSplit
@@ -227,11 +242,16 @@ export const Route = createFileRoute("/api/public/mercadopago-preference")({
           const attemptId = `${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
           const externalReference = `${appointment.id}:${attemptId}`;
 
+          // Um único item, com o valor travado (soma de todos os serviços) —
+          // decompor em uma linha por serviço arriscaria não bater com o
+          // valor cobrado se o preço de algum serviço mudou depois do
+          // agendamento (o Mercado Pago soma os itens pra achar o total).
+          const itemTitle = orderedServices.map((s) => s.name ?? "Serviço").join(" + ") || "Serviço";
           const preferenceBody: Record<string, unknown> = {
             items: [
               {
-                id: appointment.service_id,
-                title: String((service as { name?: string }).name ?? "Serviço"),
+                id: appointment.id,
+                title: itemTitle,
                 description: "Agendamento na barbearia",
                 quantity: 1,
                 currency_id: "BRL",
