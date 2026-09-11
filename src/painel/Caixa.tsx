@@ -836,7 +836,11 @@ function WalkinDialog({
               />
             </label>
             {!lockedFields && (
-              <div className="grid grid-cols-2 gap-3">
+              // Empilhados (não lado a lado): a data por extenso ("11 de
+              // set. de 2026") já ocupa sozinha quase toda a largura do
+              // modal no celular — dividir a linha ao meio fazia a caixa da
+              // data invadir a da hora.
+              <div className="grid gap-3">
                 <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                   Data
                   <Input
