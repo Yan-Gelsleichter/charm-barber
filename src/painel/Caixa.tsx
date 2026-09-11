@@ -836,30 +836,35 @@ function WalkinDialog({
               />
             </label>
             {!lockedFields && (
-              // Lado a lado, mas cada caixa com overflow-hidden própria: a
-              // data por extenso ("11 de set. de 2026") é mais larga que a
-              // hora, então a coluna da data é maior — e, se ainda assim o
-              // controle nativo do celular tentar renderizar mais largo que
-              // sua caixa, fica cortado nela mesma em vez de vazar por cima
-              // da caixa da hora.
+              // Lado a lado, mas a borda vive num wrapper por fora do
+              // <input>, não nele: o controle nativo de data/hora do celular
+              // pode renderizar mais largo que sua coluna, e se a borda fosse
+              // do próprio input ela ficava cortada no meio (caixa "aberta").
+              // Com o wrapper cortando o excesso por fora, a borda desenhada
+              // nele sempre fecha certinho, não importa o quanto o conteúdo
+              // de dentro estoure.
               <div className="grid grid-cols-[3fr_2fr] gap-3">
-                <label className="grid min-w-0 gap-1 overflow-hidden text-xs text-muted-foreground">
+                <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                   Data
-                  <Input
-                    type="date"
-                    value={quando.split("T")[0] ?? ""}
-                    onChange={(e) => setQuando(`${e.target.value}T${quando.split("T")[1] ?? "00:00"}`)}
-                    className="w-full min-w-0 max-w-full overflow-hidden"
-                  />
+                  <div className="h-9 w-full min-w-0 max-w-full overflow-hidden rounded-md border border-input">
+                    <Input
+                      type="date"
+                      value={quando.split("T")[0] ?? ""}
+                      onChange={(e) => setQuando(`${e.target.value}T${quando.split("T")[1] ?? "00:00"}`)}
+                      className="h-9 w-full min-w-0 max-w-full border-0 bg-transparent"
+                    />
+                  </div>
                 </label>
-                <label className="grid min-w-0 gap-1 overflow-hidden text-xs text-muted-foreground">
+                <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                   Hora
-                  <Input
-                    type="time"
-                    value={quando.split("T")[1] ?? ""}
-                    onChange={(e) => setQuando(`${quando.split("T")[0] ?? ""}T${e.target.value}`)}
-                    className="w-full min-w-0 max-w-full overflow-hidden"
-                  />
+                  <div className="h-9 w-full min-w-0 max-w-full overflow-hidden rounded-md border border-input">
+                    <Input
+                      type="time"
+                      value={quando.split("T")[1] ?? ""}
+                      onChange={(e) => setQuando(`${quando.split("T")[0] ?? ""}T${e.target.value}`)}
+                      className="h-9 w-full min-w-0 max-w-full border-0 bg-transparent"
+                    />
+                  </div>
                 </label>
               </div>
             )}
