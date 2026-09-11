@@ -166,7 +166,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {CARDS.map((c) => (
-          <div key={c.key} className="surface flex flex-col gap-1 p-3">
+          <div key={c.key} className="surface flex flex-col items-center gap-1 p-3 text-center">
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
               {c.label}
             </span>
@@ -223,28 +223,32 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           Nenhum atendimento neste dia.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-1 gap-3">
           {itensDoDia.map((a) => {
             const isWalkIn = !!a.is_walk_in;
             const valor = a.service_price_snapshot ?? totaisHook.servicosMap.get(a.service_id)?.price ?? 0;
             return (
-              <div key={a.id} className="surface flex flex-col gap-2 p-3">
+              <div key={a.id} className="surface flex flex-col gap-3 p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold">{fmtTime(a.appointment_time)}</span>
-                      <p className="truncate font-medium">{a.customer_name}</p>
-                      <PaymentBadge status={a.payment_status} compact />
-                      {isWalkIn && (
-                        <span className="inline-flex items-center rounded-full border border-[color:var(--brand-from)]/40 bg-[color:var(--brand-from)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-from)]">
-                          Avulso
-                        </span>
-                      )}
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="shrink-0 pt-0.5 text-lg font-bold tabular-nums">
+                      {fmtTime(a.appointment_time)}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-medium">{a.customer_name}</p>
+                        <PaymentBadge status={a.payment_status} compact />
+                        {isWalkIn && (
+                          <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Avulso
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {totaisHook.servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
+                        {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
+                      </p>
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {totaisHook.servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
-                      {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
-                    </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <span className="text-sm font-semibold">{brl(valor)}</span>
