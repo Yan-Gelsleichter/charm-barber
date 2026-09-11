@@ -322,9 +322,12 @@ export function CaixaTab({ barber }: { barber: Barber }) {
             Sem ícones por linha — toda edição passa pelo cabeçalho. */}
         <div className="overflow-hidden rounded-lg border border-border/60">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1.5 bg-secondary/30 px-3 py-2 text-sm">
-            {serviceLineItems(a, totaisHook.servicosMap).map((item) => (
+            {serviceLineItems(a, totaisHook.servicosMap).map((item, i) => (
               <Fragment key={`${a.id}:${item.id}`}>
-                <span className="min-w-0 truncate">{item.name}</span>
+                <span className={cn("min-w-0 truncate", i > 0 && "text-muted-foreground")}>
+                  {i > 0 ? "+ " : ""}
+                  {item.name}
+                </span>
                 <PaymentBadge status={a.payment_status} compact />
                 <span className="text-right font-medium tabular-nums">{brl(item.price)}</span>
               </Fragment>
@@ -822,7 +825,7 @@ function WalkinDialog({
             </div>
           </div>
 
-          <div className={cn("grid gap-3", lockedFields ? "grid-cols-1" : "grid-cols-2")}>
+          <div className="grid gap-3">
             <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
               Valor cobrado
               <Input
@@ -833,15 +836,26 @@ function WalkinDialog({
               />
             </label>
             {!lockedFields && (
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                Data e hora
-                <Input
-                  type="datetime-local"
-                  value={quando}
-                  onChange={(e) => setQuando(e.target.value)}
-                  className="w-full min-w-0 max-w-full"
-                />
-              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                  Data
+                  <Input
+                    type="date"
+                    value={quando.split("T")[0] ?? ""}
+                    onChange={(e) => setQuando(`${e.target.value}T${quando.split("T")[1] ?? "00:00"}`)}
+                    className="w-full min-w-0"
+                  />
+                </label>
+                <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                  Hora
+                  <Input
+                    type="time"
+                    value={quando.split("T")[1] ?? ""}
+                    onChange={(e) => setQuando(`${quando.split("T")[0] ?? ""}T${e.target.value}`)}
+                    className="w-full min-w-0"
+                  />
+                </label>
+              </div>
             )}
           </div>
 
