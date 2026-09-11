@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X } from "lucide-react";
 import { toast } from "sonner";
@@ -285,94 +285,109 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     return (
       <div key={a.id} className="surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4">
         {/* Layout mobile — linha única, tudo lado a lado com quebra natural. */}
-        <div className="flex items-start justify-between gap-3 sm:hidden">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold">{fmtTime(a.appointment_time)}</span>
-              <p className="truncate font-medium">{a.customer_name}</p>
-              {!hasBreakdown && <PaymentBadge status={a.payment_status} compact />}
-              {tagBadge}
-            </div>
-            {!hasBreakdown && (
-              <p className="truncate text-xs text-muted-foreground">
-                {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <span className="text-sm font-semibold">{brl(displayValor)}</span>
-            {actionButtons}
-          </div>
-        </div>
-
-        {/* Layout desktop — horário e valor em destaque, centralizados. */}
-        <div className="hidden items-center justify-between gap-3 sm:flex">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="shrink-0 text-xl font-bold tabular-nums">{fmtTime(a.appointment_time)}</span>
+        {hasBreakdown ? (
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold tabular-nums">{fmtTime(a.appointment_time)}</span>
                 <p className="truncate font-medium">{a.customer_name}</p>
-                {!hasBreakdown && <PaymentBadge status={a.payment_status} compact />}
                 {tagBadge}
               </div>
-              {!hasBreakdown && (
-                <p className="truncate text-sm text-muted-foreground">
+              <p className="truncate text-xs text-muted-foreground sm:text-sm">
+                {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">{actionButtons}</div>
+          </div>
+        ) : (
+          <>
+            {/* Layout mobile — linha única, tudo lado a lado com quebra natural. */}
+            <div className="flex items-start justify-between gap-3 sm:hidden">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold">{fmtTime(a.appointment_time)}</span>
+                  <p className="truncate font-medium">{a.customer_name}</p>
+                  <PaymentBadge status={a.payment_status} compact />
+                  {tagBadge}
+                </div>
+                <p className="truncate text-xs text-muted-foreground">
                   {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
                 </p>
-              )}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <span className="text-xl font-bold tabular-nums">{brl(displayValor)}</span>
-            {actionButtons}
-          </div>
-        </div>
-
-        {/* Detalhamento — só quando existe serviço extra vinculado. */}
-        {hasBreakdown && (
-          <div className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-sm">
-            <p className="mb-1 text-xs text-muted-foreground">{barbeiroNome.get(a.barber_id) ?? "Barbeiro"}</p>
-            <div className="flex items-center justify-between gap-2 py-0.5">
-              <span className="min-w-0 truncate">{nomes}</span>
-              <div className="flex shrink-0 items-center gap-2">
-                <PaymentBadge status={a.payment_status} compact />
-                <span className="font-medium tabular-nums">{brl(valor)}</span>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="text-sm font-semibold">{brl(displayValor)}</span>
+                {actionButtons}
               </div>
             </div>
-            {kids.map((k) => (
-              <div key={k.id} className="flex items-center justify-between gap-2 py-0.5">
-                <span className="min-w-0 truncate text-muted-foreground">
-                  + {serviceNamesOf(k, totaisHook.servicosMap)}
-                </span>
-                <div className="flex shrink-0 items-center gap-1">
-                  <PaymentBadge status={k.payment_status} compact />
-                  <span className="font-medium tabular-nums">{brl(valorDe(k))}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6"
-                    onClick={() => {
-                      setEditing(k);
-                      setAddServiceTo(null);
-                      setFormOpen(true);
-                    }}
-                  >
-                    <Pencil className="size-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 text-destructive"
-                    onClick={() => setDeleting(k)}
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
+
+            {/* Layout desktop — horário e valor em destaque, centralizados. */}
+            <div className="hidden items-center justify-between gap-3 sm:flex">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="shrink-0 text-xl font-bold tabular-nums">{fmtTime(a.appointment_time)}</span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-medium">{a.customer_name}</p>
+                    <PaymentBadge status={a.payment_status} compact />
+                    {tagBadge}
+                  </div>
+                  <p className="truncate text-sm text-muted-foreground">
+                    {nomes} · {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
+                  </p>
                 </div>
               </div>
-            ))}
-            <div className="mt-1 flex items-center justify-between gap-2 border-t border-border/60 pt-1 font-semibold">
-              <span>Total</span>
-              <span className="tabular-nums">{brl(total)}</span>
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="text-xl font-bold tabular-nums">{brl(displayValor)}</span>
+                {actionButtons}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Detalhamento — só quando existe serviço extra vinculado. Um grid
+            só, pra todos os valores ficarem alinhados na mesma coluna. */}
+        {hasBreakdown && (
+          <div className="overflow-hidden rounded-lg border border-border/60">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-2 gap-y-1.5 bg-secondary/30 px-3 py-2 text-sm">
+              <span className="min-w-0 truncate">{nomes}</span>
+              <PaymentBadge status={a.payment_status} compact />
+              <span className="text-right font-medium tabular-nums">{brl(valor)}</span>
+              <span />
+
+              {kids.map((k) => (
+                <Fragment key={k.id}>
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    + {serviceNamesOf(k, totaisHook.servicosMap)}
+                  </span>
+                  <PaymentBadge status={k.payment_status} compact />
+                  <span className="text-right font-medium tabular-nums">{brl(valorDe(k))}</span>
+                  <div className="flex items-center gap-0.5 justify-self-end">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      onClick={() => {
+                        setEditing(k);
+                        setAddServiceTo(null);
+                        setFormOpen(true);
+                      }}
+                    >
+                      <Pencil className="size-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 text-destructive"
+                      onClick={() => setDeleting(k)}
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+            <div className="flex items-center justify-between bg-[color:var(--brand-from)]/10 px-3 py-2">
+              <span className="text-sm font-semibold">Total</span>
+              <span className="text-sm font-bold tabular-nums">{brl(total)}</span>
             </div>
           </div>
         )}
