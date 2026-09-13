@@ -161,10 +161,15 @@ function PainelPage() {
     if (!loading && !session) navigate({ to: "/auth" });
   }, [loading, session, navigate]);
 
-  // Nenhuma aba explícita na URL: no celular cai na tela de Início (pra
-  // admin e pra barbeiro comum); no desktop continua como já era (URL
-  // antiga/favoritada apontando pro "dashboard" padrão faz o admin cair
-  // direto no Caixa). Só verifica uma vez por carregamento da página —
+  // No celular, a tela de Início é sempre a primeira ao abrir o app — mesmo
+  // que a URL já tenha uma aba de uma sessão anterior (favorito, atalho na
+  // tela inicial, ou aba lembrada de antes dessa tela existir). As duas
+  // exceções são links com destino intencional: retorno do OAuth do Mercado
+  // Pago (`mp`, sempre manda de volta pra Pagamentos) e o fluxo de "Assinar
+  // agora" no cadastro (`assinar`, manda pro Painel pra mostrar os planos) —
+  // nesses casos respeita a aba que veio na URL. No desktop continua como já
+  // era (URL antiga/favoritada apontando pro "dashboard" padrão faz o admin
+  // cair direto no Caixa). Só verifica uma vez por carregamento da página —
   // clicar em "Painel"/"Início" na barra durante o uso não remonta o
   // componente, então isso nunca briga com uma navegação explícita.
   const appliedDefaultTabRef = useRef(false);
@@ -172,13 +177,13 @@ function PainelPage() {
     if (appliedDefaultTabRef.current || loading || !barber) return;
     appliedDefaultTabRef.current = true;
     if (isMobile) {
-      if (tabParam === undefined) {
+      if (!mp && !assinar && tabParam !== "inicio") {
         navigate({ to: "/painel", search: { tab: "inicio" }, replace: true });
       }
     } else if (barber.is_admin && (tabParam === undefined || tabParam === "dashboard")) {
       navigate({ to: "/painel", search: { tab: "caixa" }, replace: true });
     }
-  }, [loading, barber, tabParam, navigate, isMobile]);
+  }, [loading, barber, tabParam, navigate, isMobile, mp, assinar]);
 
   // "Início" só existe no celular — se a URL apontar pra lá no desktop
   // (link compartilhado, ou a janela foi redimensionada), volta pro normal.
