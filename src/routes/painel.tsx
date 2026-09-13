@@ -21,11 +21,13 @@ import {
   AlertTriangle,
   Sparkles,
   Banknote,
+  Home,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useMeBarber } from "@/hooks/use-auth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useShopConfig } from "@/hooks/use-shop";
 import { usePayoutMode } from "@/hooks/use-payout-mode";
 import { usePaymentSync } from "@/hooks/use-payment-sync";
@@ -57,6 +59,7 @@ import { PlanosTab } from "@/painel/Planos";
 import { ProducaoTab } from "@/painel/Producao";
 
 type Tab =
+  | "inicio"
   | "caixa"
   | "dashboard"
   | "agenda"
@@ -116,6 +119,7 @@ function PainelPage() {
   const loc = useLocation();
   const { tab: tabParam, mp, mp_msg, assinar } = Route.useSearch();
   const tab: Tab = tabParam ?? "dashboard";
+  const isMobile = useIsMobile();
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
@@ -157,19 +161,32 @@ function PainelPage() {
     if (!loading && !session) navigate({ to: "/auth" });
   }, [loading, session, navigate]);
 
-  // Nenhuma aba explícita na URL (ou uma URL antiga/favoritada apontando pro
-  // "dashboard" padrão): admin cai direto no Caixa. Só verifica uma vez por
-  // carregamento da página — clicar em "Painel" na barra durante o uso não
-  // remonta o componente, então isso nunca briga com uma navegação explícita
-  // (barbeiro comum continua caindo no Painel/Dashboard, como sempre).
+  // Nenhuma aba explícita na URL: no celular cai na tela de Início (pra
+  // admin e pra barbeiro comum); no desktop continua como já era (URL
+  // antiga/favoritada apontando pro "dashboard" padrão faz o admin cair
+  // direto no Caixa). Só verifica uma vez por carregamento da página —
+  // clicar em "Painel"/"Início" na barra durante o uso não remonta o
+  // componente, então isso nunca briga com uma navegação explícita.
   const appliedDefaultTabRef = useRef(false);
   useEffect(() => {
     if (appliedDefaultTabRef.current || loading || !barber) return;
     appliedDefaultTabRef.current = true;
-    if (barber.is_admin && (tabParam === undefined || tabParam === "dashboard")) {
+    if (isMobile) {
+      if (tabParam === undefined) {
+        navigate({ to: "/painel", search: { tab: "inicio" }, replace: true });
+      }
+    } else if (barber.is_admin && (tabParam === undefined || tabParam === "dashboard")) {
       navigate({ to: "/painel", search: { tab: "caixa" }, replace: true });
     }
-  }, [loading, barber, tabParam, navigate]);
+  }, [loading, barber, tabParam, navigate, isMobile]);
+
+  // "Início" só existe no celular — se a URL apontar pra lá no desktop
+  // (link compartilhado, ou a janela foi redimensionada), volta pro normal.
+  useEffect(() => {
+    if (!isMobile && tab === "inicio") {
+      navigate({ to: "/painel", search: { tab: "dashboard" }, replace: true });
+    }
+  }, [isMobile, tab, navigate]);
 
   if (loading) {
     return (
@@ -353,7 +370,9 @@ WHERE user_id = '${currentUid}';`;
         subscriptionData={subscriptionGate.data}
         onSignOut={handleSignOut}
         signingOut={signingOut}
-        onDismiss={() => navigate({ to: "/painel", search: { tab: "dashboard" } })}
+        onDismiss={() =>
+          navigate({ to: "/painel", search: { tab: isMobile ? "inicio" : "dashboard" } })
+        }
       />
     );
   }
@@ -397,13 +416,24 @@ WHERE user_id = '${currentUid}';`;
               </span>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={signingOut}>
-            <LogOut /> Sair
-          </Button>
+          {isMobile && tab !== "inicio" ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate({ to: "/painel", search: { tab: "inicio" }, replace: true })}
+            >
+              <Home /> Início
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={signingOut}>
+              <LogOut /> Sair
+            </Button>
+          )}
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
+        {tab === "inicio" && isMobile && <InicioGrid items={items} navigate={navigate} />}
         {tab === "caixa" && barber.is_admin && <CaixaTab barber={barber} />}
         {tab === "dashboard" && <DashboardTab barber={barber} />}
         {tab === "agenda" && <AgendaTab barber={barber} />}
@@ -421,40 +451,71 @@ WHERE user_id = '${currentUid}';`;
 
       </main>
 
-      <nav
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md transition-transform",
-          keyboardOpen && "pointer-events-none translate-y-full",
-        )}
-      >
-        <div className="mx-auto max-w-5xl overflow-x-auto">
-          <div className="flex min-w-max items-center gap-1 px-2 py-2">
-            {items.map((n) => {
-              const active = tab === n.id;
-              const Icon = n.icon;
-              return (
-                <Link
-                  key={n.id}
-                  to="/painel"
-                  search={{ tab: n.id }}
-                  replace
-                  className={cn(
-                    "flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-3 py-2 text-[11px] font-medium transition-colors",
-                    active
-                      ? "text-[var(--brand-from)]"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Icon className={cn("size-5", active && "drop-shadow-[0_0_8px_var(--brand-from)]")} />
-                  {n.label}
-                </Link>
-              );
-            })}
+      {!(tab === "inicio" && isMobile) && (
+        <nav
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md transition-transform",
+            keyboardOpen && "pointer-events-none translate-y-full",
+          )}
+        >
+          <div className="mx-auto max-w-5xl overflow-x-auto">
+            <div className="flex min-w-max items-center gap-1 px-2 py-2">
+              {items.map((n) => {
+                const active = tab === n.id;
+                const Icon = n.icon;
+                return (
+                  <Link
+                    key={n.id}
+                    to="/painel"
+                    search={{ tab: n.id }}
+                    replace
+                    className={cn(
+                      "flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-3 py-2 text-[11px] font-medium transition-colors",
+                      active
+                        ? "text-[var(--brand-from)]"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Icon className={cn("size-5", active && "drop-shadow-[0_0_8px_var(--brand-from)]")} />
+                    {n.label}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        </div>
-        <div style={{ height: "env(safe-area-inset-bottom)" }} />
-        <span className="hidden">{loc.pathname}</span>
-      </nav>
+          <div style={{ height: "env(safe-area-inset-bottom)" }} />
+          <span className="hidden">{loc.pathname}</span>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+function InicioGrid({
+  items,
+  navigate,
+}: {
+  items: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[];
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {items.map((n) => {
+        const Icon = n.icon;
+        return (
+          <button
+            key={n.id}
+            type="button"
+            onClick={() => navigate({ to: "/painel", search: { tab: n.id }, replace: true })}
+            className="surface flex flex-col items-center justify-center gap-3 rounded-2xl p-6 text-center transition-colors hover:border-primary active:scale-[0.98]"
+          >
+            <div className="brand-gradient flex size-14 items-center justify-center rounded-full">
+              <Icon className="size-7 text-white" />
+            </div>
+            <span className="text-sm font-medium">{n.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
