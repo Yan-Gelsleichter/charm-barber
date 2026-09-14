@@ -148,7 +148,9 @@ function PainelPage() {
   useApplyPrimaryColor(barber?.primary_color ?? shop?.primary_color ?? null);
   const { data: payoutMode } = usePayoutMode(barber?.barbershop_id ?? null);
   const splitOn = payoutMode === "split";
-  usePaymentSync(!!barber);
+  // Não roda parado na tela de Início — lá não tem nada de pagamento pra
+  // mostrar, e essa checagem repete a cada 3s enquanto estiver ligada.
+  usePaymentSync(!!barber && tab !== "inicio");
   const subscriptionGate = useSubscriptionGate(barber?.barbershop_id ?? null);
 
 

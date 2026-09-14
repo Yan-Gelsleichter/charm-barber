@@ -80,6 +80,12 @@ export function useFaturamentoTotais(
       if (s.error) throw s.error;
       return { barbeiros, ag: a.data as Appointment[], sv: s.data as Service[] };
     },
+    // Essa busca traz o ano inteiro de agendamentos — sem isso, cada vez
+    // que o Caixa/Faturamento remonta (ex.: ao voltar pra aba vindo da
+    // tela de Início) ela refaz a busca inteira de novo. usePaymentSync já
+    // invalida essa query manualmente assim que confirma um pagamento, então
+    // isso não atrasa a atualização quando o dinheiro realmente cai.
+    staleTime: 30_000,
   });
 
   const precos = useMemo(

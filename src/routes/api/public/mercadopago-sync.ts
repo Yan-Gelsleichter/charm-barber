@@ -96,10 +96,16 @@ export const Route = createFileRoute("/api/public/mercadopago-sync")({
           const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
           // Inclui agendamentos sem mp_payment_id: o pagamento também pode ser
           // encontrado pelo external_reference (o próprio id do agendamento).
+          // Nunca inclui avulsos/serviços extras (is_walk_in=true) — esses
+          // nunca passam pelo Mercado Pago, só são resolvidos manualmente
+          // pelo Caixa (Dinheiro/Pix/Cartão); incluí-los aqui só desperdiça
+          // até 5 chamadas à API do MP por linha, a cada 3 segundos, sem
+          // nunca encontrar nada.
           let query = admin
             .from("appointments")
             .select("id, barber_id, barbershop_id, mp_payment_id, payment_status, paid_at")
             .in("payment_status", ["pendente", "em_analise", "processando"])
+            .eq("is_walk_in", false)
             .gte("appointment_time", since)
             .limit(MAX_APPOINTMENTS);
           query = barber.is_admin
@@ -123,51 +129,58 @@ export const Route = createFileRoute("/api/public/mercadopago-sync")({
           }>;
 
           const cache = new Map<string, string | null>();
-          let updated = 0;
 
-          for (const row of pending) {
-            const token = await resolveToken(admin, cache, row.barber_id, row.barbershop_id);
-            if (!token) continue;
+          // Em paralelo, não um de cada vez: cada agendamento pendente pode
+          // custar até 5 chamadas sequenciais à API do MP (ver
+          // findMercadoPagoPayment) — feito um a um, poucos pendentes já
+          // deixavam essa checagem (que roda a cada 3s) mais lenta que o
+          // próprio intervalo entre execuções.
+          const results = await Promise.all(
+            pending.map(async (row) => {
+              const token = await resolveToken(admin, cache, row.barber_id, row.barbershop_id);
+              if (!token) return false;
 
-            const payment = await findMercadoPagoPayment({
-              token,
-              appointmentId: row.id,
-              storedRef: row.mp_payment_id,
-            });
-            if (!payment) continue;
-
-            const paymentStatus = mapPaymentStatus(payment.status);
-            if (paymentStatus === "pendente") continue;
-
-            const patch: Record<string, unknown> = {
-              payment_status: paymentStatus,
-              payment_method: "online",
-              paid_at:
-                paymentStatus === "pago" ? (row.paid_at ?? new Date().toISOString()) : null,
-              ...(paymentStatus === "pago" ? { status: "confirmado" } : {}),
-            };
-            if (payment.id) patch["mp_payment_id"] = String(payment.id);
-
-            const { data: persisted, error: updateError } = await admin
-              .from("appointments")
-              .update(patch)
-              .eq("id", row.id)
-              .select("id, payment_status, status")
-              .maybeSingle();
-            if (
-              updateError ||
-              !persisted ||
-              (paymentStatus === "pago" && persisted.payment_status !== "pago")
-            ) {
-              console.error("Sync MP: falha ao atualizar ou confirmar agendamento", {
+              const payment = await findMercadoPagoPayment({
+                token,
                 appointmentId: row.id,
-                updateError,
-                persisted,
+                storedRef: row.mp_payment_id,
               });
-              continue;
-            }
-            updated += 1;
-          }
+              if (!payment) return false;
+
+              const paymentStatus = mapPaymentStatus(payment.status);
+              if (paymentStatus === "pendente") return false;
+
+              const patch: Record<string, unknown> = {
+                payment_status: paymentStatus,
+                payment_method: "online",
+                paid_at:
+                  paymentStatus === "pago" ? (row.paid_at ?? new Date().toISOString()) : null,
+                ...(paymentStatus === "pago" ? { status: "confirmado" } : {}),
+              };
+              if (payment.id) patch["mp_payment_id"] = String(payment.id);
+
+              const { data: persisted, error: updateError } = await admin
+                .from("appointments")
+                .update(patch)
+                .eq("id", row.id)
+                .select("id, payment_status, status")
+                .maybeSingle();
+              if (
+                updateError ||
+                !persisted ||
+                (paymentStatus === "pago" && persisted.payment_status !== "pago")
+              ) {
+                console.error("Sync MP: falha ao atualizar ou confirmar agendamento", {
+                  appointmentId: row.id,
+                  updateError,
+                  persisted,
+                });
+                return false;
+              }
+              return true;
+            }),
+          );
+          const updated = results.filter(Boolean).length;
 
           return json({ checked: pending.length, updated });
 
