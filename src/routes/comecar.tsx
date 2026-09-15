@@ -15,7 +15,7 @@ import { postPublicApi } from "@/lib/api-fetch";
 import { phoneDigits, capitalizeWords } from "@/lib/format";
 
 export const Route = createFileRoute("/comecar")({
-  head: () => ({ meta: [{ title: "Comece grátis — VIP BARBER" }] }),
+  head: () => ({ meta: [{ title: "Comece grátis — APP BARBEARIAS" }] }),
   validateSearch: (s: Record<string, unknown>): { intent?: "assinar" } => ({
     intent: s.intent === "assinar" ? "assinar" : undefined,
   }),
@@ -112,7 +112,7 @@ function ComecarPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-10">
       <div className="text-center">
-        <BrandTitle>VIP BARBER</BrandTitle>
+        <BrandTitle>APP BARBEARIAS</BrandTitle>
         <p className="mt-2 text-sm text-muted-foreground">Cadastre sua barbearia</p>
       </div>
 

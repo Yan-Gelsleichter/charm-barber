@@ -92,7 +92,7 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
 
 
 export const Route = createFileRoute("/painel")({
-  head: () => ({ meta: [{ title: "Painel — VIP BARBER" }] }),
+  head: () => ({ meta: [{ title: "Painel — APP BARBEARIAS" }] }),
   validateSearch: (
     s: Record<string, unknown>,
   ): { tab?: Tab; mp?: string; mp_msg?: string; assinar?: string } => ({

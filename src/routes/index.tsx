@@ -17,7 +17,7 @@ import { IosAddToHomeBanner } from "@/components/IosAddToHomeBanner";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "VIP BARBER — Agende seu corte" },
+      { title: "APP BARBEARIAS — Agende seu corte" },
       {
         name: "description",
         content: "Escolha seu barbeiro favorito e agende em poucos toques.",
@@ -115,7 +115,7 @@ function Home() {
 
 
       <section className="mt-10 text-center">
-        <BrandTitle>{shop?.business_name?.trim() || "VIP BARBER"}</BrandTitle>
+        <BrandTitle>{shop?.business_name?.trim() || "APP BARBEARIAS"}</BrandTitle>
         <p className="mt-3 text-base text-muted-foreground">
           Escolha seu barbeiro e agende em poucos toques.
         </p>

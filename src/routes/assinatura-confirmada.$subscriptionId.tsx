@@ -15,7 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/assinatura-confirmada/$subscriptionId")({
-  head: () => ({ meta: [{ title: "Assinatura — VIP BARBER" }] }),
+  head: () => ({ meta: [{ title: "Assinatura — APP BARBEARIAS" }] }),
   component: ConfirmacaoAssinaturaPage,
 });
 

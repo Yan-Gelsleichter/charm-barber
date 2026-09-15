@@ -12,7 +12,7 @@ import { PasswordInput } from "@/components/PasswordInput";
 import { BrandTitle } from "@/components/Brand";
 
 export const Route = createFileRoute("/redefinir-senha")({
-  head: () => ({ meta: [{ title: "Redefinir senha — VIP BARBER" }] }),
+  head: () => ({ meta: [{ title: "Redefinir senha — APP BARBEARIAS" }] }),
   validateSearch: (s: Record<string, unknown>): { barbershop_id?: string; shop?: string } => ({
     barbershop_id: typeof s.barbershop_id === "string" ? s.barbershop_id : undefined,
     shop: typeof s.shop === "string" ? s.shop : undefined,
@@ -103,7 +103,7 @@ function RedefinirSenhaPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-10">
       <div className="text-center">
-        <BrandTitle>VIP BARBER</BrandTitle>
+        <BrandTitle>APP BARBEARIAS</BrandTitle>
         <p className="mt-2 text-sm text-muted-foreground">Redefinir senha</p>
       </div>
 

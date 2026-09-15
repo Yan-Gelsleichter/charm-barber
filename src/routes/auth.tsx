@@ -39,7 +39,7 @@ import { PhoneInput } from "@/components/PhoneInput";
 import { brl, phoneDigits } from "@/lib/format";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Entrar — VIP BARBER" }] }),
+  head: () => ({ meta: [{ title: "Entrar — APP BARBEARIAS" }] }),
   component: AuthPage,
 });
 
@@ -273,7 +273,7 @@ function AuthPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-10">
       <div className="text-center">
-        <BrandTitle>{shopName ?? "VIP BARBER"}</BrandTitle>
+        <BrandTitle>{shopName ?? "APP BARBEARIAS"}</BrandTitle>
         <p className="mt-2 text-sm text-muted-foreground">
           {isSignup ? "Criar conta de cliente" : "Entrar na sua conta"}
         </p>

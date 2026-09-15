@@ -20,9 +20,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/agendar/$barbeiroId")({
   head: () => ({
     meta: [
-      { title: "Agendar horário — VIP BARBER" },
+      { title: "Agendar horário — APP BARBEARIAS" },
       { name: "description", content: "Escolha um serviço, data e horário para seu atendimento." },
-      { property: "og:title", content: "Agendar horário — VIP BARBER" },
+      { property: "og:title", content: "Agendar horário — APP BARBEARIAS" },
       { property: "og:description", content: "Escolha um serviço, data e horário para seu atendimento." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

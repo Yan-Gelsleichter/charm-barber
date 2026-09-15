@@ -26,7 +26,7 @@ const messaging = firebase.messaging();
 // comentário em src/lib/push.server.ts. Isso garante que só este código
 // mostra a notificação, nunca duas vezes.
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.data?.title ?? "VIP BARBER";
+  const title = payload.data?.title ?? "APP BARBEARIAS";
   const options = {
     body: payload.data?.body ?? "",
     data: payload.data ?? {},

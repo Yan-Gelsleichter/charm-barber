@@ -83,13 +83,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       // Faz o site abrir em tela cheia (sem a barra de endereço do Safari)
       // quando aberto a partir do ícone salvo na Tela de Início.
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { title: "VIP BARBER — Agende seu corte" },
+      { title: "APP BARBEARIAS — Agende seu corte" },
       { name: "description", content: "Escolha seu barbeiro favorito e agende em poucos toques." },
-      { property: "og:title", content: "VIP BARBER — Agende seu corte" },
+      { property: "og:title", content: "APP BARBEARIAS — Agende seu corte" },
       { property: "og:description", content: "Escolha seu barbeiro favorito e agende em poucos toques." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "VIP BARBER — Agende seu corte" },
+      { name: "twitter:title", content: "APP BARBEARIAS — Agende seu corte" },
       { name: "twitter:description", content: "Escolha seu barbeiro favorito e agende em poucos toques." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c49cea74-af85-48fc-b0ae-7683eb29be69/id-preview-e7968e53--f8e58623-77fe-4f6a-9a93-94bca800c277.lovable.app-1783530490744.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c49cea74-af85-48fc-b0ae-7683eb29be69/id-preview-e7968e53--f8e58623-77fe-4f6a-9a93-94bca800c277.lovable.app-1783530490744.png" },

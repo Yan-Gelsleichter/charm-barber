@@ -24,7 +24,7 @@ const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/meus-agendamentos")({
-  head: () => ({ meta: [{ title: "Meus agendamentos — VIP BARBER" }] }),
+  head: () => ({ meta: [{ title: "Meus agendamentos — APP BARBEARIAS" }] }),
   validateSearch: (s: Record<string, unknown>): { cliente?: boolean; agendamento?: string } => ({
     cliente: s.cliente === "1" || s.cliente === true,
     agendamento: typeof s.agendamento === "string" && s.agendamento ? s.agendamento : undefined,

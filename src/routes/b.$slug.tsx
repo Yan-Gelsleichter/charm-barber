@@ -7,7 +7,7 @@ import { useSession, isClientAccount } from "@/hooks/use-auth";
 import { BrandMark } from "@/components/Brand";
 
 export const Route = createFileRoute("/b/$slug")({
-  head: () => ({ meta: [{ title: "Entrar — VIP BARBER" }] }),
+  head: () => ({ meta: [{ title: "Entrar — APP BARBEARIAS" }] }),
   component: BarbershopLinkPage,
 });
 

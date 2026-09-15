@@ -17,7 +17,7 @@ import { brl } from "@/lib/format";
 import { postPublicApi } from "@/lib/api-fetch";
 
 export const Route = createFileRoute("/assinar/$barbershopId")({
-  head: () => ({ meta: [{ title: "Planos de assinatura — VIP BARBER" }] }),
+  head: () => ({ meta: [{ title: "Planos de assinatura — APP BARBEARIAS" }] }),
   component: AssinarPage,
 });
 

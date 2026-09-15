@@ -14,7 +14,7 @@ export function BrandTitle({
         className,
       )}
     >
-      {children ?? "VIP BARBER"}
+      {children ?? "APP BARBEARIAS"}
     </h1>
   );
 }
@@ -25,7 +25,7 @@ export function BrandMark({ size = 40 }: { size?: number }) {
       className="brand-gradient flex items-center justify-center rounded-2xl text-white font-bold"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
     >
-      VB
+      AB
     </div>
   );
 }
