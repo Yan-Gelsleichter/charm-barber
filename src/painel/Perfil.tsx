@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { useDarkMode } from "@/lib/theme";
 import { publicAppOrigin } from "@/lib/app-url";
 import { postPublicApi } from "@/lib/api-fetch";
-import { brl, fmtDate } from "@/lib/format";
+import { brl, fmtDate, capitalizeWords } from "@/lib/format";
 import { useSubscriptionStatusQuery } from "@/hooks/use-subscription-gate";
 
 
@@ -183,7 +183,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
           <Input
             id="name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(capitalizeWords(e.target.value))}
             placeholder="Seu nome"
           />
         </div>
@@ -193,7 +193,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
           <Input
             id="bname"
             value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
+            onChange={(e) => setBusinessName(capitalizeWords(e.target.value))}
             placeholder="Ex.: VIP Barber Studio"
           />
         </div>
