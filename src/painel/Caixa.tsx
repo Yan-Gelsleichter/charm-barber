@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { postPublicApi } from "@/lib/api-fetch";
-import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
+import { brl, fmtTime, DIAS_SEMANA, capitalizeWords } from "@/lib/format";
 import { brazilDateKey, brazilDayBounds, brazilDateTime, BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 import { useFaturamentoTotais, type Periodo } from "@/hooks/use-faturamento-totais";
@@ -743,7 +743,11 @@ function WalkinDialog({
               </label>
               <label className="grid gap-1 text-xs text-muted-foreground">
                 Nome do cliente
-                <Input value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
+                <Input
+                  value={nome}
+                  maxLength={80}
+                  onChange={(e) => setNome(capitalizeWords(e.target.value))}
+                />
               </label>
             </>
           )}

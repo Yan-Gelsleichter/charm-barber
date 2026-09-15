@@ -115,6 +115,14 @@ export function maskPersonName(value: string, max = 80): string {
     .slice(0, max);
 }
 
+/**
+ * Deixa maiúscula a primeira letra de cada palavra (nome e sobrenomes) —
+ * só a primeira letra de cada uma, o resto do que foi digitado não muda.
+ */
+export function capitalizeWords(value: string): string {
+  return value.replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
+}
+
 /** Número do endereço: dígitos e letras curtas (ex.: 123B, S/N). */
 export function maskAddressNumber(value: string): string {
   return value

@@ -12,7 +12,7 @@ import { EmailInput } from "@/components/EmailInput";
 import { PasswordInput } from "@/components/PasswordInput";
 import { PhoneInput } from "@/components/PhoneInput";
 import { postPublicApi } from "@/lib/api-fetch";
-import { phoneDigits } from "@/lib/format";
+import { phoneDigits, capitalizeWords } from "@/lib/format";
 
 export const Route = createFileRoute("/comecar")({
   head: () => ({ meta: [{ title: "Comece grátis — VIP BARBER" }] }),
@@ -124,14 +124,19 @@ function ComecarPage() {
       <form onSubmit={onSubmit} className="surface mt-6 space-y-5 p-6">
         <div className="space-y-2">
           <Label htmlFor="name">Seu nome</Label>
-          <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
+          <Input
+            id="name"
+            value={name}
+            onChange={(e) => setName(capitalizeWords(e.target.value))}
+            placeholder="Seu nome"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="business-name">Nome da barbearia</Label>
           <Input
             id="business-name"
             value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
+            onChange={(e) => setBusinessName(capitalizeWords(e.target.value))}
             placeholder="Ex.: Barbearia do João"
           />
         </div>

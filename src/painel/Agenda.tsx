@@ -18,7 +18,7 @@ import {
   isCancellationMarker,
   isBlock,
 } from "@/lib/availability";
-import { brl, fmtTime, DIAS_SEMANA } from "@/lib/format";
+import { brl, fmtTime, DIAS_SEMANA, capitalizeWords } from "@/lib/format";
 import { brazilDateTime, brazilDateKey, brazilDayBounds, BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
@@ -379,7 +379,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                 value={novoNome}
                 maxLength={80}
                 placeholder="Ex.: João Silva"
-                onChange={(e) => setNovoNome(e.target.value)}
+                onChange={(e) => setNovoNome(capitalizeWords(e.target.value))}
               />
             </label>
             <div className="grid min-w-0 gap-3 sm:grid-cols-2">

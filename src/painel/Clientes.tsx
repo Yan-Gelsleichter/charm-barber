@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmailInput } from "@/components/EmailInput";
 import { PhoneInput } from "@/components/PhoneInput";
+import { capitalizeWords } from "@/lib/format";
 
 export function ClientesTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
@@ -146,7 +147,11 @@ export function ClientesTab({ barber }: { barber: Barber }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-1">
             <Label>Nome</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" />
+            <Input
+              value={name}
+              onChange={(e) => setName(capitalizeWords(e.target.value))}
+              placeholder="Nome completo"
+            />
           </div>
           <div className="space-y-1">
             <Label>E-mail</Label>
