@@ -14,7 +14,7 @@ import {
   RefreshCw,
   UserRound,
   CreditCard,
-  Wallet,
+  Trophy,
   Repeat,
   TrendingUp,
   Lock,
@@ -86,7 +86,7 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
   { id: "pagamentos", label: "Pagamentos", icon: CreditCard },
-  { id: "faturamentos", label: "Faturamentos", icon: Wallet, adminOnly: true },
+  { id: "faturamentos", label: "Ranking", icon: Trophy, adminOnly: true },
   { id: "perfil", label: "Perfil", icon: UserRound },
 ];
 
