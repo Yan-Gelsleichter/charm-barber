@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -186,6 +186,24 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Comparecimento confirmado é o que conta ponto de fidelidade — só o
+  // horário ter passado não é suficiente (um no-show não deve contar).
+  const confirmAttendance = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const token = await bearerToken();
+      return postPublicApi<{ attendance_confirmed?: boolean }>(
+        "/api/public/appointment-confirm-attendance",
+        { appointment_id: appointmentId },
+        token,
+      );
+    },
+    onSuccess: (result) => {
+      toast.success(result?.attendance_confirmed ? "Comparecimento confirmado" : "Confirmação desfeita");
+      qc.invalidateQueries({ queryKey: ["caixa-dia"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [addServiceTo, setAddServiceTo] = useState<Appointment | null>(null);
@@ -300,6 +318,21 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     // pago enquanto o extra ainda não.
     const pendingLines = [a, ...kids].filter((x) => x.payment_status === "pendente");
 
+    // Só conta ponto de fidelidade quando confirmado — por isso só aparece
+    // em linhas já pagas, e é sempre uma ação manual (nunca automática).
+    const confirmAttendanceButton = a.payment_status === "pago" && (
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn("size-7", a.attendance_confirmed && "text-[color:var(--success)]")}
+        title={a.attendance_confirmed ? "Comparecimento confirmado — clique pra desfazer" : "Confirmar comparecimento"}
+        disabled={confirmAttendance.isPending}
+        onClick={() => confirmAttendance.mutate(a.id)}
+      >
+        <CheckCircle2 className={cn("size-3.5", a.attendance_confirmed && "fill-[color:var(--success)]/20")} />
+      </Button>
+    );
+
     return (
       <div key={a.id} className="surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4">
         {/* Cabeçalho — mesmo formato pra avulso, serviço extra e agendamento do app. */}
@@ -314,7 +347,10 @@ export function CaixaTab({ barber }: { barber: Barber }) {
               {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-1">{actionButtons}</div>
+          <div className="flex shrink-0 items-center gap-1">
+            {confirmAttendanceButton}
+            {actionButtons}
+          </div>
         </div>
 
         {/* Uma linha por SERVIÇO (não por agendamento) — o mesmo padrão do

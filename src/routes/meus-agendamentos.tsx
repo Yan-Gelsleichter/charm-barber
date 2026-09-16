@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, CreditCard, Loader2, LogOut, RefreshCw, X, Repeat } from "lucide-react";
+import { CalendarDays, CreditCard, Loader2, LogOut, RefreshCw, X, Repeat, Gift } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -181,6 +181,28 @@ function MeusAgendamentosPage() {
     },
   });
 
+  type LoyaltyStatus = {
+    program: { id: string; name: string; scope: "generic" | "services"; goal: number };
+    serviceNames: string[];
+    progressInCycle: number;
+    availableNow: number;
+  };
+  // Mesma identidade usada pra buscar os agendamentos (telefone), e a mesma
+  // barbearia do agendamento mais recente — cada barbearia tem seu próprio
+  // progresso isolado, mesmo telefone.
+  const firstAppt = dataQ.data?.appointments[0];
+  const loyaltyBarbershopId = firstAppt?.barbershop_id ?? null;
+  const loyaltyPhone = phone || phoneDigits(firstAppt?.customer_phone ?? "");
+  const loyaltyQ = useQuery({
+    queryKey: ["loyalty-status", loyaltyBarbershopId, loyaltyPhone],
+    enabled: !!session && !!loyaltyBarbershopId && loyaltyPhone.length >= 8,
+    queryFn: async () =>
+      postPublicApi<{ programs: LoyaltyStatus[] }>("/api/public/loyalty-status", {
+        barbershop_id: loyaltyBarbershopId,
+        customer_phone: loyaltyPhone,
+      }),
+  });
+
   const cancelSubscription = useMutation({
     mutationFn: async (subscriptionId: string) => {
       const token = session?.access_token;
@@ -320,6 +342,42 @@ function MeusAgendamentosPage() {
                         Cancelar
                       </Button>
                     )
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {session && loyaltyQ.data && loyaltyQ.data.programs.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Fidelidade
+          </h2>
+          <div className="surface mb-2 p-4 text-xs text-muted-foreground">
+            Acumule pontos a cada serviço realizado e troque por produtos ou serviços exclusivos.
+            Cuide de si mesmo e ainda ganhe benefícios com a fidelidade.
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {loyaltyQ.data.programs.map((p) => {
+              const label = p.program.scope === "generic" ? "atendimentos" : p.serviceNames.join(" + ") || "atendimentos";
+              const progress = p.progressInCycle % p.program.goal;
+              return (
+                <div key={p.program.id} className="surface flex items-center justify-between gap-3 p-4">
+                  <div className="flex items-center gap-3">
+                    <Gift className="size-5 text-success" />
+                    <div>
+                      <p className="font-semibold">{p.program.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {progress}/{p.program.goal} {label}
+                      </p>
+                    </div>
+                  </div>
+                  {p.availableNow >= 1 && (
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                      {p.availableNow} {p.availableNow > 1 ? "resgates disponíveis" : "resgate disponível"}
+                    </span>
                   )}
                 </div>
               );

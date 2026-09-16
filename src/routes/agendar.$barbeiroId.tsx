@@ -49,6 +49,7 @@ function AgendarPage() {
   const [date, setDate] = useState<Date | undefined>(() => (data ? new Date(`${data}T12:00:00`) : new Date()));
   const [slotIso, setSlotIso] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [useLoyaltyProgramId, setUseLoyaltyProgramId] = useState<string | null>(null);
 
   const meta = (session?.user.user_metadata ?? {}) as Record<string, string | undefined>;
   const [clientName, setClientName] = useState(() =>
@@ -193,6 +194,33 @@ function AgendarPage() {
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration_minutes, 0);
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
 
+  type LoyaltyStatus = {
+    program: { id: string; name: string; scope: "generic" | "services"; goal: number };
+    serviceIds: string[];
+    availableNow: number;
+    progressInCycle: number;
+  };
+  const loyaltyPhoneDigits = phoneDigits(clientPhone);
+  const loyaltyBarbershopId = barberQ.data?.barbershop_id ?? null;
+  const loyaltyQ = useQuery({
+    queryKey: ["loyalty-status", loyaltyBarbershopId, loyaltyPhoneDigits],
+    enabled: Boolean(loyaltyBarbershopId) && loyaltyPhoneDigits.length >= 10,
+    queryFn: async () =>
+      postPublicApi<{ programs: LoyaltyStatus[] }>("/api/public/loyalty-status", {
+        barbershop_id: loyaltyBarbershopId,
+        customer_phone: loyaltyPhoneDigits,
+      }),
+  });
+  // Só oferece o resgate pra programas com resgate disponível cujos
+  // serviços batem com o que o cliente escolheu (genérico sempre bate).
+  const eligibleLoyaltyPrograms = (loyaltyQ.data?.programs ?? []).filter(
+    (p) =>
+      p.availableNow >= 1 &&
+      (p.program.scope === "generic" || serviceIds.some((id) => p.serviceIds.includes(id))),
+  );
+  const selectedLoyaltyProgram =
+    eligibleLoyaltyPrograms.find((p) => p.program.id === useLoyaltyProgramId) ?? null;
+
   const slots = useMemo(() => {
     // Só monta os horários quando a agenda do dia já chegou, senão tudo apareceria livre.
     if (!date || selectedServices.length === 0 || !hoursQ.data || !agendaQ.data) return [];
@@ -232,6 +260,7 @@ function AgendarPage() {
         customer_phone: phoneDigits(customerPhone),
         email: clientEmail,
         appointment_time: slotIso,
+        loyalty_program_id: selectedLoyaltyProgram?.program.id,
       };
       type CreateResult = {
         id?: string;
@@ -246,6 +275,7 @@ function AgendarPage() {
           appointment_time: string;
         };
         covered_by_subscription?: boolean;
+        covered_by_loyalty_program?: boolean;
         error?: string;
       };
 
@@ -311,10 +341,14 @@ function AgendarPage() {
         }
       }
 
-      return { id: createdId, covered: Boolean(payload.covered_by_subscription) };
+      return {
+        id: createdId,
+        covered: Boolean(payload.covered_by_subscription),
+        coveredByLoyalty: Boolean(payload.covered_by_loyalty_program),
+      };
 
     },
-    onSuccess: async ({ id: appointmentId, covered }) => {
+    onSuccess: async ({ id: appointmentId, covered, coveredByLoyalty }) => {
       // Pede a permissão de notificação (pro lembrete do agendamento) sem
       // travar a navegação — se o cliente recusar, ou for iPhone sem o site
       // instalado na tela de início, simplesmente não tem lembrete pra esse
@@ -335,7 +369,15 @@ function AgendarPage() {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["agenda", barbeiroId] }),
         qc.invalidateQueries({ queryKey: ["my-appointments"] }),
+        qc.invalidateQueries({ queryKey: ["loyalty-status"] }),
       ]);
+      if (coveredByLoyalty) {
+        toast.success("Resgate aplicado! Este atendimento é grátis.", {
+          description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
+        });
+        navigate({ to: "/meus-agendamentos" });
+        return;
+      }
       if (covered) {
         toast.success("Horário reservado! Incluso na sua assinatura.", {
           description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
@@ -526,6 +568,38 @@ function AgendarPage() {
                 />
               </label>
             </div>
+            {eligibleLoyaltyPrograms.length > 0 && (
+              <div className="surface space-y-2 p-4">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Fidelidade
+                </p>
+                {eligibleLoyaltyPrograms.map((p) => {
+                  const selected = useLoyaltyProgramId === p.program.id;
+                  return (
+                    <button
+                      key={p.program.id}
+                      type="button"
+                      onClick={() => setUseLoyaltyProgramId(selected ? null : p.program.id)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl border p-3 text-left text-sm transition-all",
+                        selected
+                          ? "brand-gradient-soft border-transparent shadow-[var(--shadow-elev)]"
+                          : "border-border bg-card/60 hover:border-border/80",
+                      )}
+                    >
+                      <span>
+                        <span className="font-medium">Usar resgate — {p.program.name}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          Este atendimento sai grátis ({p.availableNow}{" "}
+                          {p.availableNow > 1 ? "disponíveis" : "disponível"})
+                        </span>
+                      </span>
+                      {selected && <Check className="size-4 shrink-0 text-[color:var(--success)]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="surface space-y-3 p-4 text-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -540,7 +614,18 @@ function AgendarPage() {
                     {totalDuration} min
                   </p>
                 </div>
-                <p className="brand-text font-bold">{brl(totalPrice)}</p>
+                <p className="brand-text font-bold">
+                  {selectedLoyaltyProgram ? (
+                    <>
+                      <span className="mr-1 text-xs font-normal text-muted-foreground line-through">
+                        {brl(totalPrice)}
+                      </span>
+                      Grátis
+                    </>
+                  ) : (
+                    brl(totalPrice)
+                  )}
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3">
                 <div>

@@ -82,6 +82,9 @@ export type Appointment = {
   service_ids?: string[] | null;
   duration_minutes_snapshot?: number | null;
   parent_appointment_id?: string | null;
+  covered_by_loyalty_program_id?: string | null;
+  attendance_confirmed?: boolean | null;
+  attendance_confirmed_at?: string | null;
 };
 export type AppointmentInsert = {
   id?: string;
@@ -106,6 +109,9 @@ export type AppointmentInsert = {
   service_ids?: string[] | null;
   duration_minutes_snapshot?: number | null;
   parent_appointment_id?: string | null;
+  covered_by_loyalty_program_id?: string | null;
+  attendance_confirmed?: boolean | null;
+  attendance_confirmed_at?: string | null;
 };
 
 
@@ -257,6 +263,55 @@ export type SubscriptionChargeInsert = {
   paid_at?: string | null;
 };
 
+export type LoyaltyProgramScope = "generic" | "services";
+
+export type LoyaltyProgram = {
+  id: string;
+  barbershop_id: string;
+  name: string;
+  scope: LoyaltyProgramScope;
+  goal: number;
+  include_walk_in: boolean;
+  active: boolean;
+  created_at?: string;
+};
+export type LoyaltyProgramInsert = {
+  id?: string;
+  barbershop_id: string;
+  name: string;
+  scope?: LoyaltyProgramScope;
+  goal: number;
+  include_walk_in?: boolean;
+  active?: boolean;
+};
+
+export type LoyaltyProgramService = {
+  id: string;
+  program_id: string;
+  service_id: string;
+};
+export type LoyaltyProgramServiceInsert = {
+  id?: string;
+  program_id: string;
+  service_id: string;
+};
+
+export type LoyaltyRedemption = {
+  id: string;
+  program_id: string;
+  barbershop_id: string;
+  customer_phone: string;
+  appointment_id: string | null;
+  created_at?: string;
+};
+export type LoyaltyRedemptionInsert = {
+  id?: string;
+  program_id: string;
+  barbershop_id: string;
+  customer_phone: string;
+  appointment_id?: string | null;
+};
+
 type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
 
 export type Database = {
@@ -274,6 +329,9 @@ export type Database = {
       subscription_plan_barbers: Table<SubscriptionPlanBarber, SubscriptionPlanBarberInsert>;
       client_subscriptions: Table<ClientSubscription, ClientSubscriptionInsert>;
       subscription_charges: Table<SubscriptionCharge, SubscriptionChargeInsert>;
+      loyalty_programs: Table<LoyaltyProgram, LoyaltyProgramInsert>;
+      loyalty_program_services: Table<LoyaltyProgramService, LoyaltyProgramServiceInsert>;
+      loyalty_redemptions: Table<LoyaltyRedemption, LoyaltyRedemptionInsert>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

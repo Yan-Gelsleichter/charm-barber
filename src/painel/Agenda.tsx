@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X, Lock, RefreshCw, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Lock, RefreshCw, Plus, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ import {
   isCancellationMarker,
   isBlock,
 } from "@/lib/availability";
-import { brl, fmtTime, DIAS_SEMANA, capitalizeWords } from "@/lib/format";
+import { brl, fmtTime, DIAS_SEMANA, capitalizeWords, phoneDigits } from "@/lib/format";
 import { brazilDateTime, brazilDateKey, brazilDayBounds, BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { PaymentBadge } from "@/components/PaymentBadge";
@@ -146,6 +146,33 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   const [novoTelefone, setNovoTelefone] = useState("");
   const [novoEmail, setNovoEmail] = useState("");
   const [novoServicos, setNovoServicos] = useState<string[]>([]);
+  const [novoLoyaltyProgramId, setNovoLoyaltyProgramId] = useState<string | null>(null);
+
+  type LoyaltyStatus = {
+    program: { id: string; name: string; scope: "generic" | "services"; goal: number };
+    serviceIds: string[];
+    availableNow: number;
+    progressInCycle: number;
+  };
+  const novoLoyaltyPhoneDigits = phoneDigits(novoTelefone);
+  const novoLoyaltyQ = useQuery({
+    queryKey: ["loyalty-status", barber.barbershop_id, novoLoyaltyPhoneDigits],
+    enabled: Boolean(barber.barbershop_id) && novoLoyaltyPhoneDigits.length >= 10,
+    queryFn: async () =>
+      postPublicApi<{ programs: LoyaltyStatus[] }>("/api/public/loyalty-status", {
+        barbershop_id: barber.barbershop_id,
+        customer_phone: novoLoyaltyPhoneDigits,
+      }),
+  });
+  // Mesma regra de elegibilidade da tela pública do cliente: resgate
+  // disponível e serviço(s) escolhido(s) batem com o escopo do programa.
+  const eligibleNovoLoyaltyPrograms = (novoLoyaltyQ.data?.programs ?? []).filter(
+    (p) =>
+      p.availableNow >= 1 &&
+      (p.program.scope === "generic" || novoServicos.some((id) => p.serviceIds.includes(id))),
+  );
+  const selectedNovoLoyaltyProgram =
+    eligibleNovoLoyaltyPrograms.find((p) => p.program.id === novoLoyaltyProgramId) ?? null;
 
   const criarAgendamento = useMutation({
     mutationFn: async (inicio: Date) => {
@@ -169,6 +196,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           customer_phone: string;
           appointment_time: string;
         };
+        covered_by_loyalty_program?: boolean;
         error?: string;
       }>(
         "/api/public/appointment-create",
@@ -179,6 +207,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           customer_phone: telefone.replace(/\D/g, ""),
           email: novoEmail.trim() || null,
           appointment_time: inicio.toISOString(),
+          loyalty_program_id: selectedNovoLoyaltyProgram?.program.id,
         },
         sessionData.session?.access_token,
       );
@@ -196,16 +225,36 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       ) {
         throw new Error(payload?.error ?? "Não foi possível salvar o agendamento.");
       }
-
+      return { coveredByLoyalty: Boolean(payload.covered_by_loyalty_program) };
     },
-    onSuccess: async () => {
+    onSuccess: async ({ coveredByLoyalty }) => {
       await directAppointments.refresh();
-      toast.success("Agendamento criado");
+      await qc.invalidateQueries({ queryKey: ["loyalty-status"] });
+      toast.success(coveredByLoyalty ? "Agendamento criado — resgate de fidelidade aplicado" : "Agendamento criado");
       setNovoNome("");
       setNovoTelefone("");
       setNovoEmail("");
       setNovoServicos([]);
+      setNovoLoyaltyProgramId(null);
       setNovoOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Comparecimento confirmado é o que conta ponto de fidelidade — só o
+  // horário ter passado não é suficiente (um no-show não deve contar).
+  const confirmAttendance = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      return postPublicApi<{ attendance_confirmed?: boolean }>(
+        "/api/public/appointment-confirm-attendance",
+        { appointment_id: appointmentId },
+        sessionData.session?.access_token,
+      );
+    },
+    onSuccess: async (result) => {
+      toast.success(result?.attendance_confirmed ? "Comparecimento confirmado" : "Confirmação desfeita");
+      await directAppointments.refresh();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -438,6 +487,35 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               )}
             </div>
 
+            {eligibleNovoLoyaltyPrograms.length > 0 && (
+              <div className="grid grid-cols-1 gap-2 rounded-lg border border-border/60 bg-card/40 p-3">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Fidelidade</p>
+                {eligibleNovoLoyaltyPrograms.map((p) => {
+                  const selected = novoLoyaltyProgramId === p.program.id;
+                  return (
+                    <button
+                      key={p.program.id}
+                      type="button"
+                      onClick={() => setNovoLoyaltyProgramId(selected ? null : p.program.id)}
+                      className={cn(
+                        "flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition",
+                        selected
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card/60 text-muted-foreground hover:border-primary/50",
+                      )}
+                    >
+                      <span>
+                        Usar resgate — {p.program.name}
+                        <span className="block text-xs text-muted-foreground">
+                          Sai grátis ({p.availableNow} {p.availableNow > 1 ? "disponíveis" : "disponível"})
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {novoServicos.length === 0 ? (
               <p className="text-xs text-muted-foreground">Selecione ao menos um serviço para ver os horários.</p>
             ) : novoSlots.length === 0 ? (
@@ -450,7 +528,11 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                     type="button"
                     disabled={!s.available || criarAgendamento.isPending}
                     onClick={() => {
-                      if (confirm(`Agendar ${novoNome || "cliente"} às ${fmtTime(s.start)}?`))
+                      if (
+                        confirm(
+                          `Agendar ${novoNome || "cliente"} às ${fmtTime(s.start)}${selectedNovoLoyaltyProgram ? " (grátis — resgate de fidelidade)" : ""}?`,
+                        )
+                      )
                         criarAgendamento.mutate(s.start);
                     }}
                     className={cn(
@@ -616,10 +698,28 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       </span>
                     )}
                     <span className="text-xs text-muted-foreground">{a.customer_phone}</span>
+                    {a.payment_status === "pago" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn("ml-auto size-7", a.attendance_confirmed && "text-[color:var(--success)]")}
+                        title={
+                          a.attendance_confirmed
+                            ? "Comparecimento confirmado — clique pra desfazer"
+                            : "Confirmar comparecimento"
+                        }
+                        disabled={confirmAttendance.isPending}
+                        onClick={() => confirmAttendance.mutate(a.id)}
+                      >
+                        <CheckCircle2
+                          className={cn("size-3.5", a.attendance_confirmed && "fill-[color:var(--success)]/20")}
+                        />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
-                      className="ml-auto"
+                      className={a.payment_status === "pago" ? "" : "ml-auto"}
                       onClick={() => {
                         setReschedId((cur) => (cur === a.id ? null : a.id));
                         setReschedDate(new Date(a.appointment_time).toISOString().slice(0, 10));

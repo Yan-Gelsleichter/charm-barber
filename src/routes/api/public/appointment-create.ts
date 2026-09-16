@@ -16,6 +16,9 @@ const requestSchema = z.object({
   customer_phone: z.string().regex(/^\d{8,15}$/),
   email: z.string().email().nullable().optional(),
   appointment_time: z.string().min(8),
+  // Presente só quando o cliente escolheu usar um resgate de fidelidade
+  // nesse agendamento — sempre revalidado no servidor, nunca confiado.
+  loyalty_program_id: z.string().uuid().optional(),
 });
 
 const CORS_HEADERS = {
@@ -140,6 +143,32 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             }
           }
 
+          // Resgate de fidelidade: só se não estiver coberto por assinatura
+          // (não faz sentido gastar um resgate num serviço que já é de
+          // graça) e só se o cliente realmente pediu. Revalida tudo de
+          // novo aqui — nunca confia que o resgate mostrado na tela
+          // ainda está disponível ou que os serviços realmente batem.
+          let loyaltyCoverage: { programId: string } | null = null;
+          if (!subscriptionCoverage && d.loyalty_program_id && barber.barbershop_id) {
+            try {
+              const { computeLoyaltyStatus } = await import("@/lib/loyalty.server");
+              const statuses = await computeLoyaltyStatus(admin, {
+                barbershopId: barber.barbershop_id,
+                phone: d.customer_phone,
+              });
+              const match = statuses.find((s) => s.program.id === d.loyalty_program_id);
+              const servicesMatch =
+                !!match &&
+                (match.program.scope === "generic" ||
+                  d.service_ids.some((id) => match.serviceIds.includes(id)));
+              if (match && match.availableNow >= 1 && servicesMatch) {
+                loyaltyCoverage = { programId: match.program.id };
+              }
+            } catch (loyaltyError) {
+              console.error("[appointment-create] falha ao checar resgate de fidelidade", loyaltyError);
+            }
+          }
+
           // O agendamento é a escrita principal. A resposta positiva depende
           // somente desta inserção retornar a linha realmente persistida.
           const created = await admin
@@ -156,8 +185,13 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               email: d.email?.trim().toLowerCase() || null,
               appointment_time: appointmentTimeIso,
               status: "confirmado",
-              payment_status: subscriptionCoverage ? "coberto_por_assinatura" : "pendente",
+              payment_status: subscriptionCoverage
+                ? "coberto_por_assinatura"
+                : loyaltyCoverage
+                  ? "coberto_por_fidelidade"
+                  : "pendente",
               covered_by_subscription_id: subscriptionCoverage?.subscriptionId ?? null,
+              covered_by_loyalty_program_id: loyaltyCoverage?.programId ?? null,
               barbershop_id: barber.barbershop_id,
               // Preço e duração travados no momento do agendamento (soma de
               // todos os serviços escolhidos) — relatórios (Produção,
@@ -234,6 +268,26 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               { error: "Erro ao salvar agendamento: o registro gravado não foi confirmado." },
               500,
             );
+          }
+
+          // Grava o resgate usado, melhor esforço (o agendamento já está
+          // confirmado e pago nesse ponto — uma falha aqui não desfaz o
+          // agendamento, só fica sem o vínculo do resgate pra abater do
+          // total disponível; logado pra investigar se acontecer).
+          if (loyaltyCoverage) {
+            const redemption = await admin.from("loyalty_redemptions").insert({
+              program_id: loyaltyCoverage.programId,
+              barbershop_id: barber.barbershop_id,
+              customer_phone: d.customer_phone,
+              appointment_id: savedAppointment.id,
+            });
+            if (redemption.error) {
+              console.error("[appointment-create] falha ao gravar resgate de fidelidade", {
+                appointmentId: savedAppointment.id,
+                programId: loyaltyCoverage.programId,
+                error: redemption.error,
+              });
+            }
           }
 
           // Avisa o barbeiro por notificação push, melhor esforço: uma falha
@@ -358,6 +412,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             persisted: true,
             appointment: confirmedAppointment,
             covered_by_subscription: Boolean(subscriptionCoverage),
+            covered_by_loyalty_program: Boolean(loyaltyCoverage),
           });
 
 

@@ -23,6 +23,7 @@ import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/p
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
 import { Route as ApiCronAppointmentRemindersRouteImport } from './routes/api/cron/appointment-reminders'
 import { Route as ApiCronProcessPlanChangesRouteImport } from './routes/api/cron/process-plan-changes'
+import { Route as ApiPublicAppointmentConfirmAttendanceRouteImport } from './routes/api/public/appointment-confirm-attendance'
 import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/public/appointment-create'
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
 import { Route as ApiPublicAppointmentPushTokenRouteImport } from './routes/api/public/appointment-push-token'
@@ -34,6 +35,7 @@ import { Route as ApiPublicCaixaWalkinDeleteRouteImport } from './routes/api/pub
 import { Route as ApiPublicCaixaWalkinUpdateRouteImport } from './routes/api/public/caixa-walkin-update'
 import { Route as ApiPublicCreateBarbershopRouteImport } from './routes/api/public/create-barbershop'
 import { Route as ApiPublicEnsureBarbershopSlugRouteImport } from './routes/api/public/ensure-barbershop-slug'
+import { Route as ApiPublicLoyaltyStatusRouteImport } from './routes/api/public/loyalty-status'
 import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
 import { Route as ApiPublicMercadopagoConnectionRouteImport } from './routes/api/public/mercadopago-connection'
 import { Route as ApiPublicMercadopagoOauthRouteImport } from './routes/api/public/mercadopago-oauth'
@@ -125,6 +127,12 @@ const ApiCronProcessPlanChangesRoute =
     path: '/api/cron/process-plan-changes',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAppointmentConfirmAttendanceRoute =
+  ApiPublicAppointmentConfirmAttendanceRouteImport.update({
+    id: '/api/public/appointment-confirm-attendance',
+    path: '/api/public/appointment-confirm-attendance',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicAppointmentCreateRoute =
   ApiPublicAppointmentCreateRouteImport.update({
     id: '/api/public/appointment-create',
@@ -190,6 +198,11 @@ const ApiPublicEnsureBarbershopSlugRoute =
     path: '/api/public/ensure-barbershop-slug',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicLoyaltyStatusRoute = ApiPublicLoyaltyStatusRouteImport.update({
+  id: '/api/public/loyalty-status',
+  path: '/api/public/loyalty-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMercadopagoConnectRoute =
   ApiPublicMercadopagoConnectRouteImport.update({
     id: '/api/public/mercadopago-connect',
@@ -301,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
+  '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
@@ -312,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
+  '/api/public/loyalty-status': typeof ApiPublicLoyaltyStatusRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
@@ -344,6 +359,7 @@ export interface FileRoutesByTo {
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
+  '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
@@ -355,6 +371,7 @@ export interface FileRoutesByTo {
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
+  '/api/public/loyalty-status': typeof ApiPublicLoyaltyStatusRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
@@ -388,6 +405,7 @@ export interface FileRoutesById {
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
+  '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
   '/api/public/appointment-push-token': typeof ApiPublicAppointmentPushTokenRoute
@@ -399,6 +417,7 @@ export interface FileRoutesById {
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
+  '/api/public/loyalty-status': typeof ApiPublicLoyaltyStatusRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
   '/api/public/mercadopago-oauth': typeof ApiPublicMercadopagoOauthRoute
@@ -433,6 +452,7 @@ export interface FileRouteTypes {
     | '/pagamento/$appointmentId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
+    | '/api/public/appointment-confirm-attendance'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
@@ -444,6 +464,7 @@ export interface FileRouteTypes {
     | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
+    | '/api/public/loyalty-status'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-connection'
     | '/api/public/mercadopago-oauth'
@@ -476,6 +497,7 @@ export interface FileRouteTypes {
     | '/pagamento/$appointmentId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
+    | '/api/public/appointment-confirm-attendance'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
@@ -487,6 +509,7 @@ export interface FileRouteTypes {
     | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
+    | '/api/public/loyalty-status'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-connection'
     | '/api/public/mercadopago-oauth'
@@ -519,6 +542,7 @@ export interface FileRouteTypes {
     | '/pagamento/$appointmentId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
+    | '/api/public/appointment-confirm-attendance'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
     | '/api/public/appointment-push-token'
@@ -530,6 +554,7 @@ export interface FileRouteTypes {
     | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
+    | '/api/public/loyalty-status'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-connection'
     | '/api/public/mercadopago-oauth'
@@ -563,6 +588,7 @@ export interface RootRouteChildren {
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
   ApiCronAppointmentRemindersRoute: typeof ApiCronAppointmentRemindersRoute
   ApiCronProcessPlanChangesRoute: typeof ApiCronProcessPlanChangesRoute
+  ApiPublicAppointmentConfirmAttendanceRoute: typeof ApiPublicAppointmentConfirmAttendanceRoute
   ApiPublicAppointmentCreateRoute: typeof ApiPublicAppointmentCreateRoute
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
   ApiPublicAppointmentPushTokenRoute: typeof ApiPublicAppointmentPushTokenRoute
@@ -574,6 +600,7 @@ export interface RootRouteChildren {
   ApiPublicCaixaWalkinUpdateRoute: typeof ApiPublicCaixaWalkinUpdateRoute
   ApiPublicCreateBarbershopRoute: typeof ApiPublicCreateBarbershopRoute
   ApiPublicEnsureBarbershopSlugRoute: typeof ApiPublicEnsureBarbershopSlugRoute
+  ApiPublicLoyaltyStatusRoute: typeof ApiPublicLoyaltyStatusRoute
   ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
   ApiPublicMercadopagoConnectionRoute: typeof ApiPublicMercadopagoConnectionRoute
   ApiPublicMercadopagoOauthRoute: typeof ApiPublicMercadopagoOauthRoute
@@ -692,6 +719,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronProcessPlanChangesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/appointment-confirm-attendance': {
+      id: '/api/public/appointment-confirm-attendance'
+      path: '/api/public/appointment-confirm-attendance'
+      fullPath: '/api/public/appointment-confirm-attendance'
+      preLoaderRoute: typeof ApiPublicAppointmentConfirmAttendanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/appointment-create': {
       id: '/api/public/appointment-create'
       path: '/api/public/appointment-create'
@@ -767,6 +801,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/ensure-barbershop-slug'
       fullPath: '/api/public/ensure-barbershop-slug'
       preLoaderRoute: typeof ApiPublicEnsureBarbershopSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/loyalty-status': {
+      id: '/api/public/loyalty-status'
+      path: '/api/public/loyalty-status'
+      fullPath: '/api/public/loyalty-status'
+      preLoaderRoute: typeof ApiPublicLoyaltyStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mercadopago-connect': {
@@ -900,6 +941,8 @@ const rootRouteChildren: RootRouteChildren = {
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
   ApiCronAppointmentRemindersRoute: ApiCronAppointmentRemindersRoute,
   ApiCronProcessPlanChangesRoute: ApiCronProcessPlanChangesRoute,
+  ApiPublicAppointmentConfirmAttendanceRoute:
+    ApiPublicAppointmentConfirmAttendanceRoute,
   ApiPublicAppointmentCreateRoute: ApiPublicAppointmentCreateRoute,
   ApiPublicAppointmentLocalPaymentRoute: ApiPublicAppointmentLocalPaymentRoute,
   ApiPublicAppointmentPushTokenRoute: ApiPublicAppointmentPushTokenRoute,
@@ -911,6 +954,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCaixaWalkinUpdateRoute: ApiPublicCaixaWalkinUpdateRoute,
   ApiPublicCreateBarbershopRoute: ApiPublicCreateBarbershopRoute,
   ApiPublicEnsureBarbershopSlugRoute: ApiPublicEnsureBarbershopSlugRoute,
+  ApiPublicLoyaltyStatusRoute: ApiPublicLoyaltyStatusRoute,
   ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,
   ApiPublicMercadopagoConnectionRoute: ApiPublicMercadopagoConnectionRoute,
   ApiPublicMercadopagoOauthRoute: ApiPublicMercadopagoOauthRoute,

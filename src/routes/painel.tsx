@@ -22,6 +22,7 @@ import {
   Sparkles,
   Banknote,
   Home,
+  Gift,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +58,7 @@ import { PagamentosTab } from "@/painel/Pagamentos";
 import { FaturamentoTab } from "@/painel/Faturamento";
 import { PlanosTab } from "@/painel/Planos";
 import { ProducaoTab } from "@/painel/Producao";
+import { FidelidadeTab } from "@/painel/Fidelidade";
 
 type Tab =
   | "inicio"
@@ -72,7 +74,8 @@ type Tab =
   | "faturamentos"
   | "historico"
   | "planos"
-  | "producao";
+  | "producao"
+  | "fidelidade";
 
 const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
   { id: "caixa", label: "Caixa", icon: Banknote, adminOnly: true },
@@ -81,6 +84,7 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "clientes", label: "Clientes", icon: UserRound },
   { id: "servicos", label: "Serviços", icon: Scissors },
   { id: "planos", label: "Planos", icon: Repeat, adminOnly: true },
+  { id: "fidelidade", label: "Fidelidade", icon: Gift, adminOnly: true },
   { id: "producao", label: "Produção", icon: TrendingUp },
   { id: "horarios", label: "Horários", icon: Clock4 },
   { id: "historico", label: "Histórico", icon: History },
@@ -451,6 +455,7 @@ WHERE user_id = '${currentUid}';`;
         {tab === "pagamentos" && (barber.is_admin || splitOn) && <PagamentosTab barber={barber} />}
         {tab === "faturamentos" && barber.is_admin && <FaturamentoTab barber={barber} />}
         {tab === "planos" && barber.is_admin && <PlanosTab barber={barber} />}
+        {tab === "fidelidade" && barber.is_admin && <FidelidadeTab barber={barber} />}
         {tab === "producao" && <ProducaoTab barber={barber} />}
         {tab === "clientes" && <ClientesTab barber={barber} />}
         {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
