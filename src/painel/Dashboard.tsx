@@ -54,6 +54,36 @@ export function DashboardTab({ barber }: { barber: Barber }) {
     filterActiveAppointments(directAppointments.appointments ?? []),
   );
 
+  // Agrupa "serviço extra" (is_walk_in=true + parent_appointment_id) junto
+  // do agendamento original, em vez de aparecer como um card separado —
+  // mesmo padrão já usado na aba Caixa.
+  const topLevel = appointments.filter((a) => !a.parent_appointment_id);
+  const topLevelIds = new Set(topLevel.map((a) => a.id));
+  const childrenByParent = new Map<string, Appointment[]>();
+  for (const a of appointments) {
+    if (a.parent_appointment_id && topLevelIds.has(a.parent_appointment_id)) {
+      const list = childrenByParent.get(a.parent_appointment_id) ?? [];
+      list.push(a);
+      childrenByParent.set(a.parent_appointment_id, list);
+    }
+  }
+  // Se por algum motivo o "pai" não estiver na lista, mostra o extra normal.
+  const orphanExtras = appointments.filter(
+    (a) => a.parent_appointment_id && !topLevelIds.has(a.parent_appointment_id),
+  );
+  const topLevelAppointments = [...topLevel, ...orphanExtras];
+
+  function serviceLineItems(x: Appointment): { id: string; name: string; price: number }[] {
+    const ids = x.service_ids?.length ? x.service_ids : [x.service_id];
+    return ids.map((id) => {
+      const sv = freshServices.find((s) => s.id === id);
+      return { id, name: sv?.name ?? "Serviço removido", price: sv?.price ?? 0 };
+    });
+  }
+  function valorDe(x: Appointment) {
+    return x.service_price_snapshot ?? freshServices.find((s) => s.id === x.service_id)?.price ?? 0;
+  }
+
   // Usa o preço travado no momento do agendamento; só cai para o preço
   // atual do serviço em agendamentos antigos que não têm esse valor salvo.
   const sum = (from: Date) =>
@@ -71,12 +101,12 @@ export function DashboardTab({ barber }: { barber: Barber }) {
 
   const startTomorrow = new Date(startDay.getTime() + 86_400_000);
 
-  const hoje = appointments.filter((a) => {
+  const hoje = topLevelAppointments.filter((a) => {
     const t = new Date(a.appointment_time);
     return t >= startDay && t < startTomorrow;
   });
 
-  const proximos = appointments
+  const proximos = topLevelAppointments
     .filter((a) => new Date(a.appointment_time) >= startTomorrow)
     .slice(0, 5);
 
@@ -102,36 +132,42 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid grid-cols-1 gap-2">
             {hoje.map((a) => {
-              const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
-              const svList = ids.map((id) => freshServices.find((s) => s.id === id)).filter((s): s is Service => !!s);
-              // Nunca descarta um id que não resolveu (serviço apagado do
-              // catálogo depois de usado) — senão "Corte + Pezinho" vira só
-              // "Pezinho" quando um dos dois some do mapa de serviços.
-              const nomes = ids
-                .map((id) => freshServices.find((s) => s.id === id)?.name ?? "Serviço removido")
-                .join(" + ");
-              const preco =
-                a.service_price_snapshot ?? (svList.length ? svList.reduce((sum, s) => sum + s.price, 0) : null);
+              const kids = childrenByParent.get(a.id) ?? [];
               const duracao =
                 a.duration_minutes_snapshot ??
-                (svList.length ? svList.reduce((sum, s) => sum + s.duration_minutes, 0) : 30);
+                freshServices
+                  .filter((s) => (a.service_ids?.length ? a.service_ids : [a.service_id]).includes(s.id))
+                  .reduce((sum, s) => sum + s.duration_minutes, 0) ??
+                30;
               const fim = new Date(a.appointment_time).getTime() + duracao * 60_000;
               const atendido = fim <= now.getTime();
+              const total = valorDe(a) + kids.reduce((sum, k) => sum + valorDe(k), 0);
+              const items = [...serviceLineItems(a), ...kids.flatMap((k) => serviceLineItems(k))];
               return (
                 <div
                   key={a.id}
                   className={`surface flex flex-col gap-2 p-4 ${atendido ? "opacity-70" : ""}`}
                 >
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{a.customer_name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {nomes || "Serviço"} · {fmtTime(a.appointment_time)}
-                      </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="truncate font-semibold">{a.customer_name}</p>
+                    <span className="shrink-0 text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</span>
+                  </div>
+                  <div className="overflow-hidden rounded-lg border border-border/60 text-xs">
+                    <div className="divide-y divide-border/40">
+                      {items.map((item, i) => (
+                        <div key={`${a.id}:${item.id}:${i}`} className="flex items-center justify-between px-3 py-1.5">
+                          <span className={`min-w-0 truncate ${i > 0 ? "text-muted-foreground" : ""}`}>
+                            {i > 0 ? "+ " : ""}
+                            {item.name}
+                          </span>
+                          <span className="shrink-0 font-medium tabular-nums">{brl(item.price)}</span>
+                        </div>
+                      ))}
                     </div>
-                    <span className="brand-text shrink-0 font-bold">
-                      {preco != null ? brl(preco) : "—"}
-                    </span>
+                    <div className="flex items-center justify-between bg-[color:var(--brand-from)]/10 px-3 py-1.5">
+                      <span className="font-semibold">Total</span>
+                      <span className="font-bold tabular-nums">{brl(total)}</span>
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <PaymentBadge status={a.payment_status} compact />
@@ -159,30 +195,34 @@ export function DashboardTab({ barber }: { barber: Barber }) {
         ) : (
           <div className="grid grid-cols-1 gap-2">
             {proximos.map((a) => {
-              const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
-              const svList = ids.map((id) => freshServices.find((s) => s.id === id)).filter((s): s is Service => !!s);
-              // Nunca descarta um id que não resolveu (serviço apagado do
-              // catálogo depois de usado) — senão "Corte + Pezinho" vira só
-              // "Pezinho" quando um dos dois some do mapa de serviços.
-              const nomes = ids
-                .map((id) => freshServices.find((s) => s.id === id)?.name ?? "Serviço removido")
-                .join(" + ");
-              const preco =
-                a.service_price_snapshot ?? (svList.length ? svList.reduce((sum, s) => sum + s.price, 0) : null);
+              const kids = childrenByParent.get(a.id) ?? [];
+              const total = valorDe(a) + kids.reduce((sum, k) => sum + valorDe(k), 0);
+              const items = [...serviceLineItems(a), ...kids.flatMap((k) => serviceLineItems(k))];
               return (
                 <div key={a.id} className="surface flex flex-col gap-2 p-4">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{a.customer_name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {nomes || "Serviço"} ·{" "}
-                        {new Date(a.appointment_time).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })} ·{" "}
-                        {fmtTime(a.appointment_time)}
-                      </p>
-                    </div>
-                    <span className="brand-text shrink-0 font-bold">
-                      {preco != null ? brl(preco) : "—"}
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="truncate font-semibold">{a.customer_name}</p>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {new Date(a.appointment_time).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })} ·{" "}
+                      {fmtTime(a.appointment_time)}
                     </span>
+                  </div>
+                  <div className="overflow-hidden rounded-lg border border-border/60 text-xs">
+                    <div className="divide-y divide-border/40">
+                      {items.map((item, i) => (
+                        <div key={`${a.id}:${item.id}:${i}`} className="flex items-center justify-between px-3 py-1.5">
+                          <span className={`min-w-0 truncate ${i > 0 ? "text-muted-foreground" : ""}`}>
+                            {i > 0 ? "+ " : ""}
+                            {item.name}
+                          </span>
+                          <span className="shrink-0 font-medium tabular-nums">{brl(item.price)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between bg-[color:var(--brand-from)]/10 px-3 py-1.5">
+                      <span className="font-semibold">Total</span>
+                      <span className="font-bold tabular-nums">{brl(total)}</span>
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <PaymentBadge status={a.payment_status} compact />

@@ -373,6 +373,37 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   const allAppts = directAppointments.appointments ?? [];
   const ativosAll = filterActiveAppointments(allAppts);
   const ativos = hideRejectedPayments(ativosAll.filter((a) => !isBlock(a)));
+
+  // Agrupa "serviço extra" (is_walk_in=true + parent_appointment_id) junto
+  // do agendamento original, em vez de aparecer como um card separado —
+  // mesmo padrão já usado na aba Caixa.
+  const ativosTopLevel = ativos.filter((a) => !a.parent_appointment_id);
+  const ativosTopLevelIds = new Set(ativosTopLevel.map((a) => a.id));
+  const ativosChildrenByParent = new Map<string, Appointment[]>();
+  for (const a of ativos) {
+    if (a.parent_appointment_id && ativosTopLevelIds.has(a.parent_appointment_id)) {
+      const list = ativosChildrenByParent.get(a.parent_appointment_id) ?? [];
+      list.push(a);
+      ativosChildrenByParent.set(a.parent_appointment_id, list);
+    }
+  }
+  // Se por algum motivo o "pai" não estiver na lista, mostra o extra normal.
+  const ativosOrphanExtras = ativos.filter(
+    (a) => a.parent_appointment_id && !ativosTopLevelIds.has(a.parent_appointment_id),
+  );
+  const ativosParaExibir = [...ativosTopLevel, ...ativosOrphanExtras];
+
+  function serviceLineItems(x: Appointment): { id: string; name: string; price: number }[] {
+    const ids = x.service_ids?.length ? x.service_ids : [x.service_id];
+    return ids.map((id) => {
+      const sv = servicesMap.get(id);
+      return { id, name: sv?.name ?? "Serviço removido", price: sv?.price ?? 0 };
+    });
+  }
+  function valorDe(x: Appointment) {
+    return x.service_price_snapshot ?? servicesMap.get(x.service_id)?.price ?? 0;
+  }
+
   const bloqueios = q.data?.blocks ?? [];
   const cancelMarkerTargets = cancelledAppointmentIds(
     allAppts.filter((a) => (a.status || "").trim().toLowerCase() === "cancelado"),
@@ -649,20 +680,18 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <div role="alert" className="surface border-destructive/40 p-6 text-center text-sm text-destructive">
             Não foi possível consultar os agendamentos no banco. Atualize a tela e tente novamente.
           </div>
-        ) : ativos.length === 0 ? (
+        ) : ativosParaExibir.length === 0 ? (
           <div className="surface p-6 text-center text-sm text-muted-foreground">
             Nenhum agendamento neste dia.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-2">
-            {ativos.map((a) => {
+            {ativosParaExibir.map((a) => {
+              const kids = ativosChildrenByParent.get(a.id) ?? [];
               const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
               const svList = ids.map((id) => servicesMap.get(id)).filter((s): s is Service => !!s);
-              // Nunca descarta um id que não resolveu (serviço apagado do
-              // catálogo depois de usado) — senão "Corte + Pezinho" vira só
-              // "Pezinho" quando um dos dois some do mapa de serviços.
-              const nomes = ids.map((id) => servicesMap.get(id)?.name ?? "Serviço removido").join(" + ");
-              const preco = a.service_price_snapshot ?? svList.reduce((sum, s) => sum + s.price, 0);
+              const total = valorDe(a) + kids.reduce((sum, k) => sum + valorDe(k), 0);
+              const items = [...serviceLineItems(a), ...kids.flatMap((k) => serviceLineItems(k))];
               const duracao =
                 a.duration_minutes_snapshot ?? svList.reduce((sum, s) => sum + s.duration_minutes, 0) ?? 30;
               const fim = new Date(a.appointment_time).getTime() + duracao * 60_000;
@@ -680,13 +709,26 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       <p className="truncate text-base font-semibold leading-tight">
                         {a.customer_name}
                       </p>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {nomes || "Serviço"} · {duracao} min
-                      </p>
+                      <p className="truncate text-xs text-muted-foreground">{duracao} min</p>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-semibold text-primary">{brl(preco)}</p>
-                      <p className="text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</p>
+                    <p className="shrink-0 text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</p>
+                  </div>
+
+                  <div className="overflow-hidden rounded-lg border border-border/60 text-sm">
+                    <div className="divide-y divide-border/40">
+                      {items.map((item, i) => (
+                        <div key={`${a.id}:${item.id}:${i}`} className="flex items-center justify-between px-3 py-1.5">
+                          <span className={cn("min-w-0 truncate", i > 0 && "text-muted-foreground")}>
+                            {i > 0 ? "+ " : ""}
+                            {item.name}
+                          </span>
+                          <span className="shrink-0 font-medium tabular-nums">{brl(item.price)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between bg-[color:var(--brand-from)]/10 px-3 py-1.5">
+                      <span className="font-semibold">Total</span>
+                      <span className="font-bold tabular-nums">{brl(total)}</span>
                     </div>
                   </div>
 
