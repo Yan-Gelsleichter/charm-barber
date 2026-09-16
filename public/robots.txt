@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /
+Allow: /$
+Allow: /auth$
+
+Sitemap: https://www.appbarbearias.com.br/sitemap.xml
