@@ -77,6 +77,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#0b1220" },
+      // Verificação de propriedade do site no Google Search Console.
+      { name: "google-site-verification", content: "google753823470e5997ea" },
       // Nome curto mostrado embaixo do ícone quando o cliente adiciona o
       // site à Tela de Início do iPhone (Safari não usa o <title> pra isso).
       { name: "apple-mobile-web-app-title", content: "App Barbearias" },
