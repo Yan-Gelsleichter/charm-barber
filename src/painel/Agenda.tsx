@@ -739,7 +739,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
-                      <p className="text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</p>
+                      <p className="text-sm font-bold">{fmtTime(a.appointment_time)}</p>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -788,7 +788,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={cn("ml-auto size-9", a.attendance_confirmed && "text-[color:var(--success)]")}
+                        className={cn("ml-auto size-8", a.attendance_confirmed && "text-[color:var(--success)]")}
                         title={
                           a.attendance_confirmed
                             ? "Comparecimento confirmado — clique pra desfazer"
@@ -798,7 +798,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                         onClick={() => confirmAttendance.mutate(a.id)}
                       >
                         <CheckCircle2
-                          className={cn("size-5", a.attendance_confirmed && "fill-[color:var(--success)]/20")}
+                          className={cn("size-4", a.attendance_confirmed && "fill-[color:var(--success)]/20")}
                         />
                       </Button>
                     )}

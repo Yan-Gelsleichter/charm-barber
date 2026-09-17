@@ -150,7 +150,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="truncate font-semibold">{a.customer_name}</p>
-                    <span className="shrink-0 text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</span>
+                    <span className="shrink-0 text-sm font-bold">{fmtTime(a.appointment_time)}</span>
                   </div>
                   <div className="overflow-hidden rounded-lg border border-border/60 text-xs">
                     <div className="divide-y divide-border/40">
@@ -204,7 +204,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                     <p className="truncate font-semibold">{a.customer_name}</p>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {new Date(a.appointment_time).toLocaleDateString("pt-BR", { timeZone: BRAZIL_TIME_ZONE })} ·{" "}
-                      {fmtTime(a.appointment_time)}
+                      <span className="text-sm font-bold text-foreground">{fmtTime(a.appointment_time)}</span>
                     </span>
                   </div>
                   <div className="overflow-hidden rounded-lg border border-border/60 text-xs">

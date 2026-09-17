@@ -324,12 +324,12 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       <Button
         variant="ghost"
         size="icon"
-        className={cn("size-9", a.attendance_confirmed && "text-[color:var(--success)]")}
+        className={cn("size-8", a.attendance_confirmed && "text-[color:var(--success)]")}
         title={a.attendance_confirmed ? "Comparecimento confirmado — clique pra desfazer" : "Confirmar comparecimento"}
         disabled={confirmAttendance.isPending}
         onClick={() => confirmAttendance.mutate(a.id)}
       >
-        <CheckCircle2 className={cn("size-5", a.attendance_confirmed && "fill-[color:var(--success)]/20")} />
+        <CheckCircle2 className={cn("size-4", a.attendance_confirmed && "fill-[color:var(--success)]/20")} />
       </Button>
     );
 
