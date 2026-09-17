@@ -203,6 +203,15 @@ async function applyPayment(
   eventId: string,
   preferenceId?: string | null,
 ) {
+  // Pedido de produto usa o mesmo tópico "payment" do agendamento — a
+  // separação só é possível depois de ler o external_reference do
+  // pagamento, então checa o prefixo "product:" aqui antes de seguir pro
+  // fluxo de appointments.
+  const { parseProductOrderId, applyProductOrderPayment } = await import("@/lib/mp-product-webhook.server");
+  if (parseProductOrderId(payment.external_reference)) {
+    return applyProductOrderPayment(admin, payment, paymentId, eventId);
+  }
+
   const appointmentId = await resolveAppointmentId(admin, payment, paymentId, preferenceId);
   
   if (!appointmentId) {

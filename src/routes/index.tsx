@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Scissors, Calendar, LogOut, CalendarDays, LayoutDashboard, Loader2, Repeat } from "lucide-react";
+import { Scissors, Calendar, LogOut, CalendarDays, LayoutDashboard, Loader2, Repeat, ShoppingBag, ShoppingCart } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barber } from "@/integrations/supabase/db-types";
+import type { Barber, Product } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { BrandTitle, BrandMark } from "@/components/Brand";
 import { useMeBarber } from "@/hooks/use-auth";
@@ -12,6 +12,8 @@ import { useShopConfig } from "@/hooks/use-shop";
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { getMyBarbershopId } from "@/lib/barbershop";
 import { IosAddToHomeBanner } from "@/components/IosAddToHomeBanner";
+import { useProductCart } from "@/hooks/use-product-cart";
+import { brl } from "@/lib/format";
 
 
 export const Route = createFileRoute("/")({
@@ -43,6 +45,22 @@ function Home() {
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth" });
   }, [loading, session, navigate]);
+
+  const productsQ = useQuery({
+    queryKey: ["client-products", currentBarbershopId],
+    enabled: !!session && !!currentBarbershopId,
+    queryFn: async (): Promise<Product[]> => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("barbershop_id", currentBarbershopId!)
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
+  const cart = useProductCart(currentBarbershopId);
 
   const { data: barbers, isLoading } = useQuery({
     queryKey: ["barbers-list", currentBarbershopId],
@@ -143,6 +161,58 @@ function Home() {
         </section>
       )}
 
+      {productsQ.data && productsQ.data.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              Produtos
+            </h2>
+            {currentBarbershopId && (
+              <Link
+                to="/produtos/$barbershopId"
+                params={{ barbershopId: currentBarbershopId }}
+                className="text-xs font-medium text-primary"
+              >
+                Ver todos
+              </Link>
+            )}
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {productsQ.data.map((p) => {
+              const esgotado = p.stock_quantity <= 0;
+              const qtyInCart = cart.cart[p.id] ?? 0;
+              return (
+                <div key={p.id} className="surface w-40 shrink-0 p-3">
+                  <div className="mb-2 flex h-24 w-full items-center justify-center overflow-hidden rounded-lg bg-secondary">
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <ShoppingBag className="text-muted-foreground" />
+                    )}
+                  </div>
+                  <p className="truncate text-sm font-semibold">{p.title}</p>
+                  <p className="brand-text text-sm font-bold">{brl(p.price)}</p>
+                  {esgotado ? (
+                    <span className="mt-2 block rounded-full bg-muted px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Esgotado
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant={qtyInCart > 0 ? "hero" : "outline"}
+                      className="mt-2 w-full"
+                      onClick={() => cart.add(p.id)}
+                    >
+                      {qtyInCart > 0 ? `Adicionado (${qtyInCart})` : "Adicionar"}
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="mt-8">
         <h2 className="mb-3 px-1 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Profissionais
@@ -191,6 +261,21 @@ function Home() {
           ))}
         </div>
       </section>
+
+      {cart.totalItems > 0 && currentBarbershopId && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 p-3 backdrop-blur">
+          <Link
+            to="/produtos/$barbershopId"
+            params={{ barbershopId: currentBarbershopId }}
+            className="brand-gradient mx-auto flex max-w-2xl items-center justify-between rounded-xl px-4 py-3 text-white shadow-[var(--shadow-elev)]"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <ShoppingCart className="size-4" /> {cart.totalItems} {cart.totalItems === 1 ? "item" : "itens"}
+            </span>
+            <span className="text-sm font-bold">Ver carrinho</span>
+          </Link>
+        </div>
+      )}
     </main>
   );
 }

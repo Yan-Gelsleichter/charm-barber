@@ -21,6 +21,8 @@ import { Route as AssinaturaConfirmadaSubscriptionIdRouteImport } from './routes
 import { Route as BSlugRouteImport } from './routes/b.$slug'
 import { Route as PagamentoConfirmadoAppointmentIdRouteImport } from './routes/pagamento-confirmado.$appointmentId'
 import { Route as PagamentoAppointmentIdRouteImport } from './routes/pagamento.$appointmentId'
+import { Route as PedidoConfirmadoOrderIdRouteImport } from './routes/pedido-confirmado.$orderId'
+import { Route as ProdutosBarbershopIdRouteImport } from './routes/produtos.$barbershopId'
 import { Route as ApiCronAppointmentRemindersRouteImport } from './routes/api/cron/appointment-reminders'
 import { Route as ApiCronProcessPlanChangesRouteImport } from './routes/api/cron/process-plan-changes'
 import { Route as ApiPublicAppointmentConfirmAttendanceRouteImport } from './routes/api/public/appointment-confirm-attendance'
@@ -30,6 +32,8 @@ import { Route as ApiPublicAppointmentPushTokenRouteImport } from './routes/api/
 import { Route as ApiPublicBarbershopBySlugRouteImport } from './routes/api/public/barbershop-by-slug'
 import { Route as ApiPublicCaixaAppointmentCancelRouteImport } from './routes/api/public/caixa-appointment-cancel'
 import { Route as ApiPublicCaixaMarkPaidRouteImport } from './routes/api/public/caixa-mark-paid'
+import { Route as ApiPublicCaixaProductSaleCreateRouteImport } from './routes/api/public/caixa-product-sale-create'
+import { Route as ApiPublicCaixaProductSaleMarkPaidRouteImport } from './routes/api/public/caixa-product-sale-mark-paid'
 import { Route as ApiPublicCaixaWalkinCreateRouteImport } from './routes/api/public/caixa-walkin-create'
 import { Route as ApiPublicCaixaWalkinDeleteRouteImport } from './routes/api/public/caixa-walkin-delete'
 import { Route as ApiPublicCaixaWalkinUpdateRouteImport } from './routes/api/public/caixa-walkin-update'
@@ -49,6 +53,9 @@ import { Route as ApiPublicPlatformSubscriptionCancelRouteImport } from './route
 import { Route as ApiPublicPlatformSubscriptionCreateRouteImport } from './routes/api/public/platform-subscription-create'
 import { Route as ApiPublicPlatformSubscriptionReactivateRouteImport } from './routes/api/public/platform-subscription-reactivate'
 import { Route as ApiPublicPlatformSubscriptionUpgradeRouteImport } from './routes/api/public/platform-subscription-upgrade'
+import { Route as ApiPublicProductOrderCreateRouteImport } from './routes/api/public/product-order-create'
+import { Route as ApiPublicProductOrderFulfillRouteImport } from './routes/api/public/product-order-fulfill'
+import { Route as ApiPublicProductOrderPushTokenRouteImport } from './routes/api/public/product-order-push-token'
 import { Route as ApiPublicSubscriptionStatusRouteImport } from './routes/api/public/subscription-status'
 import { Route as ApiWebhooksMercadopagoRouteImport } from './routes/api/webhooks/mercadopago'
 import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
@@ -115,6 +122,16 @@ const PagamentoAppointmentIdRoute = PagamentoAppointmentIdRouteImport.update({
   path: '/pagamento/$appointmentId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PedidoConfirmadoOrderIdRoute = PedidoConfirmadoOrderIdRouteImport.update({
+  id: '/pedido-confirmado/$orderId',
+  path: '/pedido-confirmado/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProdutosBarbershopIdRoute = ProdutosBarbershopIdRouteImport.update({
+  id: '/produtos/$barbershopId',
+  path: '/produtos/$barbershopId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCronAppointmentRemindersRoute =
   ApiCronAppointmentRemindersRouteImport.update({
     id: '/api/cron/appointment-reminders',
@@ -168,6 +185,18 @@ const ApiPublicCaixaMarkPaidRoute = ApiPublicCaixaMarkPaidRouteImport.update({
   path: '/api/public/caixa-mark-paid',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCaixaProductSaleCreateRoute =
+  ApiPublicCaixaProductSaleCreateRouteImport.update({
+    id: '/api/public/caixa-product-sale-create',
+    path: '/api/public/caixa-product-sale-create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCaixaProductSaleMarkPaidRoute =
+  ApiPublicCaixaProductSaleMarkPaidRouteImport.update({
+    id: '/api/public/caixa-product-sale-mark-paid',
+    path: '/api/public/caixa-product-sale-mark-paid',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCaixaWalkinCreateRoute =
   ApiPublicCaixaWalkinCreateRouteImport.update({
     id: '/api/public/caixa-walkin-create',
@@ -281,6 +310,24 @@ const ApiPublicPlatformSubscriptionUpgradeRoute =
     path: '/api/public/platform-subscription-upgrade',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicProductOrderCreateRoute =
+  ApiPublicProductOrderCreateRouteImport.update({
+    id: '/api/public/product-order-create',
+    path: '/api/public/product-order-create',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicProductOrderFulfillRoute =
+  ApiPublicProductOrderFulfillRouteImport.update({
+    id: '/api/public/product-order-fulfill',
+    path: '/api/public/product-order-fulfill',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicProductOrderPushTokenRoute =
+  ApiPublicProductOrderPushTokenRouteImport.update({
+    id: '/api/public/product-order-push-token',
+    path: '/api/public/product-order-push-token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicSubscriptionStatusRoute =
   ApiPublicSubscriptionStatusRouteImport.update({
     id: '/api/public/subscription-status',
@@ -312,6 +359,8 @@ export interface FileRoutesByFullPath {
   '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/pedido-confirmado/$orderId': typeof PedidoConfirmadoOrderIdRoute
+  '/produtos/$barbershopId': typeof ProdutosBarbershopIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
   '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
@@ -321,6 +370,8 @@ export interface FileRoutesByFullPath {
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
   '/api/public/caixa-appointment-cancel': typeof ApiPublicCaixaAppointmentCancelRoute
   '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
+  '/api/public/caixa-product-sale-create': typeof ApiPublicCaixaProductSaleCreateRoute
+  '/api/public/caixa-product-sale-mark-paid': typeof ApiPublicCaixaProductSaleMarkPaidRoute
   '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
   '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
@@ -340,6 +391,9 @@ export interface FileRoutesByFullPath {
   '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
   '/api/public/platform-subscription-reactivate': typeof ApiPublicPlatformSubscriptionReactivateRoute
   '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
+  '/api/public/product-order-create': typeof ApiPublicProductOrderCreateRoute
+  '/api/public/product-order-fulfill': typeof ApiPublicProductOrderFulfillRoute
+  '/api/public/product-order-push-token': typeof ApiPublicProductOrderPushTokenRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -357,6 +411,8 @@ export interface FileRoutesByTo {
   '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/pedido-confirmado/$orderId': typeof PedidoConfirmadoOrderIdRoute
+  '/produtos/$barbershopId': typeof ProdutosBarbershopIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
   '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
@@ -366,6 +422,8 @@ export interface FileRoutesByTo {
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
   '/api/public/caixa-appointment-cancel': typeof ApiPublicCaixaAppointmentCancelRoute
   '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
+  '/api/public/caixa-product-sale-create': typeof ApiPublicCaixaProductSaleCreateRoute
+  '/api/public/caixa-product-sale-mark-paid': typeof ApiPublicCaixaProductSaleMarkPaidRoute
   '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
   '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
@@ -385,6 +443,9 @@ export interface FileRoutesByTo {
   '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
   '/api/public/platform-subscription-reactivate': typeof ApiPublicPlatformSubscriptionReactivateRoute
   '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
+  '/api/public/product-order-create': typeof ApiPublicProductOrderCreateRoute
+  '/api/public/product-order-fulfill': typeof ApiPublicProductOrderFulfillRoute
+  '/api/public/product-order-push-token': typeof ApiPublicProductOrderPushTokenRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -403,6 +464,8 @@ export interface FileRoutesById {
   '/b/$slug': typeof BSlugRoute
   '/pagamento-confirmado/$appointmentId': typeof PagamentoConfirmadoAppointmentIdRoute
   '/pagamento/$appointmentId': typeof PagamentoAppointmentIdRoute
+  '/pedido-confirmado/$orderId': typeof PedidoConfirmadoOrderIdRoute
+  '/produtos/$barbershopId': typeof ProdutosBarbershopIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
   '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
@@ -412,6 +475,8 @@ export interface FileRoutesById {
   '/api/public/barbershop-by-slug': typeof ApiPublicBarbershopBySlugRoute
   '/api/public/caixa-appointment-cancel': typeof ApiPublicCaixaAppointmentCancelRoute
   '/api/public/caixa-mark-paid': typeof ApiPublicCaixaMarkPaidRoute
+  '/api/public/caixa-product-sale-create': typeof ApiPublicCaixaProductSaleCreateRoute
+  '/api/public/caixa-product-sale-mark-paid': typeof ApiPublicCaixaProductSaleMarkPaidRoute
   '/api/public/caixa-walkin-create': typeof ApiPublicCaixaWalkinCreateRoute
   '/api/public/caixa-walkin-delete': typeof ApiPublicCaixaWalkinDeleteRoute
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
@@ -431,6 +496,9 @@ export interface FileRoutesById {
   '/api/public/platform-subscription-create': typeof ApiPublicPlatformSubscriptionCreateRoute
   '/api/public/platform-subscription-reactivate': typeof ApiPublicPlatformSubscriptionReactivateRoute
   '/api/public/platform-subscription-upgrade': typeof ApiPublicPlatformSubscriptionUpgradeRoute
+  '/api/public/product-order-create': typeof ApiPublicProductOrderCreateRoute
+  '/api/public/product-order-fulfill': typeof ApiPublicProductOrderFulfillRoute
+  '/api/public/product-order-push-token': typeof ApiPublicProductOrderPushTokenRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -450,6 +518,8 @@ export interface FileRouteTypes {
     | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/pedido-confirmado/$orderId'
+    | '/produtos/$barbershopId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
     | '/api/public/appointment-confirm-attendance'
@@ -459,6 +529,8 @@ export interface FileRouteTypes {
     | '/api/public/barbershop-by-slug'
     | '/api/public/caixa-appointment-cancel'
     | '/api/public/caixa-mark-paid'
+    | '/api/public/caixa-product-sale-create'
+    | '/api/public/caixa-product-sale-mark-paid'
     | '/api/public/caixa-walkin-create'
     | '/api/public/caixa-walkin-delete'
     | '/api/public/caixa-walkin-update'
@@ -478,6 +550,9 @@ export interface FileRouteTypes {
     | '/api/public/platform-subscription-create'
     | '/api/public/platform-subscription-reactivate'
     | '/api/public/platform-subscription-upgrade'
+    | '/api/public/product-order-create'
+    | '/api/public/product-order-fulfill'
+    | '/api/public/product-order-push-token'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -495,6 +570,8 @@ export interface FileRouteTypes {
     | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/pedido-confirmado/$orderId'
+    | '/produtos/$barbershopId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
     | '/api/public/appointment-confirm-attendance'
@@ -504,6 +581,8 @@ export interface FileRouteTypes {
     | '/api/public/barbershop-by-slug'
     | '/api/public/caixa-appointment-cancel'
     | '/api/public/caixa-mark-paid'
+    | '/api/public/caixa-product-sale-create'
+    | '/api/public/caixa-product-sale-mark-paid'
     | '/api/public/caixa-walkin-create'
     | '/api/public/caixa-walkin-delete'
     | '/api/public/caixa-walkin-update'
@@ -523,6 +602,9 @@ export interface FileRouteTypes {
     | '/api/public/platform-subscription-create'
     | '/api/public/platform-subscription-reactivate'
     | '/api/public/platform-subscription-upgrade'
+    | '/api/public/product-order-create'
+    | '/api/public/product-order-fulfill'
+    | '/api/public/product-order-push-token'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -540,6 +622,8 @@ export interface FileRouteTypes {
     | '/b/$slug'
     | '/pagamento-confirmado/$appointmentId'
     | '/pagamento/$appointmentId'
+    | '/pedido-confirmado/$orderId'
+    | '/produtos/$barbershopId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
     | '/api/public/appointment-confirm-attendance'
@@ -549,6 +633,8 @@ export interface FileRouteTypes {
     | '/api/public/barbershop-by-slug'
     | '/api/public/caixa-appointment-cancel'
     | '/api/public/caixa-mark-paid'
+    | '/api/public/caixa-product-sale-create'
+    | '/api/public/caixa-product-sale-mark-paid'
     | '/api/public/caixa-walkin-create'
     | '/api/public/caixa-walkin-delete'
     | '/api/public/caixa-walkin-update'
@@ -568,6 +654,9 @@ export interface FileRouteTypes {
     | '/api/public/platform-subscription-create'
     | '/api/public/platform-subscription-reactivate'
     | '/api/public/platform-subscription-upgrade'
+    | '/api/public/product-order-create'
+    | '/api/public/product-order-fulfill'
+    | '/api/public/product-order-push-token'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -586,6 +675,8 @@ export interface RootRouteChildren {
   BSlugRoute: typeof BSlugRoute
   PagamentoConfirmadoAppointmentIdRoute: typeof PagamentoConfirmadoAppointmentIdRoute
   PagamentoAppointmentIdRoute: typeof PagamentoAppointmentIdRoute
+  PedidoConfirmadoOrderIdRoute: typeof PedidoConfirmadoOrderIdRoute
+  ProdutosBarbershopIdRoute: typeof ProdutosBarbershopIdRoute
   ApiCronAppointmentRemindersRoute: typeof ApiCronAppointmentRemindersRoute
   ApiCronProcessPlanChangesRoute: typeof ApiCronProcessPlanChangesRoute
   ApiPublicAppointmentConfirmAttendanceRoute: typeof ApiPublicAppointmentConfirmAttendanceRoute
@@ -595,6 +686,8 @@ export interface RootRouteChildren {
   ApiPublicBarbershopBySlugRoute: typeof ApiPublicBarbershopBySlugRoute
   ApiPublicCaixaAppointmentCancelRoute: typeof ApiPublicCaixaAppointmentCancelRoute
   ApiPublicCaixaMarkPaidRoute: typeof ApiPublicCaixaMarkPaidRoute
+  ApiPublicCaixaProductSaleCreateRoute: typeof ApiPublicCaixaProductSaleCreateRoute
+  ApiPublicCaixaProductSaleMarkPaidRoute: typeof ApiPublicCaixaProductSaleMarkPaidRoute
   ApiPublicCaixaWalkinCreateRoute: typeof ApiPublicCaixaWalkinCreateRoute
   ApiPublicCaixaWalkinDeleteRoute: typeof ApiPublicCaixaWalkinDeleteRoute
   ApiPublicCaixaWalkinUpdateRoute: typeof ApiPublicCaixaWalkinUpdateRoute
@@ -614,6 +707,9 @@ export interface RootRouteChildren {
   ApiPublicPlatformSubscriptionCreateRoute: typeof ApiPublicPlatformSubscriptionCreateRoute
   ApiPublicPlatformSubscriptionReactivateRoute: typeof ApiPublicPlatformSubscriptionReactivateRoute
   ApiPublicPlatformSubscriptionUpgradeRoute: typeof ApiPublicPlatformSubscriptionUpgradeRoute
+  ApiPublicProductOrderCreateRoute: typeof ApiPublicProductOrderCreateRoute
+  ApiPublicProductOrderFulfillRoute: typeof ApiPublicProductOrderFulfillRoute
+  ApiPublicProductOrderPushTokenRoute: typeof ApiPublicProductOrderPushTokenRoute
   ApiPublicSubscriptionStatusRoute: typeof ApiPublicSubscriptionStatusRoute
   ApiWebhooksMercadopagoRoute: typeof ApiWebhooksMercadopagoRoute
   ApiPublicWebhooksMercadopagoRoute: typeof ApiPublicWebhooksMercadopagoRoute
@@ -705,6 +801,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PagamentoAppointmentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pedido-confirmado/$orderId': {
+      id: '/pedido-confirmado/$orderId'
+      path: '/pedido-confirmado/$orderId'
+      fullPath: '/pedido-confirmado/$orderId'
+      preLoaderRoute: typeof PedidoConfirmadoOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/produtos/$barbershopId': {
+      id: '/produtos/$barbershopId'
+      path: '/produtos/$barbershopId'
+      fullPath: '/produtos/$barbershopId'
+      preLoaderRoute: typeof ProdutosBarbershopIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/appointment-reminders': {
       id: '/api/cron/appointment-reminders'
       path: '/api/cron/appointment-reminders'
@@ -766,6 +876,20 @@ declare module '@tanstack/react-router' {
       path: '/api/public/caixa-mark-paid'
       fullPath: '/api/public/caixa-mark-paid'
       preLoaderRoute: typeof ApiPublicCaixaMarkPaidRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/caixa-product-sale-create': {
+      id: '/api/public/caixa-product-sale-create'
+      path: '/api/public/caixa-product-sale-create'
+      fullPath: '/api/public/caixa-product-sale-create'
+      preLoaderRoute: typeof ApiPublicCaixaProductSaleCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/caixa-product-sale-mark-paid': {
+      id: '/api/public/caixa-product-sale-mark-paid'
+      path: '/api/public/caixa-product-sale-mark-paid'
+      fullPath: '/api/public/caixa-product-sale-mark-paid'
+      preLoaderRoute: typeof ApiPublicCaixaProductSaleMarkPaidRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/caixa-walkin-create': {
@@ -901,6 +1025,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlatformSubscriptionUpgradeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/product-order-create': {
+      id: '/api/public/product-order-create'
+      path: '/api/public/product-order-create'
+      fullPath: '/api/public/product-order-create'
+      preLoaderRoute: typeof ApiPublicProductOrderCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/product-order-fulfill': {
+      id: '/api/public/product-order-fulfill'
+      path: '/api/public/product-order-fulfill'
+      fullPath: '/api/public/product-order-fulfill'
+      preLoaderRoute: typeof ApiPublicProductOrderFulfillRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/product-order-push-token': {
+      id: '/api/public/product-order-push-token'
+      path: '/api/public/product-order-push-token'
+      fullPath: '/api/public/product-order-push-token'
+      preLoaderRoute: typeof ApiPublicProductOrderPushTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/subscription-status': {
       id: '/api/public/subscription-status'
       path: '/api/public/subscription-status'
@@ -939,6 +1084,8 @@ const rootRouteChildren: RootRouteChildren = {
   BSlugRoute: BSlugRoute,
   PagamentoConfirmadoAppointmentIdRoute: PagamentoConfirmadoAppointmentIdRoute,
   PagamentoAppointmentIdRoute: PagamentoAppointmentIdRoute,
+  PedidoConfirmadoOrderIdRoute: PedidoConfirmadoOrderIdRoute,
+  ProdutosBarbershopIdRoute: ProdutosBarbershopIdRoute,
   ApiCronAppointmentRemindersRoute: ApiCronAppointmentRemindersRoute,
   ApiCronProcessPlanChangesRoute: ApiCronProcessPlanChangesRoute,
   ApiPublicAppointmentConfirmAttendanceRoute:
@@ -949,6 +1096,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBarbershopBySlugRoute: ApiPublicBarbershopBySlugRoute,
   ApiPublicCaixaAppointmentCancelRoute: ApiPublicCaixaAppointmentCancelRoute,
   ApiPublicCaixaMarkPaidRoute: ApiPublicCaixaMarkPaidRoute,
+  ApiPublicCaixaProductSaleCreateRoute: ApiPublicCaixaProductSaleCreateRoute,
+  ApiPublicCaixaProductSaleMarkPaidRoute:
+    ApiPublicCaixaProductSaleMarkPaidRoute,
   ApiPublicCaixaWalkinCreateRoute: ApiPublicCaixaWalkinCreateRoute,
   ApiPublicCaixaWalkinDeleteRoute: ApiPublicCaixaWalkinDeleteRoute,
   ApiPublicCaixaWalkinUpdateRoute: ApiPublicCaixaWalkinUpdateRoute,
@@ -973,6 +1123,9 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicPlatformSubscriptionReactivateRoute,
   ApiPublicPlatformSubscriptionUpgradeRoute:
     ApiPublicPlatformSubscriptionUpgradeRoute,
+  ApiPublicProductOrderCreateRoute: ApiPublicProductOrderCreateRoute,
+  ApiPublicProductOrderFulfillRoute: ApiPublicProductOrderFulfillRoute,
+  ApiPublicProductOrderPushTokenRoute: ApiPublicProductOrderPushTokenRoute,
   ApiPublicSubscriptionStatusRoute: ApiPublicSubscriptionStatusRoute,
   ApiWebhooksMercadopagoRoute: ApiWebhooksMercadopagoRoute,
   ApiPublicWebhooksMercadopagoRoute: ApiPublicWebhooksMercadopagoRoute,

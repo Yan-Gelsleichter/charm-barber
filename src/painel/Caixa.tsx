@@ -1,10 +1,10 @@
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, ShoppingBag, PackageCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
+import type { Appointment, Barber, Service, Product, ProductOrder, ProductOrderItem } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -135,6 +135,65 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     },
   });
 
+  const productsQ = useQuery({
+    queryKey: ["products", barber.barbershop_id],
+    enabled: !!barber.barbershop_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("barbershop_id", barber.barbershop_id!)
+        .eq("active", true)
+        .order("title");
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
+
+  const productOrdersDiaQ = useQuery({
+    queryKey: ["caixa-product-orders-dia", barber.barbershop_id, dayKey],
+    enabled: !!barber.barbershop_id,
+    queryFn: async () => {
+      const { start, end } = brazilDayBounds(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+      );
+      const { data, error } = await supabase
+        .from("product_orders")
+        .select("*")
+        .eq("barbershop_id", barber.barbershop_id!)
+        .gte("created_at", start.toISOString())
+        .lte("created_at", end.toISOString())
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as ProductOrder[];
+    },
+  });
+
+  const productOrderIds = useMemo(
+    () => (productOrdersDiaQ.data ?? []).map((o) => o.id),
+    [productOrdersDiaQ.data],
+  );
+  const productOrderItemsQ = useQuery({
+    queryKey: ["caixa-product-order-items-dia", productOrderIds.join(",")],
+    enabled: productOrderIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_order_items").select("*").in("order_id", productOrderIds);
+      if (error) throw error;
+      return data as ProductOrderItem[];
+    },
+  });
+  const productItemsByOrder = useMemo(() => {
+    const map = new Map<string, ProductOrderItem[]>();
+    for (const item of productOrderItemsQ.data ?? []) {
+      const list = map.get(item.order_id) ?? [];
+      list.push(item);
+      map.set(item.order_id, list);
+    }
+    return map;
+  }, [productOrderItemsQ.data]);
+
   const itensDoDia = useMemo(
     () =>
       filterActiveAppointments(diaQ.data ?? []).filter(
@@ -204,7 +263,37 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const markProductPaid = useMutation({
+    mutationFn: async ({ orderId, method }: { orderId: string; method: "dinheiro" | "pix" | "cartao" }) => {
+      const token = await bearerToken();
+      await postPublicApi(
+        "/api/public/caixa-product-sale-mark-paid",
+        { order_id: orderId, payment_method: method },
+        token,
+      );
+    },
+    onSuccess: () => {
+      toast.success("Marcado como pago");
+      qc.invalidateQueries({ queryKey: ["caixa-product-orders-dia"] });
+      qc.invalidateQueries({ queryKey: ["products", barber.barbershop_id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const fulfillProductOrder = useMutation({
+    mutationFn: async (orderId: string) => {
+      const token = await bearerToken();
+      await postPublicApi("/api/public/product-order-fulfill", { order_id: orderId }, token);
+    },
+    onSuccess: () => {
+      toast.success("Pedido marcado como entregue");
+      qc.invalidateQueries({ queryKey: ["caixa-product-orders-dia"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [formOpen, setFormOpen] = useState(false);
+  const [productSaleOpen, setProductSaleOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [addServiceTo, setAddServiceTo] = useState<Appointment | null>(null);
   const [deleting, setDeleting] = useState<Appointment | null>(null);
@@ -422,6 +511,86 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     );
   }
 
+  // Venda de produto — mesmo formato de card do agendamento (uma linha por
+  // item + Total no rodapé), com etiqueta própria pra nunca confundir com
+  // atendimento de serviço.
+  function renderProductRow(o: ProductOrder, items: ProductOrderItem[]) {
+    return (
+      <div key={o.id} className="surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold tabular-nums">{fmtTime(o.created_at ?? "")}</span>
+              <p className="truncate font-medium">{o.customer_name}</p>
+              <span className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-500">
+                Produto
+              </span>
+            </div>
+            {o.barber_id && (
+              <p className="truncate text-xs text-muted-foreground sm:text-sm">
+                {barbeiroNome.get(o.barber_id) ?? "Barbeiro"}
+              </p>
+            )}
+          </div>
+          {o.payment_status === "pago" && !o.fulfilled_at && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={fulfillProductOrder.isPending}
+              onClick={() => fulfillProductOrder.mutate(o.id)}
+            >
+              <PackageCheck className="mr-1 size-4" /> Entregue
+            </Button>
+          )}
+          {o.fulfilled_at && (
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Entregue
+            </span>
+          )}
+        </div>
+
+        <div className="overflow-hidden rounded-lg border border-border/60">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1.5 bg-secondary/30 px-3 py-2 text-sm">
+            {items.map((item, i) => (
+              <Fragment key={item.id}>
+                <span className={cn("min-w-0 truncate", i > 0 && "text-muted-foreground")}>
+                  {i > 0 ? "+ " : ""}
+                  {item.quantity > 1 ? `${item.quantity}x ` : ""}
+                  {item.product_title}
+                </span>
+                <PaymentBadge status={o.payment_status} compact />
+                <span className="text-right font-medium tabular-nums">{brl(item.product_price * item.quantity)}</span>
+              </Fragment>
+            ))}
+          </div>
+          <div className="flex items-center justify-between bg-[color:var(--brand-from)]/10 px-3 py-2">
+            <span className="text-sm font-semibold">Total</span>
+            <span className="text-sm font-bold tabular-nums">{brl(o.total_price)}</span>
+          </div>
+        </div>
+
+        {o.payment_status === "pendente" && (
+          <div className="space-y-2 sm:border-t sm:border-border/50 sm:pt-3">
+            <p className="text-xs text-muted-foreground">Confirmar pagamento:</p>
+            <div className="flex flex-wrap gap-2 sm:justify-center">
+              {PAYMENT_METHODS.map((m) => (
+                <Button
+                  key={m.id}
+                  variant="outline"
+                  size="sm"
+                  disabled={markProductPaid.isPending}
+                  onClick={() => markProductPaid.mutate({ orderId: o.id, method: m.id })}
+                >
+                  {m.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -465,34 +634,42 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         </Button>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Atendimentos do dia
         </h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setEditing(null);
-            setAddServiceTo(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="mr-1 size-4" /> Novo atendimento
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setProductSaleOpen(true)}>
+            <ShoppingBag className="mr-1 size-4" /> Nova venda de produto
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditing(null);
+              setAddServiceTo(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="mr-1 size-4" /> Novo atendimento
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="animate-spin" />
         </div>
-      ) : rowsToRender.length === 0 ? (
+      ) : rowsToRender.length === 0 && (productOrdersDiaQ.data ?? []).length === 0 ? (
         <div className="surface p-6 text-center text-sm text-muted-foreground">
           Nenhum atendimento neste dia.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:gap-3">
           {rowsToRender.map((a) => renderRow(a, childrenByParent.get(a.id) ?? []))}
+          {(productOrdersDiaQ.data ?? []).map((o) =>
+            renderProductRow(o, productItemsByOrder.get(o.id) ?? []),
+          )}
         </div>
       )}
 
@@ -518,6 +695,18 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           setEditing(null);
           setAddServiceTo(null);
           qc.invalidateQueries({ queryKey: ["caixa-dia"] });
+        }}
+      />
+
+      <ProductSaleDialog
+        open={productSaleOpen}
+        onOpenChange={setProductSaleOpen}
+        barbeiros={barbeiros}
+        products={productsQ.data ?? []}
+        onSaved={() => {
+          setProductSaleOpen(false);
+          qc.invalidateQueries({ queryKey: ["caixa-product-orders-dia"] });
+          qc.invalidateQueries({ queryKey: ["products", barber.barbershop_id] });
         }}
       />
 
@@ -968,6 +1157,219 @@ function WalkinDialog({
           ) : (
             "Registrar atendimento"
           )}
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Venda de produto presencial — mesmo conceito do WalkinDialog acima, mas
+ * pra produtos: pode escolher vários produtos numa venda só, cada um com
+ * sua quantidade, e sempre atribuída a um barbeiro (pra comissão).
+ */
+function ProductSaleDialog({
+  open,
+  onOpenChange,
+  barbeiros,
+  products,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  barbeiros: Barber[];
+  products: Product[];
+  onSaved: () => void;
+}) {
+  const [barberId, setBarberId] = useState("");
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [itens, setItens] = useState<Record<string, number>>({});
+  const [statusInicial, setStatusInicial] = useState<"pago" | "pendente">("pago");
+  const [openedFor, setOpenedFor] = useState(false);
+
+  if (open && !openedFor) {
+    setOpenedFor(true);
+    setBarberId("");
+    setNome("");
+    setTelefone("");
+    setItens({});
+    setStatusInicial("pago");
+  }
+  if (!open && openedFor) setOpenedFor(false);
+
+  function toggleProduto(id: string) {
+    setItens((cur) => {
+      const next = { ...cur };
+      if (next[id]) delete next[id];
+      else next[id] = 1;
+      return next;
+    });
+  }
+
+  function setQuantidade(id: string, qty: number) {
+    setItens((cur) => ({ ...cur, [id]: Math.max(1, qty) }));
+  }
+
+  const total = Object.entries(itens).reduce((sum, [id, qty]) => {
+    const p = products.find((x) => x.id === id);
+    return sum + (p ? p.price * qty : 0);
+  }, 0);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const token = await bearerToken();
+      await postPublicApi(
+        "/api/public/caixa-product-sale-create",
+        {
+          barber_id: barberId,
+          items: Object.entries(itens).map(([product_id, quantity]) => ({ product_id, quantity })),
+          customer_name: nome.trim(),
+          customer_phone: telefone.trim() || undefined,
+          payment_status: statusInicial,
+        },
+        token,
+      );
+    },
+    onSuccess: () => {
+      toast.success("Venda registrada");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const podeSalvar = !!barberId && Object.keys(itens).length > 0 && nome.trim().length > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[85vh] max-h-[85vh] flex-col overflow-hidden sm:max-w-md">
+        <DialogHeader className="shrink-0">
+          <DialogTitle>Nova venda de produto</DialogTitle>
+          <DialogDescription>
+            Venda presencial no balcão, sem passar pelo app. O estoque desconta na hora, se marcada como paga.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            Barbeiro
+            <select
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              value={barberId}
+              onChange={(e) => setBarberId(e.target.value)}
+            >
+              <option value="">Selecione um barbeiro</option>
+              {barbeiros.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            Nome do cliente
+            <Input value={nome} maxLength={80} onChange={(e) => setNome(capitalizeWords(e.target.value))} />
+          </label>
+
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            Telefone (opcional)
+            <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="Só se quiser registrar" />
+          </label>
+
+          <div className="grid gap-1 text-xs text-muted-foreground">
+            Produtos (pode escolher mais de um)
+            {products.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum produto cadastrado ainda. Cadastre na aba "Produtos".
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2">
+                {products.map((p) => {
+                  const selected = !!itens[p.id];
+                  return (
+                    <div
+                      key={p.id}
+                      className={cn(
+                        "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition",
+                        selected ? "border-primary bg-primary/10" : "border-border bg-card/60",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 truncate text-left"
+                        onClick={() => toggleProduto(p.id)}
+                      >
+                        {p.title} · {brl(p.price)}
+                      </button>
+                      {selected && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-7"
+                            onClick={() => setQuantidade(p.id, (itens[p.id] ?? 1) - 1)}
+                          >
+                            -
+                          </Button>
+                          <span className="w-5 text-center font-semibold">{itens[p.id]}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-7"
+                            disabled={itens[p.id] >= p.stock_quantity}
+                            onClick={() => setQuantidade(p.id, (itens[p.id] ?? 1) + 1)}
+                          >
+                            +
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {Object.keys(itens).length > 0 && (
+              <p className="mt-1 flex items-center justify-between text-sm font-semibold text-foreground">
+                <span>Total</span> <span>{brl(total)}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-1 text-xs text-muted-foreground">
+            Status inicial
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { id: "pago", label: "Pago" },
+                  { id: "pendente", label: "Pendente" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setStatusInicial(opt.id)}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-center text-sm font-medium transition",
+                    statusInicial === opt.id
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border bg-card/60 text-muted-foreground hover:border-primary/50",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <Button
+          className="mt-2 w-full shrink-0"
+          variant="hero"
+          disabled={!podeSalvar || save.isPending}
+          onClick={() => save.mutate()}
+        >
+          {save.isPending ? <Loader2 className="animate-spin" /> : "Registrar venda"}
         </Button>
       </DialogContent>
     </Dialog>

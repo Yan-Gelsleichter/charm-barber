@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import type { Appointment, Barber } from "@/integrations/supabase/db-types";
+import { useQuery } from "@tanstack/react-query";
+
+import { supabase } from "@/integrations/supabase/client";
+import type { Appointment, Barber, ProductOrder } from "@/integrations/supabase/db-types";
 import { brl, fmtDate, fmtDateTime } from "@/lib/format";
 import { brazilStartOfWeek, brazilStartOfMonth, brazilDayBounds } from "@/lib/timezone";
 import { usePayoutMode } from "@/hooks/use-payout-mode";
@@ -35,6 +38,9 @@ interface RepasseRow {
   avulso: number;
   bruto: number;
   liquido: number;
+  produtosBruto: number;
+  produtosComissao: number;
+  totalRepasse: number;
 }
 
 export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
@@ -62,6 +68,24 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
 
   const totaisHook = useFaturamentoTotais(barber, range);
 
+  const productOrdersQ = useQuery({
+    queryKey: ["repasse-product-orders", barber.barbershop_id, range?.ini, range?.fim],
+    enabled: !!range && !!barber.barbershop_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_orders")
+        .select("*")
+        .eq("barbershop_id", barber.barbershop_id!)
+        .eq("payment_status", "pago")
+        .eq("is_walk_in", true)
+        .not("barber_id", "is", null)
+        .gte("created_at", new Date(range!.ini).toISOString())
+        .lte("created_at", new Date(range!.fim).toISOString());
+      if (error) throw error;
+      return data as ProductOrder[];
+    },
+  });
+
   const itensDoPeriodo = useMemo(() => {
     if (!range) return [];
     return totaisHook.atendidos.filter((a) => {
@@ -85,6 +109,9 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
         avulso: 0,
         bruto: 0,
         liquido: 0,
+        produtosBruto: 0,
+        produtosComissao: 0,
+        totalRepasse: 0,
       });
     }
     for (const a of itensDoPeriodo) {
@@ -97,16 +124,24 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
       else row.avulso += valor;
       row.bruto += valor;
     }
+    for (const o of productOrdersQ.data ?? []) {
+      const row = o.barber_id ? porBarbeiro.get(o.barber_id) : null;
+      if (!row) continue;
+      row.produtosBruto += Number(o.total_price) || 0;
+    }
     const rows: RepasseRow[] = [];
     for (const row of porBarbeiro.values()) {
       const baseRepasse = row.presencial + row.avulso + (contaUnica ? row.online : 0);
       const pct = Number(row.barbeiro.commission_percent) || 0;
       row.liquido = (baseRepasse * pct) / 100;
+      const pctProdutos = Number(row.barbeiro.product_commission_percent) || 0;
+      row.produtosComissao = (row.produtosBruto * pctProdutos) / 100;
+      row.totalRepasse = row.liquido + row.produtosComissao;
       rows.push(row);
     }
     return rows.sort((x, y) => y.bruto - x.bruto);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itensDoPeriodo, totaisHook.barbeiros, contaUnica]);
+  }, [itensDoPeriodo, totaisHook.barbeiros, contaUnica, productOrdersQ.data]);
 
   const totalGeral = useMemo(
     () =>
@@ -117,8 +152,11 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
           avulso: acc.avulso + r.avulso,
           bruto: acc.bruto + r.bruto,
           liquido: acc.liquido + r.liquido,
+          produtosBruto: acc.produtosBruto + r.produtosBruto,
+          produtosComissao: acc.produtosComissao + r.produtosComissao,
+          totalRepasse: acc.totalRepasse + r.totalRepasse,
         }),
-        { online: 0, presencial: 0, avulso: 0, bruto: 0, liquido: 0 },
+        { online: 0, presencial: 0, avulso: 0, bruto: 0, liquido: 0, produtosBruto: 0, produtosComissao: 0, totalRepasse: 0 },
       ),
     [linhas],
   );
@@ -143,8 +181,8 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
       doc.text(`Emitido em ${fmtDateTime(new Date())}`, 14, 32);
 
       const head = aplicarComissao
-        ? [["Barbeiro", "Online", "Presencial", "Avulso", "Bruto", "Comissão", "Líquido"]]
-        : [["Barbeiro", "Online", "Presencial", "Avulso", "Bruto"]];
+        ? [["Barbeiro", "Online", "Presencial", "Avulso", "Bruto", "Comissão", "Líquido", "Produtos", "Comissão produtos", "Total repasse"]]
+        : [["Barbeiro", "Online", "Presencial", "Avulso", "Bruto", "Produtos"]];
       const body = linhas.map((r) =>
         aplicarComissao
           ? [
@@ -155,8 +193,11 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
               brl(r.bruto),
               `${Number(r.barbeiro.commission_percent) || 0}%`,
               brl(r.liquido),
+              brl(r.produtosBruto),
+              `${Number(r.barbeiro.product_commission_percent) || 0}%: ${brl(r.produtosComissao)}`,
+              brl(r.totalRepasse),
             ]
-          : [r.barbeiro.name, brl(r.online), brl(r.presencial), brl(r.avulso), brl(r.bruto)],
+          : [r.barbeiro.name, brl(r.online), brl(r.presencial), brl(r.avulso), brl(r.bruto), brl(r.produtosBruto)],
       );
       const foot = aplicarComissao
         ? [
@@ -168,6 +209,9 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
               brl(totalGeral.bruto),
               "",
               brl(totalGeral.liquido),
+              brl(totalGeral.produtosBruto),
+              brl(totalGeral.produtosComissao),
+              brl(totalGeral.totalRepasse),
             ],
           ]
         : [
@@ -177,6 +221,7 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
               brl(totalGeral.presencial),
               brl(totalGeral.avulso),
               brl(totalGeral.bruto),
+              brl(totalGeral.produtosBruto),
             ],
           ];
 
@@ -276,7 +321,7 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[820px] text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground">
                   <th className="py-2">Barbeiro</th>
@@ -288,6 +333,13 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                     <>
                       <th className="py-2 text-right">%</th>
                       <th className="py-2 text-right">Líquido</th>
+                    </>
+                  )}
+                  <th className="py-2 text-right">Produtos</th>
+                  {aplicarComissao && (
+                    <>
+                      <th className="py-2 text-right">Comissão produtos</th>
+                      <th className="py-2 text-right">Total repasse</th>
                     </>
                   )}
                 </tr>
@@ -308,6 +360,15 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                         <td className="brand-text py-2 text-right font-semibold">{brl(r.liquido)}</td>
                       </>
                     )}
+                    <td className="py-2 text-right">{brl(r.produtosBruto)}</td>
+                    {aplicarComissao && (
+                      <>
+                        <td className="py-2 text-right text-muted-foreground">
+                          {Number(r.barbeiro.product_commission_percent) || 0}%: {brl(r.produtosComissao)}
+                        </td>
+                        <td className="brand-text py-2 text-right font-semibold">{brl(r.totalRepasse)}</td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -322,6 +383,13 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                     <>
                       <td className="py-2" />
                       <td className="brand-text py-2 text-right">{brl(totalGeral.liquido)}</td>
+                    </>
+                  )}
+                  <td className="py-2 text-right">{brl(totalGeral.produtosBruto)}</td>
+                  {aplicarComissao && (
+                    <>
+                      <td className="py-2 text-right">{brl(totalGeral.produtosComissao)}</td>
+                      <td className="brand-text py-2 text-right">{brl(totalGeral.totalRepasse)}</td>
                     </>
                   )}
                 </tr>

@@ -12,6 +12,7 @@ export type Barber = {
   barbershop_id?: string | null;
   mp_user_id?: string | null;
   commission_percent?: number | null;
+  product_commission_percent?: number | null;
 };
 export type BarberInsert = {
   id?: string;
@@ -23,6 +24,8 @@ export type BarberInsert = {
   logo_url?: string | null;
   primary_color?: string | null;
   barbershop_id?: string | null;
+  commission_percent?: number | null;
+  product_commission_percent?: number | null;
 };
 
 export type Service = {
@@ -312,6 +315,79 @@ export type LoyaltyRedemptionInsert = {
   appointment_id?: string | null;
 };
 
+export type Product = {
+  id: string;
+  barbershop_id: string;
+  title: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  stock_quantity: number;
+  active: boolean;
+  created_at?: string;
+};
+export type ProductInsert = {
+  id?: string;
+  barbershop_id: string;
+  title: string;
+  description?: string | null;
+  price: number;
+  image_url?: string | null;
+  stock_quantity?: number;
+  active?: boolean;
+};
+
+export type ProductOrder = {
+  id: string;
+  barbershop_id: string;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  total_price: number;
+  payment_status: string;
+  payment_method: string | null;
+  mp_payment_id: string | null;
+  paid_at: string | null;
+  is_walk_in: boolean;
+  barber_id: string | null;
+  fulfilled_at: string | null;
+  push_token: string | null;
+  created_at?: string;
+};
+export type ProductOrderInsert = {
+  id?: string;
+  barbershop_id: string;
+  customer_name: string;
+  customer_phone?: string | null;
+  customer_email?: string | null;
+  total_price?: number;
+  payment_status?: string;
+  payment_method?: string | null;
+  mp_payment_id?: string | null;
+  paid_at?: string | null;
+  is_walk_in?: boolean;
+  barber_id?: string | null;
+  fulfilled_at?: string | null;
+  push_token?: string | null;
+};
+
+export type ProductOrderItem = {
+  id: string;
+  order_id: string;
+  product_id: string;
+  product_title: string;
+  product_price: number;
+  quantity: number;
+};
+export type ProductOrderItemInsert = {
+  id?: string;
+  order_id: string;
+  product_id: string;
+  product_title: string;
+  product_price: number;
+  quantity?: number;
+};
+
 type Table<R, I> = { Row: R; Insert: I; Update: Partial<I>; Relationships: [] };
 
 export type Database = {
@@ -332,6 +408,9 @@ export type Database = {
       loyalty_programs: Table<LoyaltyProgram, LoyaltyProgramInsert>;
       loyalty_program_services: Table<LoyaltyProgramService, LoyaltyProgramServiceInsert>;
       loyalty_redemptions: Table<LoyaltyRedemption, LoyaltyRedemptionInsert>;
+      products: Table<Product, ProductInsert>;
+      product_orders: Table<ProductOrder, ProductOrderInsert>;
+      product_order_items: Table<ProductOrderItem, ProductOrderItemInsert>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

@@ -203,6 +203,36 @@ function MeusAgendamentosPage() {
       }),
   });
 
+  const myProductOrdersQ = useQuery({
+    queryKey: ["my-product-orders", loyaltyPhone],
+    enabled: !!session && loyaltyPhone.length >= 8,
+    queryFn: async () => {
+      const { data: orders, error } = await supabase
+        .from("product_orders")
+        .select("*")
+        .eq("customer_phone", loyaltyPhone)
+        .eq("payment_status", "pago")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      const orderIds = ((orders ?? []) as { id: string }[]).map((o) => o.id);
+      const items =
+        orderIds.length > 0
+          ? await supabase.from("product_order_items").select("*").in("order_id", orderIds)
+          : { data: [] };
+      const itemsByOrder = new Map<string, { id: string; product_title: string; quantity: number }[]>();
+      for (const item of (items.data ?? []) as { order_id: string; id: string; product_title: string; quantity: number }[]) {
+        const list = itemsByOrder.get(item.order_id) ?? [];
+        list.push(item);
+        itemsByOrder.set(item.order_id, list);
+      }
+      return {
+        orders: orders as { id: string; total_price: number; fulfilled_at: string | null; created_at?: string }[],
+        itemsByOrder,
+      };
+    },
+  });
+
   const cancelSubscription = useMutation({
     mutationFn: async (subscriptionId: string) => {
       const token = session?.access_token;
@@ -379,6 +409,42 @@ function MeusAgendamentosPage() {
                       {p.availableNow} {p.availableNow > 1 ? "resgates disponíveis" : "resgate disponível"}
                     </span>
                   )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {session && myProductOrdersQ.data && myProductOrdersQ.data.orders.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Meus pedidos
+          </h2>
+          <div className="grid grid-cols-1 gap-2">
+            {myProductOrdersQ.data.orders.map((o) => {
+              const items = myProductOrdersQ.data.itemsByOrder.get(o.id) ?? [];
+              return (
+                <div key={o.id} className="surface flex items-center justify-between gap-3 p-4">
+                  <div className="flex items-center gap-3">
+                    <Gift className="size-5 text-success" />
+                    <div>
+                      <p className="font-semibold">
+                        {items.map((i) => (i.quantity > 1 ? `${i.quantity}x ${i.product_title}` : i.product_title)).join(", ") ||
+                          "Produto"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{brl(o.total_price)}</p>
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wider ${
+                      o.fulfilled_at
+                        ? "border-border bg-muted text-muted-foreground"
+                        : "border-primary/40 bg-primary/10 text-primary"
+                    }`}
+                  >
+                    {o.fulfilled_at ? "Retirado" : "Aguardando retirada"}
+                  </span>
                 </div>
               );
             })}

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
+import type { Appointment, Barber, Service, ProductOrder } from "@/integrations/supabase/db-types";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 import { brazilStartOfDay, brazilStartOfWeek, brazilStartOfMonth, brazilStartOfYear } from "@/lib/timezone";
 
@@ -59,14 +59,17 @@ export function useFaturamentoTotais(
       if (be) throw be;
       const barbeiros = (bs ?? []) as Barber[];
       const ids = barbeiros.map((b) => b.id);
-      if (ids.length === 0) return { barbeiros, ag: [] as Appointment[], sv: [] as Service[] };
+      if (ids.length === 0) {
+        return { barbeiros, ag: [] as Appointment[], sv: [] as Service[], po: [] as ProductOrder[] };
+      }
 
       const inicioAnoMs = inicioDoPeriodo("ano").getTime();
       const agoraMs = Date.now();
       const desdeMs = customAtivo ? Math.min(inicioAnoMs, customRange!.ini) : inicioAnoMs;
       const ateMs = customAtivo ? Math.max(agoraMs, customRange!.fim) : agoraMs;
 
-      const [a, s] = await Promise.all([
+      const shopIdForProducts = shopId;
+      const [a, s, po] = await Promise.all([
         supabase
           .from("appointments")
           .select("*")
@@ -75,10 +78,25 @@ export function useFaturamentoTotais(
           .lte("appointment_time", new Date(ateMs).toISOString())
           .order("appointment_time", { ascending: false }),
         supabase.from("services").select("*").in("barber_id", ids),
+        shopIdForProducts
+          ? supabase
+              .from("product_orders")
+              .select("*")
+              .eq("barbershop_id", shopIdForProducts)
+              .eq("payment_status", "pago")
+              .gte("created_at", new Date(desdeMs).toISOString())
+              .lte("created_at", new Date(ateMs).toISOString())
+          : Promise.resolve({ data: [] as ProductOrder[], error: null }),
       ]);
       if (a.error) throw a.error;
       if (s.error) throw s.error;
-      return { barbeiros, ag: a.data as Appointment[], sv: s.data as Service[] };
+      if (po.error) throw po.error;
+      return {
+        barbeiros,
+        ag: a.data as Appointment[],
+        sv: s.data as Service[],
+        po: (po.data ?? []) as ProductOrder[],
+      };
     },
     // Essa busca traz o ano inteiro de agendamentos — sem isso, cada vez
     // que o Caixa/Faturamento remonta (ex.: ao voltar pra aba vindo da
@@ -131,9 +149,20 @@ export function useFaturamentoTotais(
         }
       }
     }
+    // Receita de produto entra no valor geral (Hoje/Semana/Mês/Ano), mas não
+    // no "qtd" — esse contador é só de atendimentos de serviço.
+    for (const o of q.data?.po ?? []) {
+      const time = new Date(o.created_at ?? "").getTime();
+      for (const key of Object.keys(faixas) as Periodo[]) {
+        const fx = faixas[key];
+        if (fx && time >= fx.ini && time <= fx.fim) {
+          t[key].valor += Number(o.total_price) || 0;
+        }
+      }
+    }
     return t;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [atendidos, precos, faixas]);
+  }, [atendidos, precos, faixas, q.data?.po]);
 
   const statsPorBarbeiro = useMemo(() => {
     const map = new Map<string, Record<Periodo, BarberStats>>();
