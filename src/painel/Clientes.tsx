@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmailInput } from "@/components/EmailInput";
 import { PhoneInput } from "@/components/PhoneInput";
-import { capitalizeWords } from "@/lib/format";
+import { capitalizeWords, phoneDigits } from "@/lib/format";
 
 export function ClientesTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
@@ -61,6 +61,7 @@ export function ClientesTab({ barber }: { barber: Barber }) {
   const save = useMutation({
     mutationFn: async () => {
       if (name.trim().length < 2) throw new Error("Nome muito curto");
+      if (phoneDigits(whatsapp).length < 10) throw new Error("Informe um WhatsApp válido");
       const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
       const barbershopId = barber.barbershop_id ?? (await getBarbershopIdByBarberId(barber.id));
       const payload = {
@@ -154,11 +155,11 @@ export function ClientesTab({ barber }: { barber: Barber }) {
             />
           </div>
           <div className="space-y-1">
-            <Label>E-mail</Label>
+            <Label>E-mail (opcional)</Label>
             <EmailInput value={email} onChange={setEmail} />
           </div>
           <div className="space-y-1">
-            <Label>WhatsApp</Label>
+            <Label>WhatsApp (obrigatório)</Label>
             <PhoneInput value={whatsapp} onChange={setWhatsapp} />
           </div>
         </div>
