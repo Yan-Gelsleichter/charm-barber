@@ -324,13 +324,19 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       <Button
         variant="ghost"
         size="icon"
-        className={cn("size-7", a.attendance_confirmed && "text-[color:var(--success)]")}
+        className={cn("size-9", a.attendance_confirmed && "text-[color:var(--success)]")}
         title={a.attendance_confirmed ? "Comparecimento confirmado — clique pra desfazer" : "Confirmar comparecimento"}
         disabled={confirmAttendance.isPending}
         onClick={() => confirmAttendance.mutate(a.id)}
       >
-        <CheckCircle2 className={cn("size-3.5", a.attendance_confirmed && "fill-[color:var(--success)]/20")} />
+        <CheckCircle2 className={cn("size-5", a.attendance_confirmed && "fill-[color:var(--success)]/20")} />
       </Button>
+    );
+
+    const atendidoBadge = a.attendance_confirmed && (
+      <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+        Atendido
+      </span>
     );
 
     return (
@@ -347,9 +353,12 @@ export function CaixaTab({ barber }: { barber: Barber }) {
               {barbeiroNome.get(a.barber_id) ?? "Barbeiro"}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {confirmAttendanceButton}
-            {actionButtons}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <div className="flex items-center gap-1">
+              {confirmAttendanceButton}
+              {actionButtons}
+            </div>
+            {atendidoBadge}
           </div>
         </div>
 

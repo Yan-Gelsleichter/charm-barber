@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X, Lock, RefreshCw, Plus, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Lock, RefreshCw, Plus, CheckCircle2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -254,6 +254,31 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     },
     onSuccess: async (result) => {
       toast.success(result?.attendance_confirmed ? "Comparecimento confirmado" : "Confirmação desfeita");
+      await directAppointments.refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Não exclui de verdade — cancela (mesmo mecanismo do Caixa), pra ficar
+  // salvo com status "cancelado" e aparecer assim na Caixa e no Painel.
+  const cancelAppointment = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      return postPublicApi<{ was_paid?: boolean }>(
+        "/api/public/caixa-appointment-cancel",
+        { appointment_id: appointmentId },
+        sessionData.session?.access_token,
+      );
+    },
+    onSuccess: async (result) => {
+      if (result?.was_paid) {
+        toast.warning("Agendamento cancelado", {
+          description: "Já estava pago online — providencie o estorno pelo Mercado Pago manualmente, se necessário.",
+          duration: 8000,
+        });
+      } else {
+        toast.success("Agendamento cancelado");
+      }
       await directAppointments.refresh();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -709,7 +734,9 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       <p className="truncate text-base font-semibold leading-tight">
                         {a.customer_name}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">{duracao} min</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {duracao} min (Fone: {a.customer_phone})
+                      </p>
                     </div>
                     <p className="shrink-0 text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</p>
                   </div>
@@ -734,17 +761,16 @@ export function AgendaTab({ barber }: { barber: Barber }) {
 
                   <div className="flex flex-wrap items-center gap-2">
                     <PaymentBadge status={a.payment_status} compact />
-                    {atendido && (
+                    {a.attendance_confirmed && (
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                         Atendido
                       </span>
                     )}
-                    <span className="text-xs text-muted-foreground">{a.customer_phone}</span>
                     {a.payment_status === "pago" && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={cn("ml-auto size-7", a.attendance_confirmed && "text-[color:var(--success)]")}
+                        className={cn("ml-auto size-9", a.attendance_confirmed && "text-[color:var(--success)]")}
                         title={
                           a.attendance_confirmed
                             ? "Comparecimento confirmado — clique pra desfazer"
@@ -754,7 +780,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                         onClick={() => confirmAttendance.mutate(a.id)}
                       >
                         <CheckCircle2
-                          className={cn("size-3.5", a.attendance_confirmed && "fill-[color:var(--success)]/20")}
+                          className={cn("size-5", a.attendance_confirmed && "fill-[color:var(--success)]/20")}
                         />
                       </Button>
                     )}
@@ -769,6 +795,20 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                     >
                       <RefreshCw className="mr-1 size-4" />
                       {reschedId === a.id ? "Fechar" : "Remarcar"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      title="Excluir agendamento (cliente não compareceu)"
+                      disabled={cancelAppointment.isPending}
+                      onClick={() => {
+                        if (confirm(`Excluir o agendamento de ${a.customer_name}? Ele ficará marcado como cancelado.`)) {
+                          cancelAppointment.mutate(a.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
 

@@ -5,11 +5,13 @@ import { createSupabaseAdmin } from "@/lib/supabase-admin.server";
 import { cancellationMarkerName, cancellationMarkerTime } from "@/lib/availability";
 
 /**
- * Cancela (não exclui) um agendamento vindo do app, pelo Caixa — mesmo
- * mecanismo usado quando o próprio cliente cancela em meus-agendamentos.tsx
- * (marca status='cancelado' na linha + insere uma linha-marcador), só que
- * autenticado como admin da barbearia em vez de dono do telefone. Mantém
- * histórico. Atendimentos avulsos usam caixa-walkin-delete.ts (exclusão de
+ * Cancela (não exclui) um agendamento vindo do app, pelo Caixa ou pela
+ * Agenda — mesmo mecanismo usado quando o próprio cliente cancela em
+ * meus-agendamentos.tsx (marca status='cancelado' na linha + insere uma
+ * linha-marcador), só que autenticado como admin da barbearia ou como o
+ * próprio barbeiro dono do agendamento (barbeiro comum sem acesso ao
+ * Caixa também precisa poder cancelar pela Agenda). Mantém histórico.
+ * Atendimentos avulsos usam caixa-walkin-delete.ts (exclusão de
  * verdade), não este endpoint.
  */
 
@@ -39,16 +41,13 @@ export const Route = createFileRoute("/api/public/caixa-appointment-cancel")({
           const user = userData.user;
           if (authError || !user) return json({ error: "Sessão inválida. Entre novamente." }, 401);
 
-          const { data: adminBarber } = await admin
+          const { data: me } = await admin
             .from("barbers")
-            .select("barbershop_id")
+            .select("id, barbershop_id, is_admin")
             .eq("user_id", user.id)
-            .eq("is_admin", true)
             .maybeSingle();
-          const barbershopId = (adminBarber as { barbershop_id?: string } | null)?.barbershop_id;
-          if (!barbershopId) {
-            return json({ error: "Só o administrador da barbearia pode fazer isso." }, 403);
-          }
+          const meBarber = me as { id: string; barbershop_id?: string | null; is_admin?: boolean | null } | null;
+          if (!meBarber) return json({ error: "Acesso restrito." }, 403);
 
           const found = await admin
             .from("appointments")
@@ -71,8 +70,16 @@ export const Route = createFileRoute("/api/public/caixa-appointment-cancel")({
               }
             | null;
           if (found.error || !row) return json({ error: "Agendamento não encontrado." }, 404);
-          if (row.barbershop_id !== barbershopId) {
-            return json({ error: "Esse agendamento não é dessa barbearia." }, 403);
+
+          const isOwner = row.barber_id === meBarber.id;
+          const isShopAdmin =
+            meBarber.is_admin === true && meBarber.barbershop_id && meBarber.barbershop_id === row.barbershop_id;
+          if (!isOwner && !isShopAdmin) {
+            return json({ error: "Você não tem acesso a esse agendamento." }, 403);
+          }
+          const barbershopId = row.barbershop_id;
+          if (!barbershopId) {
+            return json({ error: "Agendamento sem barbearia associada." }, 400);
           }
           if (row.is_walk_in) {
             return json(

@@ -171,7 +171,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <PaymentBadge status={a.payment_status} compact />
-                    {atendido && (
+                    {a.attendance_confirmed && (
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                         Atendido
                       </span>
