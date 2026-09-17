@@ -738,7 +738,25 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                         {duracao} min (Fone: {a.customer_phone})
                       </p>
                     </div>
-                    <p className="shrink-0 text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</p>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <p className="text-xs text-muted-foreground">{fmtTime(a.appointment_time)}</p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        title="Excluir agendamento (cliente não compareceu)"
+                        disabled={cancelAppointment.isPending}
+                        onClick={() => {
+                          if (
+                            confirm(`Excluir o agendamento de ${a.customer_name}? Ele ficará marcado como cancelado.`)
+                          ) {
+                            cancelAppointment.mutate(a.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="overflow-hidden rounded-lg border border-border/60 text-sm">
@@ -795,20 +813,6 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                     >
                       <RefreshCw className="mr-1 size-4" />
                       {reschedId === a.id ? "Fechar" : "Remarcar"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      title="Excluir agendamento (cliente não compareceu)"
-                      disabled={cancelAppointment.isPending}
-                      onClick={() => {
-                        if (confirm(`Excluir o agendamento de ${a.customer_name}? Ele ficará marcado como cancelado.`)) {
-                          cancelAppointment.mutate(a.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-4" />
                     </Button>
                   </div>
 
