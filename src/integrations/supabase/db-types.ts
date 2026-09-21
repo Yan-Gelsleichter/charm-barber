@@ -275,6 +275,7 @@ export type LoyaltyProgram = {
   scope: LoyaltyProgramScope;
   goal: number;
   include_walk_in: boolean;
+  allow_service_reward: boolean;
   active: boolean;
   created_at?: string;
 };
@@ -285,7 +286,19 @@ export type LoyaltyProgramInsert = {
   scope?: LoyaltyProgramScope;
   goal: number;
   include_walk_in?: boolean;
+  allow_service_reward?: boolean;
   active?: boolean;
+};
+
+export type LoyaltyProgramProduct = {
+  id: string;
+  program_id: string;
+  product_id: string;
+};
+export type LoyaltyProgramProductInsert = {
+  id?: string;
+  program_id: string;
+  product_id: string;
 };
 
 export type LoyaltyProgramService = {
@@ -305,6 +318,7 @@ export type LoyaltyRedemption = {
   barbershop_id: string;
   customer_phone: string;
   appointment_id: string | null;
+  product_order_id?: string | null;
   created_at?: string;
 };
 export type LoyaltyRedemptionInsert = {
@@ -313,6 +327,7 @@ export type LoyaltyRedemptionInsert = {
   barbershop_id: string;
   customer_phone: string;
   appointment_id?: string | null;
+  product_order_id?: string | null;
 };
 
 export type Product = {
@@ -352,6 +367,7 @@ export type ProductOrder = {
   barber_id: string | null;
   fulfilled_at: string | null;
   push_token: string | null;
+  covered_by_loyalty_program_id?: string | null;
   created_at?: string;
 };
 export type ProductOrderInsert = {
@@ -369,6 +385,7 @@ export type ProductOrderInsert = {
   barber_id?: string | null;
   fulfilled_at?: string | null;
   push_token?: string | null;
+  covered_by_loyalty_program_id?: string | null;
 };
 
 export type ProductOrderItem = {
@@ -408,6 +425,7 @@ export type Database = {
       loyalty_programs: Table<LoyaltyProgram, LoyaltyProgramInsert>;
       loyalty_program_services: Table<LoyaltyProgramService, LoyaltyProgramServiceInsert>;
       loyalty_redemptions: Table<LoyaltyRedemption, LoyaltyRedemptionInsert>;
+      loyalty_program_products: Table<LoyaltyProgramProduct, LoyaltyProgramProductInsert>;
       products: Table<Product, ProductInsert>;
       product_orders: Table<ProductOrder, ProductOrderInsert>;
       product_order_items: Table<ProductOrderItem, ProductOrderItemInsert>;

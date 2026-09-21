@@ -153,6 +153,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
     serviceIds: string[];
     availableNow: number;
     progressInCycle: number;
+    allowServiceReward?: boolean;
   };
   const novoLoyaltyPhoneDigits = phoneDigits(novoTelefone);
   const novoLoyaltyQ = useQuery({
@@ -168,6 +169,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   // disponível e serviço(s) escolhido(s) batem com o escopo do programa.
   const eligibleNovoLoyaltyPrograms = (novoLoyaltyQ.data?.programs ?? []).filter(
     (p) =>
+      p.allowServiceReward !== false &&
       p.availableNow >= 1 &&
       (p.program.scope === "generic" || novoServicos.some((id) => p.serviceIds.includes(id))),
   );

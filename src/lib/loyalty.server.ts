@@ -22,6 +22,9 @@ export type LoyaltyProgramStatus = {
     goal: number;
     include_walk_in: boolean;
   };
+  // Prêmio: atendimento grátis (agendado pelo app) e/ou produtos do catálogo.
+  allowServiceReward: boolean;
+  rewardProducts: { id: string; title: string; stock_quantity: number }[];
   serviceNames: string[];
   serviceIds: string[];
   totalEarned: number;
@@ -49,12 +52,14 @@ export async function computeLoyaltyStatus(
     scope: "generic" | "services";
     goal: number;
     include_walk_in: boolean;
+    allow_service_reward?: boolean | null;
   }[];
   if (programs.length === 0) return [];
 
   const programIds = programs.map((p) => p.id);
 
-  const [{ data: linksData }, { data: apptsData }, { data: redemptionsData }] = await Promise.all([
+  const [{ data: linksData }, { data: apptsData }, { data: redemptionsData }, { data: productLinksData }] =
+    await Promise.all([
     admin.from("loyalty_program_services").select("program_id, service_id").in("program_id", programIds),
     admin
       .from("appointments")
@@ -69,7 +74,27 @@ export async function computeLoyaltyStatus(
       .eq("barbershop_id", opts.barbershopId)
       .eq("customer_phone", phone)
       .in("program_id", programIds),
+    admin.from("loyalty_program_products").select("program_id, product_id").in("program_id", programIds),
   ]);
+
+  // Só produtos ativos entram como opção de prêmio (o estoque aparece pra
+  // o cliente saber se dá pra trocar agora).
+  const productLinks = (productLinksData ?? []) as { program_id: string; product_id: string }[];
+  const rewardProductById = new Map<string, { id: string; title: string; stock_quantity: number }>();
+  if (productLinks.length > 0) {
+    const { data: productsData } = await admin
+      .from("products")
+      .select("id, title, stock_quantity, active")
+      .in("id", Array.from(new Set(productLinks.map((l) => l.product_id))));
+    for (const p of (productsData ?? []) as {
+      id: string;
+      title: string;
+      stock_quantity: number;
+      active: boolean;
+    }[]) {
+      if (p.active) rewardProductById.set(p.id, { id: p.id, title: p.title, stock_quantity: p.stock_quantity });
+    }
+  }
 
   const links = (linksData ?? []) as { program_id: string; service_id: string }[];
   const appts = (apptsData ?? []) as {
@@ -131,8 +156,9 @@ export async function computeLoyaltyStatus(
 
     const totalSpent = redemptions.filter((r) => {
       if (r.program_id !== program.id) return false;
-      // Agendamento vinculado sumiu (nunca deveria acontecer em uso normal)
-      // ou está cancelado: não conta como gasto de verdade.
+      // Sem agendamento vinculado = resgate de produto (consumido de vez,
+      // não volta se o pedido for cancelado). Com agendamento cancelado,
+      // o resgate volta a ficar disponível.
       if (!r.appointment_id) return true;
       const status = (redeemedApptStatus.get(r.appointment_id) ?? "").trim().toLowerCase();
       return status !== "cancelado";
@@ -150,6 +176,11 @@ export async function computeLoyaltyStatus(
         goal: program.goal,
         include_walk_in: program.include_walk_in,
       },
+      allowServiceReward: program.allow_service_reward !== false,
+      rewardProducts: productLinks
+        .filter((l) => l.program_id === program.id)
+        .map((l) => rewardProductById.get(l.product_id))
+        .filter((p): p is { id: string; title: string; stock_quantity: number } => !!p),
       serviceNames: Array.from(eligibleServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"),
       serviceIds: Array.from(eligibleServiceIds),
       totalEarned,

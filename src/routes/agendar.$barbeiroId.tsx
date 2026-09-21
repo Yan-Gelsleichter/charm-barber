@@ -199,6 +199,7 @@ function AgendarPage() {
     serviceIds: string[];
     availableNow: number;
     progressInCycle: number;
+    allowServiceReward?: boolean;
   };
   const loyaltyPhoneDigits = phoneDigits(clientPhone);
   const loyaltyBarbershopId = barberQ.data?.barbershop_id ?? null;
@@ -215,6 +216,7 @@ function AgendarPage() {
   // serviços batem com o que o cliente escolheu (genérico sempre bate).
   const eligibleLoyaltyPrograms = (loyaltyQ.data?.programs ?? []).filter(
     (p) =>
+      p.allowServiceReward !== false &&
       p.availableNow >= 1 &&
       (p.program.scope === "generic" || serviceIds.some((id) => p.serviceIds.includes(id))),
   );

@@ -161,7 +161,7 @@ export const Route = createFileRoute("/api/public/appointment-create")({
                 !!match &&
                 (match.program.scope === "generic" ||
                   d.service_ids.some((id) => match.serviceIds.includes(id)));
-              if (match && match.availableNow >= 1 && servicesMatch) {
+              if (match && match.allowServiceReward && match.availableNow >= 1 && servicesMatch) {
                 loyaltyCoverage = { programId: match.program.id };
               }
             } catch (loyaltyError) {

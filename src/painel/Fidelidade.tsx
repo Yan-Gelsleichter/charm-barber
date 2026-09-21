@@ -4,7 +4,14 @@ import { Plus, Loader2, Pencil, X, Save, Power, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Barber, Service, LoyaltyProgram, LoyaltyProgramService } from "@/integrations/supabase/db-types";
+import type {
+  Barber,
+  Service,
+  Product,
+  LoyaltyProgram,
+  LoyaltyProgramService,
+  LoyaltyProgramProduct,
+} from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +27,24 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
   const [goal, setGoal] = useState("10");
   const [includeWalkIn, setIncludeWalkIn] = useState(true);
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
+  const [allowServiceReward, setAllowServiceReward] = useState(true);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<LoyaltyProgram | null>(null);
+
+  const productsQ = useQuery({
+    queryKey: ["shop-products-for-loyalty", shopId],
+    enabled: !!shopId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("barbershop_id", shopId!)
+        .eq("active", true)
+        .order("title");
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
 
   const barbersQ = useQuery({
     queryKey: ["shop-barbers", shopId],
@@ -86,6 +110,37 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     },
   });
 
+  const programProductsQ = useQuery({
+    queryKey: ["loyalty-program-products", shopId, programsQ.data?.map((p) => p.id).join(",")],
+    enabled: !!programsQ.data && programsQ.data.length > 0,
+    queryFn: async () => {
+      const programIds = (programsQ.data ?? []).map((p) => p.id);
+      const { data, error } = await supabase
+        .from("loyalty_program_products")
+        .select("*")
+        .in("program_id", programIds);
+      if (error) throw error;
+      return data as LoyaltyProgramProduct[];
+    },
+  });
+
+  const productById = useMemo(() => {
+    const m = new Map<string, Product>();
+    (productsQ.data ?? []).forEach((p) => m.set(p.id, p));
+    return m;
+  }, [productsQ.data]);
+
+  const productsByProgram = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const link of programProductsQ.data ?? []) {
+      const title = productById.get(link.product_id)?.title;
+      if (!title) continue;
+      if (!groups.has(link.program_id)) groups.set(link.program_id, []);
+      groups.get(link.program_id)!.push(title);
+    }
+    return groups;
+  }, [programProductsQ.data, productById]);
+
   const serviceById = useMemo(() => {
     const m = new Map<string, Service>();
     (servicesQ.data ?? []).forEach((s) => m.set(s.id, s));
@@ -109,6 +164,8 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     setGoal("10");
     setIncludeWalkIn(true);
     setSelectedServiceIds(new Set());
+    setAllowServiceReward(true);
+    setSelectedProductIds(new Set());
     setEditing(null);
   }
 
@@ -120,7 +177,20 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     setIncludeWalkIn(p.include_walk_in);
     const included = servicesByProgram.get(p.id) ?? [];
     setSelectedServiceIds(new Set(included.map((s) => s.id)));
+    setAllowServiceReward(p.allow_service_reward !== false);
+    setSelectedProductIds(
+      new Set((programProductsQ.data ?? []).filter((l) => l.program_id === p.id).map((l) => l.product_id)),
+    );
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function toggleProduct(id: string) {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   function toggleService(id: string) {
@@ -140,6 +210,9 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
       if (scope === "services" && selectedServiceIds.size === 0) {
         throw new Error("Selecione ao menos um serviço, ou use o modo genérico");
       }
+      if (!allowServiceReward && selectedProductIds.size === 0) {
+        throw new Error("Escolha o prêmio: atendimento grátis e/ou ao menos um produto");
+      }
 
       const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
       const barbershopId = shopId ?? (await getBarbershopIdByBarberId(barber.id));
@@ -150,7 +223,13 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
         programId = editing.id;
         const { error } = await supabase
           .from("loyalty_programs")
-          .update({ name: name.trim(), scope, goal: goalNum, include_walk_in: includeWalkIn })
+          .update({
+            name: name.trim(),
+            scope,
+            goal: goalNum,
+            include_walk_in: includeWalkIn,
+            allow_service_reward: allowServiceReward,
+          })
           .eq("id", programId);
         if (error) throw error;
         const { error: delErr } = await supabase
@@ -158,6 +237,11 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
           .delete()
           .eq("program_id", programId);
         if (delErr) throw delErr;
+        const { error: delProdErr } = await supabase
+          .from("loyalty_program_products")
+          .delete()
+          .eq("program_id", programId);
+        if (delProdErr) throw delProdErr;
       } else {
         const { data, error } = await supabase
           .from("loyalty_programs")
@@ -166,6 +250,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
             scope,
             goal: goalNum,
             include_walk_in: includeWalkIn,
+            allow_service_reward: allowServiceReward,
             barbershop_id: barbershopId,
           })
           .select()
@@ -179,12 +264,22 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
         const { error: insErr } = await supabase.from("loyalty_program_services").insert(rows);
         if (insErr) throw insErr;
       }
+
+      if (selectedProductIds.size > 0) {
+        const productRows = Array.from(selectedProductIds).map((product_id) => ({
+          program_id: programId,
+          product_id,
+        }));
+        const { error: prodErr } = await supabase.from("loyalty_program_products").insert(productRows);
+        if (prodErr) throw prodErr;
+      }
     },
     onSuccess: () => {
       toast.success(editing ? "Programa atualizado" : "Programa criado");
       reset();
       qc.invalidateQueries({ queryKey: ["loyalty-programs", shopId] });
       qc.invalidateQueries({ queryKey: ["loyalty-program-services", shopId] });
+      qc.invalidateQueries({ queryKey: ["loyalty-program-products", shopId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -324,6 +419,40 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
           <Switch checked={includeWalkIn} onCheckedChange={setIncludeWalkIn} />
         </div>
 
+        <div className="space-y-2">
+          <Label>Prêmio (o cliente escolhe um ao resgatar)</Label>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
+            <div>
+              <p className="text-sm font-medium">Atendimento grátis</p>
+              <p className="text-xs text-muted-foreground">
+                O cliente usa o resgate ao agendar pelo app, como já funciona hoje.
+              </p>
+            </div>
+            <Switch checked={allowServiceReward} onCheckedChange={setAllowServiceReward} />
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <p className="mb-2 text-sm font-medium">Produtos (retirada na barbearia)</p>
+            {productsQ.isLoading && <Loader2 className="animate-spin" />}
+            {!productsQ.isLoading && (productsQ.data ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Nenhum produto ativo. Cadastre na aba "Produtos" pra oferecer como prêmio.
+              </p>
+            )}
+            <div className="space-y-1">
+              {(productsQ.data ?? []).map((p) => (
+                <label key={p.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selectedProductIds.has(p.id)}
+                    onChange={() => toggleProduct(p.id)}
+                  />
+                  {p.title}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <Button variant="hero" onClick={() => save.mutate()} disabled={save.isPending}>
           {save.isPending ? <Loader2 className="animate-spin" /> : editing ? <Save /> : <Plus />}
           {editing ? "Salvar alterações" : "Criar programa"}
@@ -358,6 +487,15 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {p.include_walk_in ? "Inclui atendimentos avulsos" : "Só atendimentos feitos pelo app"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Prêmio:{" "}
+                {[
+                  p.allow_service_reward !== false ? "atendimento grátis" : null,
+                  ...(productsByProgram.get(p.id) ?? []),
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "—"}
               </p>
 
               <div className="mt-3 flex items-center justify-end gap-1 border-t border-border pt-3">

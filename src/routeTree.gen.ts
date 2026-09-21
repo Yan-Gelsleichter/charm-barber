@@ -39,6 +39,8 @@ import { Route as ApiPublicCaixaWalkinDeleteRouteImport } from './routes/api/pub
 import { Route as ApiPublicCaixaWalkinUpdateRouteImport } from './routes/api/public/caixa-walkin-update'
 import { Route as ApiPublicCreateBarbershopRouteImport } from './routes/api/public/create-barbershop'
 import { Route as ApiPublicEnsureBarbershopSlugRouteImport } from './routes/api/public/ensure-barbershop-slug'
+import { Route as ApiPublicLoyaltyCancelProductRedemptionRouteImport } from './routes/api/public/loyalty-cancel-product-redemption'
+import { Route as ApiPublicLoyaltyRedeemProductRouteImport } from './routes/api/public/loyalty-redeem-product'
 import { Route as ApiPublicLoyaltyStatusRouteImport } from './routes/api/public/loyalty-status'
 import { Route as ApiPublicMercadopagoConnectRouteImport } from './routes/api/public/mercadopago-connect'
 import { Route as ApiPublicMercadopagoConnectionRouteImport } from './routes/api/public/mercadopago-connection'
@@ -227,6 +229,18 @@ const ApiPublicEnsureBarbershopSlugRoute =
     path: '/api/public/ensure-barbershop-slug',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicLoyaltyCancelProductRedemptionRoute =
+  ApiPublicLoyaltyCancelProductRedemptionRouteImport.update({
+    id: '/api/public/loyalty-cancel-product-redemption',
+    path: '/api/public/loyalty-cancel-product-redemption',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLoyaltyRedeemProductRoute =
+  ApiPublicLoyaltyRedeemProductRouteImport.update({
+    id: '/api/public/loyalty-redeem-product',
+    path: '/api/public/loyalty-redeem-product',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicLoyaltyStatusRoute = ApiPublicLoyaltyStatusRouteImport.update({
   id: '/api/public/loyalty-status',
   path: '/api/public/loyalty-status',
@@ -377,6 +391,8 @@ export interface FileRoutesByFullPath {
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
+  '/api/public/loyalty-cancel-product-redemption': typeof ApiPublicLoyaltyCancelProductRedemptionRoute
+  '/api/public/loyalty-redeem-product': typeof ApiPublicLoyaltyRedeemProductRoute
   '/api/public/loyalty-status': typeof ApiPublicLoyaltyStatusRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
@@ -429,6 +445,8 @@ export interface FileRoutesByTo {
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
+  '/api/public/loyalty-cancel-product-redemption': typeof ApiPublicLoyaltyCancelProductRedemptionRoute
+  '/api/public/loyalty-redeem-product': typeof ApiPublicLoyaltyRedeemProductRoute
   '/api/public/loyalty-status': typeof ApiPublicLoyaltyStatusRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
@@ -482,6 +500,8 @@ export interface FileRoutesById {
   '/api/public/caixa-walkin-update': typeof ApiPublicCaixaWalkinUpdateRoute
   '/api/public/create-barbershop': typeof ApiPublicCreateBarbershopRoute
   '/api/public/ensure-barbershop-slug': typeof ApiPublicEnsureBarbershopSlugRoute
+  '/api/public/loyalty-cancel-product-redemption': typeof ApiPublicLoyaltyCancelProductRedemptionRoute
+  '/api/public/loyalty-redeem-product': typeof ApiPublicLoyaltyRedeemProductRoute
   '/api/public/loyalty-status': typeof ApiPublicLoyaltyStatusRoute
   '/api/public/mercadopago-connect': typeof ApiPublicMercadopagoConnectRoute
   '/api/public/mercadopago-connection': typeof ApiPublicMercadopagoConnectionRoute
@@ -536,6 +556,8 @@ export interface FileRouteTypes {
     | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
+    | '/api/public/loyalty-cancel-product-redemption'
+    | '/api/public/loyalty-redeem-product'
     | '/api/public/loyalty-status'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-connection'
@@ -588,6 +610,8 @@ export interface FileRouteTypes {
     | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
+    | '/api/public/loyalty-cancel-product-redemption'
+    | '/api/public/loyalty-redeem-product'
     | '/api/public/loyalty-status'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-connection'
@@ -640,6 +664,8 @@ export interface FileRouteTypes {
     | '/api/public/caixa-walkin-update'
     | '/api/public/create-barbershop'
     | '/api/public/ensure-barbershop-slug'
+    | '/api/public/loyalty-cancel-product-redemption'
+    | '/api/public/loyalty-redeem-product'
     | '/api/public/loyalty-status'
     | '/api/public/mercadopago-connect'
     | '/api/public/mercadopago-connection'
@@ -693,6 +719,8 @@ export interface RootRouteChildren {
   ApiPublicCaixaWalkinUpdateRoute: typeof ApiPublicCaixaWalkinUpdateRoute
   ApiPublicCreateBarbershopRoute: typeof ApiPublicCreateBarbershopRoute
   ApiPublicEnsureBarbershopSlugRoute: typeof ApiPublicEnsureBarbershopSlugRoute
+  ApiPublicLoyaltyCancelProductRedemptionRoute: typeof ApiPublicLoyaltyCancelProductRedemptionRoute
+  ApiPublicLoyaltyRedeemProductRoute: typeof ApiPublicLoyaltyRedeemProductRoute
   ApiPublicLoyaltyStatusRoute: typeof ApiPublicLoyaltyStatusRoute
   ApiPublicMercadopagoConnectRoute: typeof ApiPublicMercadopagoConnectRoute
   ApiPublicMercadopagoConnectionRoute: typeof ApiPublicMercadopagoConnectionRoute
@@ -927,6 +955,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicEnsureBarbershopSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/loyalty-cancel-product-redemption': {
+      id: '/api/public/loyalty-cancel-product-redemption'
+      path: '/api/public/loyalty-cancel-product-redemption'
+      fullPath: '/api/public/loyalty-cancel-product-redemption'
+      preLoaderRoute: typeof ApiPublicLoyaltyCancelProductRedemptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/loyalty-redeem-product': {
+      id: '/api/public/loyalty-redeem-product'
+      path: '/api/public/loyalty-redeem-product'
+      fullPath: '/api/public/loyalty-redeem-product'
+      preLoaderRoute: typeof ApiPublicLoyaltyRedeemProductRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/loyalty-status': {
       id: '/api/public/loyalty-status'
       path: '/api/public/loyalty-status'
@@ -1104,6 +1146,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCaixaWalkinUpdateRoute: ApiPublicCaixaWalkinUpdateRoute,
   ApiPublicCreateBarbershopRoute: ApiPublicCreateBarbershopRoute,
   ApiPublicEnsureBarbershopSlugRoute: ApiPublicEnsureBarbershopSlugRoute,
+  ApiPublicLoyaltyCancelProductRedemptionRoute:
+    ApiPublicLoyaltyCancelProductRedemptionRoute,
+  ApiPublicLoyaltyRedeemProductRoute: ApiPublicLoyaltyRedeemProductRoute,
   ApiPublicLoyaltyStatusRoute: ApiPublicLoyaltyStatusRoute,
   ApiPublicMercadopagoConnectRoute: ApiPublicMercadopagoConnectRoute,
   ApiPublicMercadopagoConnectionRoute: ApiPublicMercadopagoConnectionRoute,

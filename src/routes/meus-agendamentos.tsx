@@ -186,6 +186,8 @@ function MeusAgendamentosPage() {
     serviceNames: string[];
     progressInCycle: number;
     availableNow: number;
+    allowServiceReward?: boolean;
+    rewardProducts?: { id: string; title: string; stock_quantity: number }[];
   };
   // Mesma identidade usada pra buscar os agendamentos (telefone), e a mesma
   // barbearia do agendamento mais recente — cada barbearia tem seu próprio
@@ -201,6 +203,53 @@ function MeusAgendamentosPage() {
         barbershop_id: loyaltyBarbershopId,
         customer_phone: loyaltyPhone,
       }),
+  });
+
+  const redeemProduct = useMutation({
+    mutationFn: async ({ programId, productId }: { programId: string; productId: string }) => {
+      const customerName = (metaName ?? "").trim();
+      if (customerName.length < 2) throw new Error("Não encontramos seu nome no cadastro.");
+      const result = await postPublicApi<{ ok?: boolean; error?: string }>(
+        "/api/public/loyalty-redeem-product",
+        {
+          barbershop_id: loyaltyBarbershopId,
+          program_id: programId,
+          product_id: productId,
+          customer_name: customerName,
+          customer_phone: loyaltyPhone,
+          customer_email: email,
+        },
+        session?.access_token,
+      );
+      if (!result?.ok) throw new Error(result?.error ?? "Não foi possível resgatar o prêmio.");
+    },
+    onSuccess: async () => {
+      toast.success("Prêmio resgatado!", { description: "Retire na barbearia — avisamos o admin." });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["loyalty-status"] }),
+        qc.invalidateQueries({ queryKey: ["my-product-orders"] }),
+      ]);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelProductRedemption = useMutation({
+    mutationFn: async (orderId: string) => {
+      const result = await postPublicApi<{ ok?: boolean; error?: string }>(
+        "/api/public/loyalty-cancel-product-redemption",
+        { order_id: orderId, customer_phone: loyaltyPhone },
+        session?.access_token,
+      );
+      if (!result?.ok) throw new Error(result?.error ?? "Não foi possível cancelar o resgate.");
+    },
+    onSuccess: async () => {
+      toast.success("Resgate cancelado", { description: "Ele voltou a ficar disponível pra você escolher de novo." });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["loyalty-status"] }),
+        qc.invalidateQueries({ queryKey: ["my-product-orders"] }),
+      ]);
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const myProductOrdersQ = useQuery({
@@ -227,7 +276,13 @@ function MeusAgendamentosPage() {
         itemsByOrder.set(item.order_id, list);
       }
       return {
-        orders: orders as { id: string; total_price: number; fulfilled_at: string | null; created_at?: string }[],
+        orders: orders as {
+          id: string;
+          total_price: number;
+          fulfilled_at: string | null;
+          covered_by_loyalty_program_id?: string | null;
+          created_at?: string;
+        }[],
         itemsByOrder,
       };
     },
@@ -394,20 +449,51 @@ function MeusAgendamentosPage() {
               const label = p.program.scope === "generic" ? "atendimentos" : p.serviceNames.join(" + ") || "atendimentos";
               const progress = p.progressInCycle % p.program.goal;
               return (
-                <div key={p.program.id} className="surface flex items-center justify-between gap-3 p-4">
-                  <div className="flex items-center gap-3">
-                    <Gift className="size-5 text-success" />
-                    <div>
-                      <p className="font-semibold">{p.program.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {progress}/{p.program.goal} {label}
-                      </p>
+                <div key={p.program.id} className="surface space-y-3 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Gift className="size-5 text-success" />
+                      <div>
+                        <p className="font-semibold">{p.program.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {progress}/{p.program.goal} {label}
+                        </p>
+                      </div>
                     </div>
+                    {p.availableNow >= 1 && (
+                      <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                        {p.availableNow} {p.availableNow > 1 ? "resgates disponíveis" : "resgate disponível"}
+                      </span>
+                    )}
                   </div>
                   {p.availableNow >= 1 && (
-                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
-                      {p.availableNow} {p.availableNow > 1 ? "resgates disponíveis" : "resgate disponível"}
-                    </span>
+                    <div className="space-y-2 border-t border-border/60 pt-3">
+                      <p className="text-xs text-muted-foreground">Escolha seu prêmio:</p>
+                      {p.allowServiceReward !== false && (
+                        <p className="text-sm">
+                          Atendimento grátis — é só marcar um horário e ativar o resgate na hora de confirmar.
+                        </p>
+                      )}
+                      {(p.rewardProducts ?? []).map((prod) => (
+                        <Button
+                          key={prod.id}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-between"
+                          disabled={prod.stock_quantity < 1 || redeemProduct.isPending}
+                          onClick={() => {
+                            if (confirm(`Trocar 1 resgate por "${prod.title}"? Você retira na barbearia.`)) {
+                              redeemProduct.mutate({ programId: p.program.id, productId: prod.id });
+                            }
+                          }}
+                        >
+                          <span className="truncate">{prod.title}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {prod.stock_quantity < 1 ? "Esgotado" : "Trocar por este produto"}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
                   )}
                 </div>
               );
@@ -433,18 +519,41 @@ function MeusAgendamentosPage() {
                         {items.map((i) => (i.quantity > 1 ? `${i.quantity}x ${i.product_title}` : i.product_title)).join(", ") ||
                           "Produto"}
                       </p>
-                      <p className="text-xs text-muted-foreground">{brl(o.total_price)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {o.total_price > 0 ? brl(o.total_price) : "Prêmio de fidelidade"}
+                      </p>
                     </div>
                   </div>
-                  <span
-                    className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wider ${
-                      o.fulfilled_at
-                        ? "border-border bg-muted text-muted-foreground"
-                        : "border-primary/40 bg-primary/10 text-primary"
-                    }`}
-                  >
-                    {o.fulfilled_at ? "Retirado" : "Aguardando retirada"}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span
+                      className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wider ${
+                        o.fulfilled_at
+                          ? "border-border bg-muted text-muted-foreground"
+                          : "border-primary/40 bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {o.fulfilled_at ? "Retirado" : "Aguardando retirada"}
+                    </span>
+                    {o.covered_by_loyalty_program_id && !o.fulfilled_at && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-destructive"
+                        disabled={cancelProductRedemption.isPending}
+                        onClick={() => {
+                          if (
+                            confirm(
+                              "Cancelar a troca por este produto? O resgate volta pra você e dá pra escolher outro prêmio (ex.: corte grátis).",
+                            )
+                          ) {
+                            cancelProductRedemption.mutate(o.id);
+                          }
+                        }}
+                      >
+                        Cancelar resgate
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}
