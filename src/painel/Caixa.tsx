@@ -624,12 +624,17 @@ export function CaixaTab({ barber }: { barber: Barber }) {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {CARDS.map((c) => (
-          <div className="surface flex flex-col gap-1 p-3 sm:items-center sm:text-center" key={c.key}>
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs">
+          <div
+            className="surface flex flex-col gap-1 p-3 sm:items-center sm:text-center md:gap-2 md:p-7"
+            key={c.key}
+          >
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs md:text-base md:font-bold">
               {c.label}
             </span>
-            <span className="brand-text text-xl font-bold">{brl(totaisHook.totais[c.key].valor)}</span>
-            <span className="text-[10px] text-muted-foreground sm:text-xs">
+            <span className="brand-text text-xl font-bold md:text-5xl md:font-extrabold">
+              {brl(totaisHook.totais[c.key].valor)}
+            </span>
+            <span className="text-[10px] text-muted-foreground sm:text-xs md:text-base md:font-semibold">
               {totaisHook.totais[c.key].qtd} atendimento{totaisHook.totais[c.key].qtd === 1 ? "" : "s"}
             </span>
           </div>

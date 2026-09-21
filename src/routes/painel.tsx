@@ -406,9 +406,14 @@ WHERE user_id = '${currentUid}';`;
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-0 md:pr-56">
+    <div className="min-h-screen pb-24 md:pb-0 md:pl-56">
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <div
+          className={cn(
+            "mx-auto flex items-center justify-between px-4 py-3",
+            tab === "caixa" ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
+          )}
+        >
           <div className="flex items-center gap-3">
             {shopLogo ? (
               <img
@@ -447,7 +452,13 @@ WHERE user_id = '${currentUid}';`;
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      <main
+        className={cn(
+          "mx-auto px-4 py-6",
+          // A Caixa ocupa a largura toda da tela no desktop (cards e gráficos maiores).
+          tab === "caixa" ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
+        )}
+      >
         {tab === "inicio" && isMobile && <InicioGrid items={items} navigate={navigate} />}
         {tab === "caixa" && barber.is_admin && <CaixaTab barber={barber} />}
         {tab === "dashboard" && <DashboardTab barber={barber} />}
@@ -468,8 +479,8 @@ WHERE user_id = '${currentUid}';`;
 
       </main>
 
-      {/* Desktop: menu lateral fixo à direita, vale pra todas as seções do painel. */}
-      <aside className="fixed inset-y-0 right-0 z-40 hidden w-56 flex-col border-l border-border bg-background/95 backdrop-blur-md md:flex">
+      {/* Desktop: menu lateral fixo à esquerda, vale pra todas as seções do painel. */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-border bg-background/95 backdrop-blur-md md:flex">
         <p className="px-5 pb-2 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Menu
         </p>

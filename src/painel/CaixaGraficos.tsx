@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { Barber } from "@/integrations/supabase/db-types";
 import { brl } from "@/lib/format";
@@ -11,12 +12,23 @@ const PERIODOS: { key: Exclude<Periodo, "custom">; label: string }[] = [
   { key: "ano", label: "Ano" },
 ];
 
+const COR = "var(--brand-from)";
+const TEXTO = "var(--foreground)";
+const TEXTO_SUAVE = "var(--muted-foreground)";
+
+function valorCurto(v: unknown) {
+  return `R$ ${Math.round(Number(v) || 0).toLocaleString("pt-BR")}`;
+}
+
 /**
  * Quatro gráficos (Dia, Semana, Mês, Ano) sempre visíveis, lado a lado, só
- * no desktop (no celular a Caixa fica sem gráficos). Cada um mostra, por barbeiro, o valor acumulado no período (o
- * comprimento da barra) e o número de atendimentos (no rótulo ao lado) —
- * uma única escala, sem eixo duplo. Só atendimentos de serviço entram aqui
- * (mesma base do Ranking); venda de produto fica só nos totais gerais.
+ * no desktop (no celular a Caixa fica sem gráficos). Cada um tem, por
+ * barbeiro, duas colunas verticais: o valor acumulado (coluna escura) e o
+ * número de atendimentos (coluna clara). As duas colunas têm escalas
+ * próprias e nenhum eixo aparece — cada coluna traz o número escrito em
+ * cima, pra ninguém ter que ler valor no eixo. Só atendimentos de serviço
+ * entram aqui (mesma base do Ranking); venda de produto fica só nos
+ * totais gerais.
  */
 export function CaixaGraficos({
   barbeiros,
@@ -26,10 +38,21 @@ export function CaixaGraficos({
   stats: Map<string, Record<Periodo, BarberStats>>;
 }) {
   return (
-    <section aria-label="Atendimentos e valor por barbeiro" className="hidden grid-cols-4 gap-3 md:grid">
-      {PERIODOS.map((p) => (
-        <GraficoPeriodo key={p.key} titulo={p.label} periodo={p.key} barbeiros={barbeiros} stats={stats} />
-      ))}
+    <section aria-label="Atendimentos e valor por barbeiro" className="hidden space-y-3 md:block">
+      <div className="flex items-center justify-end gap-4 text-xs font-medium text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block size-3 rounded-sm" style={{ background: COR }} /> Valor (R$)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block size-3 rounded-sm" style={{ background: COR, opacity: 0.45 }} />{" "}
+          Atendimentos
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {PERIODOS.map((p) => (
+          <GraficoPeriodo key={p.key} titulo={p.label} periodo={p.key} barbeiros={barbeiros} stats={stats} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -45,52 +68,76 @@ function GraficoPeriodo({
   barbeiros: Barber[];
   stats: Map<string, Record<Periodo, BarberStats>>;
 }) {
-  const linhas = useMemo(
+  const dados = useMemo(
     () =>
       barbeiros
         .map((b) => ({
-          id: b.id,
-          nome: b.name,
+          nome: b.name.split(" ")[0],
+          nomeCompleto: b.name,
           valor: stats.get(b.id)?.[periodo].valor ?? 0,
           qtd: stats.get(b.id)?.[periodo].qtd ?? 0,
         }))
         .sort((x, y) => y.valor - x.valor || y.qtd - x.qtd || x.nome.localeCompare(y.nome)),
     [barbeiros, stats, periodo],
   );
-  const maximo = Math.max(...linhas.map((l) => l.valor), 0);
-  const vazio = linhas.every((l) => l.qtd === 0 && l.valor === 0);
+  const vazio = dados.every((d) => d.qtd === 0 && d.valor === 0);
+  const folga = (max: number) => Math.max(max, 1) * 1.2;
 
   return (
     <div className="surface p-4">
-      <h3 className="mb-3 text-sm font-semibold">{titulo}</h3>
+      <h3 className="mb-2 text-base font-bold">{titulo}</h3>
       {vazio ? (
-        <p className="py-4 text-center text-xs text-muted-foreground">Sem atendimentos neste período.</p>
+        <p className="flex h-[300px] items-center justify-center text-center text-sm text-muted-foreground">
+          Sem atendimentos neste período.
+        </p>
       ) : (
-        <ul className="space-y-3">
-          {linhas.map((l) => {
-            const largura = maximo > 0 ? Math.max((l.valor / maximo) * 100, l.valor > 0 ? 2 : 0) : 0;
-            return (
-              <li
-                key={l.id}
-                title={`${l.nome}: ${brl(l.valor)} em ${l.qtd} atendimento${l.qtd === 1 ? "" : "s"}`}
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={dados} margin={{ top: 22, right: 2, left: 2, bottom: 0 }} barGap={2} barCategoryGap="18%">
+              <XAxis
+                dataKey="nome"
+                interval={0}
+                tickLine={false}
+                axisLine={{ stroke: "var(--border)" }}
+                tick={{ fontSize: 12, fontWeight: 600, fill: TEXTO }}
+              />
+              <YAxis yAxisId="valor" hide domain={[0, folga]} />
+              <YAxis yAxisId="qtd" orientation="right" hide domain={[0, folga]} />
+              <Tooltip
+                cursor={{ fill: "var(--secondary)", opacity: 0.4 }}
+                contentStyle={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                labelFormatter={(_l, payload) => payload?.[0]?.payload?.nomeCompleto ?? ""}
+                formatter={(value, name) => (name === "Valor" ? [brl(Number(value)), name] : [String(value), name])}
+              />
+              <Bar yAxisId="valor" dataKey="valor" name="Valor" fill={COR} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                <LabelList
+                  dataKey="valor"
+                  position="top"
+                  formatter={valorCurto}
+                  fontSize={10}
+                  fontWeight={700}
+                  fill={TEXTO}
+                />
+              </Bar>
+              <Bar
+                yAxisId="qtd"
+                dataKey="qtd"
+                name="Atendimentos"
+                fill={COR}
+                fillOpacity={0.45}
+                radius={[4, 4, 0, 0]}
+                isAnimationActive={false}
               >
-                <div className="mb-1 text-xs">
-                  <p className="truncate font-medium">{l.nome}</p>
-                  <p className="tabular-nums text-muted-foreground">
-                    {l.qtd} atend. · <span className="font-semibold text-foreground">{brl(l.valor)}</span>
-                  </p>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/50">
-                  <div
-                    className="h-full rounded-full bg-[var(--brand-from)]"
-                    style={{ width: `${largura}%` }}
-                    role="presentation"
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                <LabelList dataKey="qtd" position="top" fontSize={11} fontWeight={700} fill={TEXTO_SUAVE} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       )}
     </div>
   );
