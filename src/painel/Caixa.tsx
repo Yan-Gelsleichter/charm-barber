@@ -32,6 +32,7 @@ import { brazilDateKey, brazilDayBounds, brazilDateTime, BRAZIL_TIME_ZONE } from
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 import { useFaturamentoTotais, type Periodo } from "@/hooks/use-faturamento-totais";
 import { CaixaRelatorioRepasse } from "@/painel/CaixaRelatorioRepasse";
+import { CaixaGraficos } from "@/painel/CaixaGraficos";
 import { cn } from "@/lib/utils";
 
 const CARDS: { key: Periodo; label: string }[] = [
@@ -222,6 +223,27 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     );
     return { rowsToRender: [...topLevel, ...orphanExtras], childrenByParent: children };
   }, [itensDoDia]);
+
+  // Lista do dia: do horário mais recente pro mais antigo, com as vendas de
+  // produto intercaladas pelo horário em que foram feitas.
+  const linhasDoDia = useMemo(() => {
+    const linhas: (
+      | { kind: "atendimento"; time: number; a: Appointment }
+      | { kind: "produto"; time: number; o: ProductOrder }
+    )[] = [
+      ...rowsToRender.map((a) => ({
+        kind: "atendimento" as const,
+        time: new Date(a.appointment_time).getTime(),
+        a,
+      })),
+      ...(productOrdersDiaQ.data ?? []).map((o) => ({
+        kind: "produto" as const,
+        time: new Date(o.created_at ?? 0).getTime(),
+        o,
+      })),
+    ];
+    return linhas.sort((x, y) => y.time - x.time);
+  }, [rowsToRender, productOrdersDiaQ.data]);
 
   const markPaid = useMutation({
     mutationFn: async ({
@@ -614,6 +636,8 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         ))}
       </div>
 
+      <CaixaGraficos barbeiros={barbeiros} stats={totaisHook.statsPorBarbeiro} />
+
       <div className="surface flex items-center justify-between p-3">
         <Button variant="ghost" size="icon" onClick={() => setDayOffset((v) => v - 1)}>
           <ChevronLeft />
@@ -660,15 +684,16 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         <div className="flex justify-center py-16">
           <Loader2 className="animate-spin" />
         </div>
-      ) : rowsToRender.length === 0 && (productOrdersDiaQ.data ?? []).length === 0 ? (
+      ) : linhasDoDia.length === 0 ? (
         <div className="surface p-6 text-center text-sm text-muted-foreground">
           Nenhum atendimento neste dia.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:gap-3">
-          {rowsToRender.map((a) => renderRow(a, childrenByParent.get(a.id) ?? []))}
-          {(productOrdersDiaQ.data ?? []).map((o) =>
-            renderProductRow(o, productItemsByOrder.get(o.id) ?? []),
+          {linhasDoDia.map((linha) =>
+            linha.kind === "atendimento"
+              ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
+              : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? []),
           )}
         </div>
       )}

@@ -406,7 +406,7 @@ WHERE user_id = '${currentUid}';`;
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 md:pb-0 md:pr-56">
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -468,10 +468,41 @@ WHERE user_id = '${currentUid}';`;
 
       </main>
 
+      {/* Desktop: menu lateral fixo à direita, vale pra todas as seções do painel. */}
+      <aside className="fixed inset-y-0 right-0 z-40 hidden w-56 flex-col border-l border-border bg-background/95 backdrop-blur-md md:flex">
+        <p className="px-5 pb-2 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Menu
+        </p>
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+          {items.map((n) => {
+            const active = tab === n.id;
+            const Icon = n.icon;
+            return (
+              <Link
+                key={n.id}
+                to="/painel"
+                search={{ tab: n.id }}
+                replace
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-[color:var(--brand-from)]/10 text-[var(--brand-from)]"
+                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                )}
+              >
+                <Icon className="size-5 shrink-0" />
+                {n.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+
       {!(tab === "inicio" && isMobile) && (
         <nav
           className={cn(
-            "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md transition-transform",
+            "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md transition-transform md:hidden",
             keyboardOpen && "pointer-events-none translate-y-full",
           )}
         >
