@@ -413,10 +413,9 @@ WHERE user_id = '${currentUid}';`;
     <div className="min-h-screen pb-24 md:pb-0 md:pl-56">
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div
-          className={cn(
-            "mx-auto flex items-center justify-between px-4 py-3 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4",
-            FULL_WIDTH_TABS.includes(tab) ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
-          )}
+          // O cabeçalho é sempre igual em todas as abas — só o conteúdo
+          // abaixo dele (main) muda de largura dependendo da aba.
+          className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 md:max-w-none md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4 md:px-8"
         >
           <div className="flex items-center gap-3">
             {shopLogo ? (

@@ -292,7 +292,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                         </span>
                         <div className="min-w-0">
                           <p className="truncate font-medium">{r.barbeiro.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground md:text-sm">
                             {s.qtd} {rk.sublabel}
                           </p>
                           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
@@ -357,7 +357,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
                       <p className="truncate font-medium">{a.customer_name}</p>
                       <PaymentBadge status={a.payment_status} compact />
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground md:text-sm">
                       {servicosMap.get(a.service_id)?.name ?? "Serviço"} ·{" "}
                       {fmtDateTime(a.appointment_time)}
                     </p>

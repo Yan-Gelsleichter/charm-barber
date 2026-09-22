@@ -331,7 +331,7 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         >
           {changeEmail.isPending ? <Loader2 className="animate-spin" /> : <Save />} Atualizar e-mail
         </Button>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground md:text-sm">
           Por segurança, enviaremos um link de confirmação. A alteração só é concluída após você
           confirmar pelo e-mail recebido.
         </p>

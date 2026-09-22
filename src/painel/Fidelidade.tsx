@@ -412,7 +412,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
         <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
           <div>
             <p className="text-sm font-medium">Incluir atendimentos avulsos</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground md:text-sm">
               Conta ponto também pros atendimentos lançados no Caixa (sem passar pelo app).
             </p>
           </div>
@@ -424,7 +424,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
           <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
             <div>
               <p className="text-sm font-medium">Atendimento grátis</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground md:text-sm">
                 O cliente usa o resgate ao agendar pelo app, como já funciona hoje.
               </p>
             </div>
@@ -479,16 +479,16 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
                   </span>
                 )}
               </div>
-              <p className="mt-1 break-words text-xs text-muted-foreground">
+              <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">
                 {p.scope === "generic"
                   ? "Qualquer atendimento"
                   : (servicesByProgram.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
                 {" · "}a cada {p.goal}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground md:text-sm">
                 {p.include_walk_in ? "Inclui atendimentos avulsos" : "Só atendimentos feitos pelo app"}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground md:text-sm">
                 Prêmio:{" "}
                 {[
                   p.allow_service_reward !== false ? "atendimento grátis" : null,

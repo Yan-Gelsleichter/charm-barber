@@ -366,7 +366,7 @@ function ComissaoProdutosBarbeiros({ shopId }: { shopId: string | null }) {
     <section className="surface space-y-4 p-4">
       <div>
         <p className="font-medium">Comissão por barbeiro em produtos</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground md:text-sm">
           % fixa aplicada a qualquer produto que o barbeiro vender presencialmente pela Caixa. O dinheiro da venda
           continua indo inteiro pra conta da barbearia — essa comissão é só um controle pra você saber quanto
           repassar por fora.

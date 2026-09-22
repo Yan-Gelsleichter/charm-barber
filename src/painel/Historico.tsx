@@ -131,7 +131,7 @@ export function HistoricoTab({ barber }: { barber: Barber }) {
                   <p className={cn("font-semibold", cancelado && "line-through")}>
                     {a.customer_name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground md:text-sm">
                     {nomes || "Serviço"} · {fmtDateTime(a.appointment_time)}
                   </p>
                 </div>

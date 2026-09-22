@@ -276,7 +276,7 @@ export function BarbeirosTab() {
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground md:text-sm">
                     {b.user_id ? "Conta ativa" : "Sem login vinculado"}
                   </p>
                 </div>

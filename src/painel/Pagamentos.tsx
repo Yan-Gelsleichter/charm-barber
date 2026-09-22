@@ -334,7 +334,7 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
       <section className="surface space-y-4 p-4">
         <div>
           <p className="font-medium">Modelo de repasse financeiro</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground md:text-sm">
             Escolha como os valores dos agendamentos serão distribuídos.
           </p>
         </div>
@@ -364,14 +364,14 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
                   <span className="text-sm font-semibold">{m.title}</span>
                   {active && <CheckCircle2 className="ml-auto size-4 text-[color:var(--success)]" />}
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">{m.desc}</p>
+                <p className="mt-2 text-xs text-muted-foreground md:text-sm">{m.desc}</p>
               </button>
             );
           })}
         </div>
 
         {mode === "split" && (
-          <p className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs text-muted-foreground">
+          <p className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs text-muted-foreground md:text-sm">
             Ativo: cada barbeiro vê a aba <span className="font-semibold text-foreground">Pagamentos</span>{" "}
             no próprio painel e conecta a conta Mercado Pago dele por lá.
           </p>
@@ -420,7 +420,7 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="font-medium">Permitir pagamento presencial</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground md:text-sm">
               Ativado (padrão), o cliente pode escolher "Pagar presencialmente" ao agendar.
               Desativado, ele só consegue agendar pagando online (Pix ou cartão) na hora.
             </p>
@@ -549,7 +549,7 @@ function ComissoesBarbeiros({
     <section className="surface space-y-4 p-4">
       <div>
         <p className="font-medium">Comissões por profissional</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground md:text-sm">
           Defina quanto cada barbeiro recebe do valor do serviço. O restante fica com a barbearia.
         </p>
       </div>
@@ -590,12 +590,12 @@ function ComissoesBarbeiros({
                       )}
                     </p>
                     {b.mp_user_id || (b.is_admin && shopMpUserId) ? (
-                      <p className="flex items-center gap-1 text-xs text-[color:var(--success)]">
+                      <p className="flex items-center gap-1 text-xs text-[color:var(--success)] md:text-sm">
                         <CheckCircle2 className="size-3" /> Mercado Pago conectado (conta{" "}
                         {b.mp_user_id ?? shopMpUserId})
                       </p>
                     ) : (
-                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground md:text-sm">
                         <AlertCircle className="size-3" /> Não conectado ao Mercado Pago
                       </p>
                     )}
@@ -629,7 +629,7 @@ function ComissoesBarbeiros({
                   </div>
                 </div>
 
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-2 text-xs text-muted-foreground md:text-sm">
                   {shopShare === null
                     ? "Defina a porcentagem do barbeiro (0 a 100)."
                     : `${percent}% do barbeiro / ${shopShare}% da barbearia`}

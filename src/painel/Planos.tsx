@@ -474,11 +474,13 @@ export function PlanosTab({ barber }: { barber: Barber }) {
                   </span>
                 )}
               </div>
-              {p.description && <p className="mt-1 break-words text-xs text-muted-foreground">{p.description}</p>}
-              <p className="mt-1 break-words text-xs text-muted-foreground">
+              {p.description && (
+                <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">{p.description}</p>
+              )}
+              <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">
                 Serviços: {(servicesByPlan.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
               </p>
-              <p className="mt-1 break-words text-xs text-muted-foreground">
+              <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">
                 Com: {(barbersByPlan.get(p.id) ?? []).join(", ") || "nenhum barbeiro"}
               </p>
 
