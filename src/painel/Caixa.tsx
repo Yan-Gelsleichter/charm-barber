@@ -704,12 +704,14 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         // canto direito), quebrando pra linha de baixo conforme enche — por
         // isso `flex-row-reverse` em vez de grid (grid sempre preenche da
         // esquerda). O conteúdo de cada card continua normal (LTR), só a
-        // ordem de preenchimento da linha é invertida.
+        // ordem de preenchimento da linha é invertida. `grow` faz os cards
+        // esticarem pra preencher a linha quando sobra menos de 4 (sem isso
+        // ficava um vão vazio do lado esquerdo de uma linha incompleta).
         <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:flex lg:flex-row-reverse lg:flex-wrap">
           {linhasDoDia.map((linha) => {
             const key = linha.kind === "atendimento" ? linha.a.id : linha.o.id;
             return (
-              <div key={key} className="lg:shrink-0 lg:grow-0 lg:basis-[calc(25%-0.5625rem)]">
+              <div key={key} className="lg:shrink-0 lg:grow lg:basis-[calc(25%-0.5625rem)]">
                 {linha.kind === "atendimento"
                   ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
                   : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? [])}

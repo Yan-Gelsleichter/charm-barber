@@ -410,7 +410,7 @@ WHERE user_id = '${currentUid}';`;
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div
           className={cn(
-            "mx-auto flex items-center justify-between px-4 py-3",
+            "mx-auto flex items-center justify-between px-4 py-3 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4",
             tab === "caixa" ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
           )}
         >
@@ -425,30 +425,45 @@ WHERE user_id = '${currentUid}';`;
               <BrandMark size={36} />
             )}
             <div className="leading-tight">
-              <p className="text-xs text-muted-foreground md:text-center md:text-2xl md:font-bold md:leading-none md:text-foreground">
+              <p className="text-xs text-muted-foreground md:hidden">
                 {shopName ? shopName : "Olá,"}
               </p>
-              <p className="font-semibold md:mt-1 md:font-normal">{barber.name}</p>
+              <p className="flex items-center gap-2 font-semibold md:font-medium">
+                {barber.name}
+                {barber.is_admin && (
+                  <span className="brand-gradient hidden rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white md:inline-block">
+                    Admin
+                  </span>
+                )}
+              </p>
             </div>
             {barber.is_admin && (
-              <span className="brand-gradient ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+              <span className="brand-gradient ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white md:hidden">
                 Admin
               </span>
             )}
           </div>
-          {isMobile && tab !== "inicio" ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate({ to: "/painel", search: { tab: "inicio" }, replace: true })}
-            >
-              <Home /> Início
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={signingOut}>
-              <LogOut /> Sair
-            </Button>
-          )}
+
+          {/* Nome da barbearia, grande e centralizado no meio do cabeçalho — só desktop. */}
+          <p className="hidden truncate text-center text-3xl font-extrabold leading-none md:block">
+            {shopName}
+          </p>
+
+          <div className="md:justify-self-end">
+            {isMobile && tab !== "inicio" ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate({ to: "/painel", search: { tab: "inicio" }, replace: true })}
+              >
+                <Home /> Início
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={signingOut}>
+                <LogOut /> Sair
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
