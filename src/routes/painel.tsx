@@ -425,10 +425,10 @@ WHERE user_id = '${currentUid}';`;
               <BrandMark size={36} />
             )}
             <div className="leading-tight">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground md:text-center md:text-2xl md:font-bold md:leading-none md:text-foreground">
                 {shopName ? shopName : "Olá,"}
               </p>
-              <p className="font-semibold">{barber.name}</p>
+              <p className="font-semibold md:mt-1 md:font-normal">{barber.name}</p>
             </div>
             {barber.is_admin && (
               <span className="brand-gradient ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
@@ -496,7 +496,7 @@ WHERE user_id = '${currentUid}';`;
                 replace
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center justify-center gap-2.5 rounded-xl px-3 py-2.5 text-base font-semibold transition-colors",
                   active
                     ? "bg-[color:var(--brand-from)]/10 text-[var(--brand-from)]"
                     : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",

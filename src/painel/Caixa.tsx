@@ -617,24 +617,24 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Caixa</h2>
-        <Button variant="outline" size="sm" onClick={() => setRelatorioOpen(true)}>
-          <FileText className="mr-1 size-4" /> Relatório de repasse
+        <Button variant="outline" size="sm" className="md:h-10 md:px-4 md:text-base" onClick={() => setRelatorioOpen(true)}>
+          <FileText className="mr-1 size-4 md:size-5" /> Relatório de repasse
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {CARDS.map((c) => (
           <div
-            className="surface flex flex-col gap-1 p-3 sm:items-center sm:text-center md:gap-2 md:p-7"
+            className="surface flex flex-col gap-1 p-3 sm:items-center sm:text-center md:gap-1.5 md:p-4"
             key={c.key}
           >
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs md:text-base md:font-bold">
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs md:text-sm md:font-bold">
               {c.label}
             </span>
-            <span className="brand-text text-xl font-bold md:text-5xl md:font-extrabold">
+            <span className="brand-text text-xl font-bold md:text-3xl md:font-extrabold">
               {brl(totaisHook.totais[c.key].valor)}
             </span>
-            <span className="text-[10px] text-muted-foreground sm:text-xs md:text-base md:font-semibold">
+            <span className="text-[10px] text-muted-foreground sm:text-xs md:text-sm md:font-semibold">
               {totaisHook.totais[c.key].qtd} atendimento{totaisHook.totais[c.key].qtd === 1 ? "" : "s"}
             </span>
           </div>
@@ -668,19 +668,25 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           Atendimentos do dia
         </h3>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setProductSaleOpen(true)}>
-            <ShoppingBag className="mr-1 size-4" /> Nova venda de produto
+          <Button
+            variant="outline"
+            size="sm"
+            className="md:h-10 md:px-4 md:text-base"
+            onClick={() => setProductSaleOpen(true)}
+          >
+            <ShoppingBag className="mr-1 size-4 md:size-5" /> Nova venda de produto
           </Button>
           <Button
             variant="outline"
             size="sm"
+            className="md:h-10 md:px-4 md:text-base"
             onClick={() => {
               setEditing(null);
               setAddServiceTo(null);
               setFormOpen(true);
             }}
           >
-            <Plus className="mr-1 size-4" /> Novo atendimento
+            <Plus className="mr-1 size-4 md:size-5" /> Novo atendimento
           </Button>
         </div>
       </div>
@@ -694,12 +700,22 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           Nenhum atendimento neste dia.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:gap-3">
-          {linhasDoDia.map((linha) =>
-            linha.kind === "atendimento"
-              ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
-              : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? []),
-          )}
+        // Desktop: linha da direita pra esquerda (mais recente primeiro, no
+        // canto direito), quebrando pra linha de baixo conforme enche — por
+        // isso `flex-row-reverse` em vez de grid (grid sempre preenche da
+        // esquerda). O conteúdo de cada card continua normal (LTR), só a
+        // ordem de preenchimento da linha é invertida.
+        <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:flex lg:flex-row-reverse lg:flex-wrap">
+          {linhasDoDia.map((linha) => {
+            const key = linha.kind === "atendimento" ? linha.a.id : linha.o.id;
+            return (
+              <div key={key} className="lg:shrink-0 lg:grow-0 lg:basis-[calc(25%-0.5625rem)]">
+                {linha.kind === "atendimento"
+                  ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
+                  : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? [])}
+              </div>
+            );
+          })}
         </div>
       )}
 

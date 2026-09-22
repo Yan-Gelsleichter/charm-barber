@@ -84,16 +84,16 @@ function GraficoPeriodo({
   const folga = (max: number) => Math.max(max, 1) * 1.2;
 
   return (
-    <div className="surface p-4">
-      <h3 className="mb-2 text-base font-bold">{titulo}</h3>
+    <div className="surface p-3">
+      <h3 className="mb-1 text-center text-base font-bold">{titulo}</h3>
       {vazio ? (
-        <p className="flex h-[300px] items-center justify-center text-center text-sm text-muted-foreground">
+        <p className="flex h-[200px] items-center justify-center text-center text-sm text-muted-foreground">
           Sem atendimentos neste período.
         </p>
       ) : (
-        <div className="h-[300px] w-full">
+        <div className="h-[200px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dados} margin={{ top: 22, right: 2, left: 2, bottom: 0 }} barGap={2} barCategoryGap="18%">
+            <BarChart data={dados} margin={{ top: 28, right: 2, left: 2, bottom: 0 }} barGap={2} barCategoryGap="18%">
               <XAxis
                 dataKey="nome"
                 interval={0}
@@ -119,8 +119,8 @@ function GraficoPeriodo({
                   dataKey="valor"
                   position="top"
                   formatter={valorCurto}
-                  fontSize={10}
-                  fontWeight={700}
+                  fontSize={14}
+                  fontWeight={800}
                   fill={TEXTO}
                 />
               </Bar>
@@ -133,7 +133,7 @@ function GraficoPeriodo({
                 radius={[4, 4, 0, 0]}
                 isAnimationActive={false}
               >
-                <LabelList dataKey="qtd" position="top" fontSize={11} fontWeight={700} fill={TEXTO_SUAVE} />
+                <LabelList dataKey="qtd" position="top" fontSize={14} fontWeight={800} fill={TEXTO_SUAVE} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
