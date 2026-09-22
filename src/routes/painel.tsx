@@ -645,7 +645,7 @@ const PLATFORM_PLAN_INFO: Record<
   "monthly" | "yearly",
   { label: string; price: number; caption?: string }
 > = {
-  monthly: { label: "Mensal", price: 49 },
+  monthly: { label: "Mensal", price: 49, caption: "Cobrança recorrente, renova automático" },
   yearly: {
     label: "Anual",
     price: 39,
@@ -712,6 +712,9 @@ function SubscriptionBlockedScreen({
       </div>
       <h1 className="mt-4 text-xl font-semibold">{copy.title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{copy.message}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Cancele sua assinatura sem complicações, direto no app.
+      </p>
 
       {!isAdmin ? (
         <p className="mt-6 rounded-xl border border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
@@ -749,7 +752,7 @@ function SubscriptionBlockedScreen({
                 )}
                 <Button
                   variant="hero"
-                  className="mt-4 w-full"
+                  className="mt-4 w-full md:mt-auto"
                   disabled={subscribe.isPending}
                   onClick={() => subscribe.mutate(plan)}
                 >
