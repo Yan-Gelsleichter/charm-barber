@@ -263,6 +263,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     onSuccess: () => {
       toast.success("Marcado como pago");
       qc.invalidateQueries({ queryKey: ["caixa-dia"] });
+      qc.invalidateQueries({ queryKey: ["faturamento"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -298,6 +299,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       toast.success("Marcado como pago");
       qc.invalidateQueries({ queryKey: ["caixa-product-orders-dia"] });
       qc.invalidateQueries({ queryKey: ["products", barber.barbershop_id] });
+      qc.invalidateQueries({ queryKey: ["faturamento"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -330,6 +332,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     onSuccess: () => {
       toast.success("Atendimento avulso excluído");
       qc.invalidateQueries({ queryKey: ["caixa-dia"] });
+      qc.invalidateQueries({ queryKey: ["faturamento"] });
       setDeleting(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -354,6 +357,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         toast.success("Agendamento cancelado");
       }
       qc.invalidateQueries({ queryKey: ["caixa-dia"] });
+      qc.invalidateQueries({ queryKey: ["faturamento"] });
       setCancelling(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -731,12 +735,16 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         addServiceTo={addServiceTo}
         existingExtras={addServiceTo ? (childrenByParent.get(addServiceTo.id) ?? []) : []}
         servicosMap={totaisHook.servicosMap}
-        onListChanged={() => qc.invalidateQueries({ queryKey: ["caixa-dia"] })}
+        onListChanged={() => {
+          qc.invalidateQueries({ queryKey: ["caixa-dia"] });
+          qc.invalidateQueries({ queryKey: ["faturamento"] });
+        }}
         onSaved={() => {
           setFormOpen(false);
           setEditing(null);
           setAddServiceTo(null);
           qc.invalidateQueries({ queryKey: ["caixa-dia"] });
+          qc.invalidateQueries({ queryKey: ["faturamento"] });
         }}
       />
 
@@ -749,6 +757,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           setProductSaleOpen(false);
           qc.invalidateQueries({ queryKey: ["caixa-product-orders-dia"] });
           qc.invalidateQueries({ queryKey: ["products", barber.barbershop_id] });
+          qc.invalidateQueries({ queryKey: ["faturamento"] });
         }}
       />
 
