@@ -451,7 +451,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     );
 
     return (
-      <div key={a.id} className="surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4">
+      <div key={a.id} className="surface flex h-full flex-col gap-2 p-3 sm:gap-3 sm:p-4">
         {/* Cabeçalho — mesmo formato pra avulso, serviço extra e agendamento do app. */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -538,7 +538,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
   // atendimento de serviço.
   function renderProductRow(o: ProductOrder, items: ProductOrderItem[]) {
     return (
-      <div key={o.id} className="surface flex flex-col gap-2 p-3 sm:gap-3 sm:p-4">
+      <div key={o.id} className="surface flex h-full flex-col gap-2 p-3 sm:gap-3 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -700,24 +700,18 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           Nenhum atendimento neste dia.
         </div>
       ) : (
-        // Desktop: linha da direita pra esquerda (mais recente primeiro, no
-        // canto direito), quebrando pra linha de baixo conforme enche — por
-        // isso `flex-row-reverse` em vez de grid (grid sempre preenche da
-        // esquerda). O conteúdo de cada card continua normal (LTR), só a
-        // ordem de preenchimento da linha é invertida. `grow` faz os cards
-        // esticarem pra preencher a linha quando sobra menos de 4 (sem isso
-        // ficava um vão vazio do lado esquerdo de uma linha incompleta).
-        <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:flex lg:flex-row-reverse lg:flex-wrap">
-          {linhasDoDia.map((linha) => {
-            const key = linha.kind === "atendimento" ? linha.a.id : linha.o.id;
-            return (
-              <div key={key} className="lg:shrink-0 lg:grow lg:basis-[calc(25%-0.5625rem)]">
-                {linha.kind === "atendimento"
-                  ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
-                  : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? [])}
-              </div>
-            );
-          })}
+        // Desktop: linha da esquerda pra direita (mais recente primeiro, no
+        // canto esquerdo), quebrando pra linha de baixo conforme enche —
+        // grid de 4 colunas preenche nessa ordem naturalmente. `h-full` no
+        // card (ver renderRow/renderProductRow) deixa todos os cards da
+        // mesma linha com a mesma altura, já que a grade estica cada
+        // célula pra bater com a mais alta da linha por padrão.
+        <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-4">
+          {linhasDoDia.map((linha) =>
+            linha.kind === "atendimento"
+              ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
+              : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? []),
+          )}
         </div>
       )}
 

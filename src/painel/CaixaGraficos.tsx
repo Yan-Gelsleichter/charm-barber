@@ -21,6 +21,34 @@ function valorCurto(v: unknown) {
 }
 
 /**
+ * Número em cima da coluna, na diagonal — com barras próximas umas das
+ * outras, um valor grande na horizontal invadia o número vizinho (ex.:
+ * "R$ 2.046" por cima do "33" da coluna ao lado). Na diagonal, o texto
+ * "escapa" pra cima sem esbarrar na coluna seguinte.
+ */
+function rotuloDiagonal(fill: string, formatar?: (v: unknown) => string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (props: any) => {
+    const { x, y, width, value } = props;
+    const cx = Number(x) + Number(width) / 2;
+    const cy = Number(y) - 6;
+    return (
+      <text
+        x={cx}
+        y={cy}
+        fill={fill}
+        fontSize={12}
+        fontWeight={800}
+        textAnchor="start"
+        transform={`rotate(-40 ${cx} ${cy})`}
+      >
+        {formatar ? formatar(value) : value}
+      </text>
+    );
+  };
+}
+
+/**
  * Quatro gráficos (Dia, Semana, Mês, Ano) sempre visíveis, lado a lado, só
  * no desktop (no celular a Caixa fica sem gráficos). Cada um tem, por
  * barbeiro, duas colunas verticais: o valor acumulado (coluna escura) e o
@@ -93,7 +121,7 @@ function GraficoPeriodo({
       ) : (
         <div className="h-[200px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dados} margin={{ top: 28, right: 2, left: 2, bottom: 0 }} barGap={2} barCategoryGap="18%">
+            <BarChart data={dados} margin={{ top: 34, right: 14, left: 2, bottom: 0 }} barGap={2} barCategoryGap="18%">
               <XAxis
                 dataKey="nome"
                 interval={0}
@@ -115,14 +143,7 @@ function GraficoPeriodo({
                 formatter={(value, name) => (name === "Valor" ? [brl(Number(value)), name] : [String(value), name])}
               />
               <Bar yAxisId="valor" dataKey="valor" name="Valor" fill={COR} radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                <LabelList
-                  dataKey="valor"
-                  position="top"
-                  formatter={valorCurto}
-                  fontSize={14}
-                  fontWeight={800}
-                  fill={TEXTO}
-                />
+                <LabelList dataKey="valor" content={rotuloDiagonal(TEXTO, valorCurto)} />
               </Bar>
               <Bar
                 yAxisId="qtd"
@@ -133,7 +154,7 @@ function GraficoPeriodo({
                 radius={[4, 4, 0, 0]}
                 isAnimationActive={false}
               >
-                <LabelList dataKey="qtd" position="top" fontSize={14} fontWeight={800} fill={TEXTO_SUAVE} />
+                <LabelList dataKey="qtd" content={rotuloDiagonal(TEXTO_SUAVE)} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
