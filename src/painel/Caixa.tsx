@@ -1224,6 +1224,7 @@ function ProductSaleDialog({
   onSaved: () => void;
 }) {
   const [barberId, setBarberId] = useState("");
+  const [semBarbeiro, setSemBarbeiro] = useState(false);
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [itens, setItens] = useState<Record<string, number>>({});
@@ -1233,6 +1234,7 @@ function ProductSaleDialog({
   if (open && !openedFor) {
     setOpenedFor(true);
     setBarberId("");
+    setSemBarbeiro(false);
     setNome("");
     setTelefone("");
     setItens({});
@@ -1264,7 +1266,7 @@ function ProductSaleDialog({
       await postPublicApi(
         "/api/public/caixa-product-sale-create",
         {
-          barber_id: barberId,
+          barber_id: semBarbeiro ? null : barberId,
           items: Object.entries(itens).map(([product_id, quantity]) => ({ product_id, quantity })),
           customer_name: nome.trim(),
           customer_phone: telefone.trim() || undefined,
@@ -1280,7 +1282,7 @@ function ProductSaleDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const podeSalvar = !!barberId && Object.keys(itens).length > 0 && nome.trim().length > 0;
+  const podeSalvar = (semBarbeiro || !!barberId) && Object.keys(itens).length > 0 && nome.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1293,21 +1295,43 @@ function ProductSaleDialog({
         </DialogHeader>
 
         <div className="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
-          <label className="grid gap-1 text-xs text-muted-foreground">
-            Barbeiro
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              value={barberId}
-              onChange={(e) => setBarberId(e.target.value)}
+          <div className="grid gap-2">
+            {!semBarbeiro && (
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Barbeiro
+                <select
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  value={barberId}
+                  onChange={(e) => setBarberId(e.target.value)}
+                >
+                  <option value="">Selecione um barbeiro</option>
+                  {barbeiros.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSemBarbeiro((v) => !v);
+                setBarberId("");
+              }}
+              className={cn(
+                "rounded-lg border px-3 py-2 text-left text-sm font-medium transition",
+                semBarbeiro
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border bg-card/60 text-muted-foreground hover:border-primary/50",
+              )}
             >
-              <option value="">Selecione um barbeiro</option>
-              {barbeiros.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              Venda no caixa
+              <span className="block text-[11px] font-normal text-muted-foreground">
+                Sem barbeiro atribuído — não gera comissão, valor fica integral com a barbearia.
+              </span>
+            </button>
+          </div>
 
           <label className="grid gap-1 text-xs text-muted-foreground">
             Nome do cliente

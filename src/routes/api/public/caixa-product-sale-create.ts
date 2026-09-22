@@ -8,12 +8,14 @@ import { decrementProductStockForItems } from "@/lib/product-stock.server";
  * Venda de produto presencial, lançada pelo admin no balcão — mesmo
  * conceito do atendimento avulso (caixa-walkin-create.ts), mas pra
  * produtos: pode ter vários produtos numa venda só, cada um com sua
- * quantidade, e é atribuída a um barbeiro (pra comissão — nunca a
- * barbeiro nenhum quando a compra vem do próprio app do cliente).
+ * quantidade. Normalmente atribuída a um barbeiro (pra comissão), mas o
+ * admin pode marcar "Venda no caixa" pra deixar sem barbeiro nenhum —
+ * nesse caso o valor fica só com a barbearia, sem gerar comissão (mesmo
+ * caso de uma compra vinda direto do app do cliente).
  */
 
 const requestSchema = z.object({
-  barber_id: z.string().uuid(),
+  barber_id: z.string().uuid().nullable().optional(),
   items: z
     .array(z.object({ product_id: z.string().uuid(), quantity: z.number().int().min(1).max(99) }))
     .min(1),
@@ -58,13 +60,15 @@ export const Route = createFileRoute("/api/public/caixa-product-sale-create")({
             return json({ error: "Só o administrador da barbearia pode fazer isso." }, 403);
           }
 
-          const { data: targetBarber } = await admin
-            .from("barbers")
-            .select("id, barbershop_id")
-            .eq("id", d.barber_id)
-            .maybeSingle();
-          if (!targetBarber || (targetBarber as { barbershop_id?: string | null }).barbershop_id !== barbershopId) {
-            return json({ error: "Barbeiro não pertence a essa barbearia." }, 400);
+          if (d.barber_id) {
+            const { data: targetBarber } = await admin
+              .from("barbers")
+              .select("id, barbershop_id")
+              .eq("id", d.barber_id)
+              .maybeSingle();
+            if (!targetBarber || (targetBarber as { barbershop_id?: string | null }).barbershop_id !== barbershopId) {
+              return json({ error: "Barbeiro não pertence a essa barbearia." }, 400);
+            }
           }
 
           const productIds = Array.from(new Set(d.items.map((i) => i.product_id)));
@@ -104,7 +108,7 @@ export const Route = createFileRoute("/api/public/caixa-product-sale-create")({
               payment_method: paid ? "presencial" : null,
               paid_at: paid ? new Date().toISOString() : null,
               is_walk_in: true,
-              barber_id: d.barber_id,
+              barber_id: d.barber_id ?? null,
             })
             .select("*")
             .maybeSingle();
