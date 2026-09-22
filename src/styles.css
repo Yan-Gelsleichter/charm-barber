@@ -85,7 +85,10 @@
 }
 
 .light {
-  --background: oklch(0.98 0.005 250);
+  /* Antes quase igual ao branco dos cards (0.98 vs 1.0 de luminosidade) —
+     o fundo da página ficava sem contraste nenhum com os cards/botões por
+     cima. Mais escuro aqui pra cards e botões brancos se destacarem. */
+  --background: oklch(0.91 0.008 250);
   --foreground: oklch(0.22 0.02 250);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.02 250);
