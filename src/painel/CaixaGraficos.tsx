@@ -49,18 +49,18 @@ function rotuloDiagonal(fill: string, formatar?: (v: unknown) => string) {
 }
 
 /**
- * Número de atendimentos: horizontal, centralizado em cima da própria
- * coluna (diferente do valor, que fica na diagonal — o de atendimentos é
- * sempre um número curto, então não precisa "escapar" na diagonal, e
- * fica mais fácil de ler).
+ * Número de atendimentos: horizontal, dentro da própria coluna, centralizado
+ * tanto na largura quanto na altura da barra (diferente do valor, que fica
+ * na diagonal por cima — botar os dois em cima um do outro é que causava a
+ * sobreposição). Texto branco porque vai por cima do azul da coluna.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rotuloQtd(props: any) {
-  const { x, y, width, value } = props;
+  const { x, y, width, height, value } = props;
   const cx = Number(x) + Number(width) / 2;
-  const cy = Number(y) - 6;
+  const cy = Number(y) + Number(height) / 2;
   return (
-    <text x={cx} y={cy} fill={TEXTO_SUAVE} fontSize={12} fontWeight={800} textAnchor="middle">
+    <text x={cx} y={cy} fill="#fff" fontSize={12} fontWeight={800} textAnchor="middle" dominantBaseline="middle">
       {value}
     </text>
   );
