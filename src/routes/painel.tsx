@@ -449,7 +449,9 @@ WHERE user_id = '${currentUid}';`;
           </div>
 
           {/* Nome da barbearia, grande e centralizado no meio do cabeçalho — só desktop. */}
-          <p className="hidden truncate text-center text-3xl font-extrabold leading-none md:block">
+          <p
+            className="hidden truncate text-center text-3xl font-extrabold leading-none md:block md:[text-shadow:0_2px_6px_rgb(0_0_0_/_0.45)]"
+          >
             {shopName}
           </p>
 

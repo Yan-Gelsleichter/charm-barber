@@ -247,8 +247,8 @@ function Stat({
   value: string;
 }) {
   return (
-    <div className="surface p-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="surface p-4 md:flex md:flex-col md:items-center md:text-center">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground md:justify-center">
         <Icon className="size-4" /> {label}
       </div>
       <p className="mt-2 text-xl font-bold sm:text-2xl">{value}</p>
