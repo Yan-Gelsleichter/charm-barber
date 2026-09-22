@@ -449,13 +449,14 @@ WHERE user_id = '${currentUid}';`;
           </div>
 
           {/* Nome da barbearia, grande e centralizado no meio do cabeçalho — só
-              desktop. Sombra "gravada" (realce claro + sombra escura) porque
-              um text-shadow simples e escuro não aparece num fundo já escuro. */}
+              desktop. Sombra na cor do tema (--brand-from, a mesma cor que o
+              barbeiro escolhe em Perfil) — uma sombra escura simples não
+              aparecia num fundo já escuro, mas um brilho colorido aparece. */}
           <p
             className="hidden truncate text-center text-3xl font-extrabold leading-none md:block"
             style={{
               textShadow:
-                "-1px -1px 0 rgba(255,255,255,0.18), 2px 3px 2px rgba(0,0,0,0.9), 0 6px 14px rgba(0,0,0,0.65)",
+                "0 0 10px var(--brand-from), 0 0 22px var(--brand-from), 0 2px 4px rgba(0,0,0,0.6)",
             }}
           >
             {shopName}
