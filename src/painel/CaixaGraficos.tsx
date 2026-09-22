@@ -49,6 +49,24 @@ function rotuloDiagonal(fill: string, formatar?: (v: unknown) => string) {
 }
 
 /**
+ * Número de atendimentos: horizontal, centralizado em cima da própria
+ * coluna (diferente do valor, que fica na diagonal — o de atendimentos é
+ * sempre um número curto, então não precisa "escapar" na diagonal, e
+ * fica mais fácil de ler).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rotuloQtd(props: any) {
+  const { x, y, width, value } = props;
+  const cx = Number(x) + Number(width) / 2;
+  const cy = Number(y) - 6;
+  return (
+    <text x={cx} y={cy} fill={TEXTO_SUAVE} fontSize={12} fontWeight={800} textAnchor="middle">
+      {value}
+    </text>
+  );
+}
+
+/**
  * Quatro gráficos (Dia, Semana, Mês, Ano) sempre visíveis, lado a lado, só
  * no desktop (no celular a Caixa fica sem gráficos). Cada um tem, por
  * barbeiro, duas colunas verticais: o valor acumulado (coluna escura) e o
@@ -154,7 +172,7 @@ function GraficoPeriodo({
                 radius={[4, 4, 0, 0]}
                 isAnimationActive={false}
               >
-                <LabelList dataKey="qtd" content={rotuloDiagonal(TEXTO_SUAVE)} />
+                <LabelList dataKey="qtd" content={rotuloQtd} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
