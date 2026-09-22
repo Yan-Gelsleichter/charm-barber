@@ -413,7 +413,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
               </div>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground md:text-sm">
             Só agendamentos com um desses barbeiros contam como inclusos na assinatura.
           </p>
         </div>

@@ -460,7 +460,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold tabular-nums">{fmtTime(a.appointment_time)}</span>
+              <span className="text-sm font-semibold tabular-nums md:text-base">{fmtTime(a.appointment_time)}</span>
               <p className="truncate font-medium">{a.customer_name}</p>
               {tagBadge}
             </div>
@@ -546,7 +546,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold tabular-nums">{fmtTime(o.created_at ?? "")}</span>
+              <span className="text-sm font-semibold tabular-nums md:text-base">{fmtTime(o.created_at ?? "")}</span>
               <p className="truncate font-medium">{o.customer_name}</p>
               <span className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-500">
                 Produto

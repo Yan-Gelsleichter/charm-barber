@@ -190,12 +190,15 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {PERIODOS.map((p) => (
-          <div key={p.key} className="surface flex flex-col gap-1 p-3">
+          <div
+            key={p.key}
+            className="surface flex flex-col gap-1 p-3 md:items-center md:p-4 md:text-center"
+          >
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
               {p.label}
             </span>
             <span className="brand-text text-xl font-bold">{brl(totais[p.key].valor)}</span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground md:text-sm">
               {totais[p.key].qtd} atendimento{totais[p.key].qtd === 1 ? "" : "s"}
             </span>
           </div>
@@ -208,7 +211,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
         </h3>
         <div className="grid grid-cols-2 gap-2">
           <div className="min-w-0 space-y-1 overflow-hidden">
-            <Label htmlFor="fat-de" className="text-[11px] text-muted-foreground">
+            <Label htmlFor="fat-de" className="text-[11px] text-muted-foreground md:text-sm">
               De
             </Label>
             <Input
@@ -221,7 +224,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
             />
           </div>
           <div className="min-w-0 space-y-1 overflow-hidden">
-            <Label htmlFor="fat-ate" className="text-[11px] text-muted-foreground">
+            <Label htmlFor="fat-ate" className="text-[11px] text-muted-foreground md:text-sm">
               Até
             </Label>
             <Input
@@ -256,7 +259,7 @@ export function FaturamentoTab({ barber }: { barber: Barber }) {
             </Button>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground md:text-sm">
             Selecione a data inicial e final para ver o faturamento do período.
           </p>
         )}
