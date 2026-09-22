@@ -98,6 +98,10 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "perfil", label: "Perfil", icon: UserRound },
 ];
 
+// Abas com cards de agendamento em grade (Caixa, Painel, Agenda) usam a
+// largura toda da tela no desktop — as outras mantêm a largura de leitura.
+const FULL_WIDTH_TABS: Tab[] = ["caixa", "dashboard", "agenda"];
+
 
 export const Route = createFileRoute("/painel")({
   head: () => ({ meta: [{ title: "Painel — APP BARBEARIAS" }] }),
@@ -411,7 +415,7 @@ WHERE user_id = '${currentUid}';`;
         <div
           className={cn(
             "mx-auto flex items-center justify-between px-4 py-3 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4",
-            tab === "caixa" ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
+            FULL_WIDTH_TABS.includes(tab) ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
           )}
         >
           <div className="flex items-center gap-3">
@@ -470,8 +474,9 @@ WHERE user_id = '${currentUid}';`;
       <main
         className={cn(
           "mx-auto px-4 py-6",
-          // A Caixa ocupa a largura toda da tela no desktop (cards e gráficos maiores).
-          tab === "caixa" ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
+          // Caixa/Painel/Agenda ocupam a largura toda da tela no desktop
+          // (cards em grade, como a Caixa já tinha).
+          FULL_WIDTH_TABS.includes(tab) ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
         )}
       >
         {tab === "inicio" && isMobile && <InicioGrid items={items} navigate={navigate} />}

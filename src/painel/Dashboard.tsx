@@ -130,7 +130,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
             Sem agendamentos hoje.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-4">
             {hoje.map((a) => {
               const kids = childrenByParent.get(a.id) ?? [];
               const duracao =
@@ -146,7 +146,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
               return (
                 <div
                   key={a.id}
-                  className={`surface flex flex-col gap-2 p-4 ${atendido ? "opacity-70" : ""}`}
+                  className={`surface flex h-full flex-col gap-2 p-4 ${atendido ? "opacity-70" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="truncate font-semibold">{a.customer_name}</p>
@@ -193,13 +193,13 @@ export function DashboardTab({ barber }: { barber: Barber }) {
             Sem agendamentos futuros.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-4">
             {proximos.map((a) => {
               const kids = childrenByParent.get(a.id) ?? [];
               const total = valorDe(a) + kids.reduce((sum, k) => sum + valorDe(k), 0);
               const items = [...serviceLineItems(a), ...kids.flatMap((k) => serviceLineItems(k))];
               return (
-                <div key={a.id} className="surface flex flex-col gap-2 p-4">
+                <div key={a.id} className="surface flex h-full flex-col gap-2 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <p className="truncate font-semibold">{a.customer_name}</p>
                     <span className="shrink-0 text-xs text-muted-foreground">

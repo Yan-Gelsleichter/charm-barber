@@ -712,7 +712,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
             Nenhum agendamento neste dia.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-4">
             {ativosParaExibir.map((a) => {
               const kids = ativosChildrenByParent.get(a.id) ?? [];
               const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
@@ -727,7 +727,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                 <div
                   key={a.id}
                   className={cn(
-                    "surface flex flex-col gap-2 p-4",
+                    "surface flex h-full flex-col gap-2 p-4",
                     atendido && "opacity-70",
                   )}
                 >
