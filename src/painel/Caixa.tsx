@@ -1336,7 +1336,7 @@ function ProductSaleDialog({
               )}
             >
               Venda no caixa
-              <span className="block text-[11px] font-normal text-muted-foreground">
+              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
                 Sem barbeiro atribuído — não gera comissão, valor fica integral com a barbearia.
               </span>
             </button>
