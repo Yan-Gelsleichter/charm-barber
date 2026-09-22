@@ -87,7 +87,7 @@ export function CaixaGraficos({
     <section aria-label="Atendimentos e valor por barbeiro" className="hidden space-y-3 md:block">
       <div className="flex items-center justify-end gap-4 text-xs font-medium text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded-sm" style={{ background: COR }} /> Valor (R$)
+          <span className="inline-block size-3 rounded-sm" style={{ background: COR, opacity: 0.8 }} /> Valor (R$)
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block size-3 rounded-sm" style={{ background: COR, opacity: 0.45 }} />{" "}
@@ -160,7 +160,15 @@ function GraficoPeriodo({
                 labelFormatter={(_l, payload) => payload?.[0]?.payload?.nomeCompleto ?? ""}
                 formatter={(value, name) => (name === "Valor" ? [brl(Number(value)), name] : [String(value), name])}
               />
-              <Bar yAxisId="valor" dataKey="valor" name="Valor" fill={COR} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+              <Bar
+                yAxisId="valor"
+                dataKey="valor"
+                name="Valor"
+                fill={COR}
+                fillOpacity={0.8}
+                radius={[4, 4, 0, 0]}
+                isAnimationActive={false}
+              >
                 <LabelList dataKey="valor" content={rotuloDiagonal(TEXTO, valorCurto)} />
               </Bar>
               <Bar
