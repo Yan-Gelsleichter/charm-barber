@@ -24,6 +24,7 @@ import {
   Home,
   Gift,
   Package,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -107,7 +108,7 @@ export const Route = createFileRoute("/painel")({
   head: () => ({ meta: [{ title: "Painel — APP BARBEARIAS" }] }),
   validateSearch: (
     s: Record<string, unknown>,
-  ): { tab?: Tab; mp?: string; mp_msg?: string; assinar?: string } => ({
+  ): { tab?: Tab; mp?: string; mp_msg?: string; assinar?: string; new?: string } => ({
     // Sem valor-padrão aqui de propósito: `tab` ausente na URL (vs. um
     // `tab` explícito) é o sinal usado no componente pra decidir se o admin
     // deve ser redirecionado pro Caixa no primeiro acesso.
@@ -115,6 +116,9 @@ export const Route = createFileRoute("/painel")({
     mp: typeof s.mp === "string" ? s.mp : undefined,
     mp_msg: typeof s.mp_msg === "string" ? s.mp_msg : undefined,
     assinar: typeof s.assinar === "string" ? s.assinar : undefined,
+    // Sinaliza que a barbearia acabou de ser criada agora, pra mostrar o
+    // aviso "acesse pelo computador ou tablet" uma única vez.
+    new: typeof s.new === "string" ? s.new : undefined,
   }),
   component: PainelPage,
 });
@@ -129,11 +133,12 @@ function isTypingElement(el: EventTarget | null): boolean {
 function PainelPage() {
   const navigate = useNavigate();
   const loc = useLocation();
-  const { tab: tabParam, mp, mp_msg, assinar } = Route.useSearch();
+  const { tab: tabParam, mp, mp_msg, assinar, new: newShopParam } = Route.useSearch();
   const tab: Tab = tabParam ?? "dashboard";
   const isMobile = useIsMobile();
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [showNewShopNotice, setShowNewShopNotice] = useState(newShopParam === "1");
 
   // No Android, o teclado virtual pode "empurrar" a barra de navegação fixa
   // pro meio da tela em formulários longos (bug de viewport do Chrome/WebView
@@ -392,6 +397,8 @@ WHERE user_id = '${currentUid}';`;
         onDismiss={() =>
           navigate({ to: "/painel", search: { tab: isMobile ? "inicio" : "dashboard" } })
         }
+        newShopNotice={showNewShopNotice}
+        onDismissNewShopNotice={() => setShowNewShopNotice(false)}
       />
     );
   }
@@ -478,6 +485,12 @@ WHERE user_id = '${currentUid}';`;
           </div>
         </div>
       </header>
+
+      {showNewShopNotice && barber.is_admin && (
+        <div className="mx-auto max-w-5xl px-4 pt-4 md:px-8">
+          <NewShopNotice onDismiss={() => setShowNewShopNotice(false)} />
+        </div>
+      )}
 
       <main
         className={cn(
@@ -653,6 +666,26 @@ const PLATFORM_PLAN_INFO: Record<
   },
 };
 
+/** Aviso fechável mostrado assim que uma barbearia nova é criada. */
+function NewShopNotice({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="relative flex items-start gap-3 rounded-xl border border-brand-from/30 bg-brand-from/10 p-3 pr-9 text-left text-sm text-muted-foreground">
+      <p>
+        Acesse pelo seu computador ou tablet em{" "}
+        <span className="font-semibold text-foreground">www.appbarbearias.com.br</span>
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Fechar aviso"
+        className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+}
+
 function SubscriptionBlockedScreen({
   reason,
   isAdmin,
@@ -661,6 +694,8 @@ function SubscriptionBlockedScreen({
   onSignOut,
   signingOut,
   onDismiss,
+  newShopNotice,
+  onDismissNewShopNotice,
 }: {
   reason: ScreenReason;
   isAdmin: boolean;
@@ -670,6 +705,9 @@ function SubscriptionBlockedScreen({
   signingOut: boolean;
   /** Só passado no modo "welcome": permite seguir sem assinar agora (o teste grátis continua normal). */
   onDismiss?: () => void;
+  /** Barbearia acabou de ser criada agora: mostra o aviso "acesse pelo computador" no topo. */
+  newShopNotice?: boolean;
+  onDismissNewShopNotice?: () => void;
 }) {
   const copy = SUBSCRIPTION_GATE_COPY[reason];
   const Icon = copy.icon;
@@ -701,6 +739,11 @@ function SubscriptionBlockedScreen({
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-5 py-20 text-center">
+      {newShopNotice && onDismissNewShopNotice && (
+        <div className="mb-6 w-full">
+          <NewShopNotice onDismiss={onDismissNewShopNotice} />
+        </div>
+      )}
       <BrandMark size={48} />
       <div
         className={cn(

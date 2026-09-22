@@ -98,9 +98,9 @@ function ComecarPage() {
 
       toast.success("Sua barbearia foi criada!", { description: "7 dias grátis começam agora." });
       if (intent === "assinar") {
-        navigate({ to: "/painel", search: { tab: "dashboard", assinar: "1" } });
+        navigate({ to: "/painel", search: { tab: "dashboard", assinar: "1", new: "1" } });
       } else {
-        navigate({ to: "/painel" });
+        navigate({ to: "/painel", search: { new: "1" } });
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível concluir o cadastro.");

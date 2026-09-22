@@ -156,6 +156,13 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
 
   return (
     <div className="space-y-6">
+      {barber.is_admin && (
+        <p className="rounded-xl border border-brand-from/30 bg-brand-from/10 p-3 text-sm text-muted-foreground md:hidden">
+          Acesse pelo seu computador ou tablet em{" "}
+          <span className="font-semibold text-foreground">www.appbarbearias.com.br</span>
+        </p>
+      )}
+
       <header>
         <h1 className="text-lg font-semibold">Meu perfil</h1>
         <p className="text-sm text-muted-foreground">
