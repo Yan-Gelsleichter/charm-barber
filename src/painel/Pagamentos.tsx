@@ -156,6 +156,15 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
           <p className="break-all rounded-lg bg-secondary p-3 font-mono text-xs">{mpRedirectUri()}</p>
         </div>
 
+        {!connected && (
+          <p className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs text-muted-foreground md:text-sm">
+            <span className="font-semibold text-foreground">Antes de continuar:</span> você precisa ter
+            (ou vai criar) uma conta no Mercado Pago. Você pode abrir a conta direto pelo app do Mercado
+            Pago, ou dentro do Mercado Livre — lá você é direcionado e também pode criar a conta do
+            Mercado Pago.
+          </p>
+        )}
+
         <div className="flex flex-wrap gap-2">
           <Button variant="hero" onClick={connect} disabled={meQ.isLoading || disconnect.isPending}>
             {meQ.isFetching ? <Loader2 className="animate-spin" /> : <ExternalLink />}
@@ -409,6 +418,15 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
           <Label>Redirect URI (cadastre no painel do Mercado Pago)</Label>
           <p className="break-all rounded-lg bg-secondary p-3 font-mono text-xs">{redirectUri}</p>
         </div>
+
+        {!connected && (
+          <p className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs text-muted-foreground md:text-sm">
+            <span className="font-semibold text-foreground">Antes de continuar:</span> você precisa ter
+            (ou vai criar) uma conta no Mercado Pago. Você pode abrir a conta direto pelo app do Mercado
+            Pago, ou dentro do Mercado Livre — lá você é direcionado e também pode criar a conta do
+            Mercado Pago.
+          </p>
+        )}
 
         <Button variant="hero" onClick={connect} disabled={statusQ.isLoading || !shopId}>
           {statusQ.isFetching ? <Loader2 className="animate-spin" /> : <ExternalLink />}
