@@ -114,7 +114,7 @@ export function DashboardTab({ barber }: { barber: Barber }) {
 
   return (
     <div className="space-y-6">
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <Stat icon={DollarSign} label="Hoje" value={brl(ganhosDia)} />
         <Stat icon={TrendingUp} label="Esta semana" value={brl(ganhosSemana)} />
         <Stat icon={CalendarCheck} label="Este mês" value={brl(ganhosMes)} />
