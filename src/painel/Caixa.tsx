@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, ShoppingBag, PackageCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, ShoppingBag, PackageCheck, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -323,6 +323,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
   const [deleting, setDeleting] = useState<Appointment | null>(null);
   const [cancelling, setCancelling] = useState<Appointment | null>(null);
   const [relatorioOpen, setRelatorioOpen] = useState(false);
+  const [showTopCards, setShowTopCards] = useState(true);
 
   const deleteWalkin = useMutation({
     mutationFn: async (appointmentId: string) => {
@@ -621,29 +622,42 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Caixa</h2>
-        <Button variant="outline" size="sm" className="md:h-10 md:px-4 md:text-base" onClick={() => setRelatorioOpen(true)}>
-          <FileText className="mr-1 size-4 md:size-5" /> Relatório de repasse
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="hidden md:inline-flex"
+            onClick={() => setShowTopCards((v) => !v)}
+            title={showTopCards ? "Esconder cards Hoje/Semana/Mês/Ano" : "Mostrar cards Hoje/Semana/Mês/Ano"}
+          >
+            {showTopCards ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+          </Button>
+          <Button variant="outline" size="sm" className="md:h-10 md:px-4 md:text-base" onClick={() => setRelatorioOpen(true)}>
+            <FileText className="mr-1 size-4 md:size-5" /> Relatório de repasse
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {CARDS.map((c) => (
-          <div
-            className="surface flex flex-col gap-1 p-3 sm:items-center sm:text-center md:gap-1.5 md:p-4"
-            key={c.key}
-          >
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs md:text-sm md:font-bold">
-              {c.label}
-            </span>
-            <span className="brand-text text-xl font-bold md:text-3xl md:font-extrabold">
-              {brl(totaisHook.totais[c.key].valor)}
-            </span>
-            <span className="text-[10px] text-muted-foreground sm:text-xs md:text-sm md:font-semibold">
-              {totaisHook.totais[c.key].qtd} atendimento{totaisHook.totais[c.key].qtd === 1 ? "" : "s"}
-            </span>
-          </div>
-        ))}
-      </div>
+      {showTopCards && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {CARDS.map((c) => (
+            <div
+              className="surface flex flex-col gap-1 p-3 sm:items-center sm:text-center md:gap-1.5 md:p-4"
+              key={c.key}
+            >
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs md:text-sm md:font-bold">
+                {c.label}
+              </span>
+              <span className="brand-text text-xl font-bold md:text-3xl md:font-extrabold">
+                {brl(totaisHook.totais[c.key].valor)}
+              </span>
+              <span className="text-[10px] text-muted-foreground sm:text-xs md:text-sm md:font-semibold">
+                {totaisHook.totais[c.key].qtd} atendimento{totaisHook.totais[c.key].qtd === 1 ? "" : "s"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <CaixaGraficos barbeiros={barbeiros} stats={totaisHook.statsPorBarbeiro} />
 
