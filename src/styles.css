@@ -134,6 +134,14 @@
        fixos) parece desalinhado quando o usuário rola horizontalmente. */
     overflow-x: hidden;
   }
+  html {
+    /* Reserva o espaço da barra de rolagem vertical sempre, mesmo em abas
+       curtas que não precisam rolar — sem isso, trocar de uma aba alta
+       (com scroll) pra uma curta (sem scroll) muda a largura útil da
+       página e desloca o cabeçalho/menu centralizados alguns pixels pro
+       lado a cada troca de aba. */
+    scrollbar-gutter: stable;
+  }
 }
 
 @utility brand-gradient {
