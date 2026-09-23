@@ -662,12 +662,17 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       <CaixaGraficos barbeiros={barbeiros} stats={totaisHook.statsPorBarbeiro} />
 
       <div className="surface flex items-center justify-between p-3">
-        <Button variant="ghost" size="icon" onClick={() => setDayOffset((v) => v - 1)}>
-          <ChevronLeft />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:h-12 md:w-12"
+          onClick={() => setDayOffset((v) => v - 1)}
+        >
+          <ChevronLeft className="md:size-6" />
         </Button>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">{DIAS_SEMANA[selectedDate.getDay()]}</p>
-          <p className="font-semibold">
+          <p className="text-xs text-muted-foreground md:text-sm">{DIAS_SEMANA[selectedDate.getDay()]}</p>
+          <p className="font-semibold md:text-xl md:font-bold">
             {selectedDate.toLocaleDateString("pt-BR", {
               day: "2-digit",
               month: "long",
@@ -676,8 +681,13 @@ export function CaixaTab({ barber }: { barber: Barber }) {
             })}
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setDayOffset((v) => v + 1)}>
-          <ChevronRight />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:h-12 md:w-12"
+          onClick={() => setDayOffset((v) => v + 1)}
+        >
+          <ChevronRight className="md:size-6" />
         </Button>
       </div>
 
@@ -1001,7 +1011,7 @@ function WalkinDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
+        <div className="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1 md:pb-3">
           {lockedFields ? (
             <div className="surface grid gap-1 p-3 text-sm">
               <p>
@@ -1317,7 +1327,7 @@ function ProductSaleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
+        <div className="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto overscroll-contain pr-1 md:pb-3">
           <div className="grid gap-2">
             {!semBarbeiro && (
               <label className="grid gap-1 text-xs text-muted-foreground">
