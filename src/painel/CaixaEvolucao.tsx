@@ -71,6 +71,8 @@ function GraficoEvolucao({
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="label"
+                interval={0}
+                padding={{ left: 14, right: 14 }}
                 tickLine={false}
                 axisLine={{ stroke: "var(--border)" }}
                 tick={{ fontSize: 12, fontWeight: 600, fill: "var(--muted-foreground)" }}
