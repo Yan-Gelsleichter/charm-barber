@@ -29,3 +29,19 @@ export function BrandMark({ size = 40 }: { size?: number }) {
     </div>
   );
 }
+
+/** Tela cheia de carregamento (login, painel, início do cliente): o ícone
+ *  do app pulsando de tamanho e brilho, em vez do spinner genérico. */
+export function BrandLoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <img
+        src="/icon-192.png"
+        alt="App Barbearias"
+        width={80}
+        height={80}
+        className="brand-breathe size-20 rounded-2xl"
+      />
+    </div>
+  );
+}

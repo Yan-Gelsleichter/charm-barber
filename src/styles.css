@@ -185,6 +185,22 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-3px); }
 }
+/* Logo pulsando na tela de carregamento inicial (login, painel, início do
+   cliente): aumenta/diminui de tamanho junto com o brilho na cor do tema,
+   em vez do spinner genérico. */
+@keyframes brand-breathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px var(--brand-from));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 16px var(--brand-from));
+  }
+}
+.brand-breathe {
+  animation: brand-breathe 1.8s ease-in-out infinite;
+}
 .pay-shimmer-bar {
   position: relative;
   overflow: hidden;

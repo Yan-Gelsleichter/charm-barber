@@ -6,7 +6,7 @@ import { Scissors, Calendar, LogOut, CalendarDays, LayoutDashboard, Loader2, Rep
 import { supabase } from "@/integrations/supabase/client";
 import type { Barber, Product } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
-import { BrandTitle, BrandMark } from "@/components/Brand";
+import { BrandTitle, BrandMark, BrandLoadingScreen } from "@/components/Brand";
 import { useMeBarber } from "@/hooks/use-auth";
 import { useShopConfig } from "@/hooks/use-shop";
 import { useApplyPrimaryColor } from "@/lib/theme";
@@ -77,11 +77,7 @@ function Home() {
   });
 
   if (loading || !session) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
+    return <BrandLoadingScreen />;
   }
 
   async function handleSignOut() {

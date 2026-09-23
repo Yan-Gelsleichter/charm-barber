@@ -13,6 +13,7 @@ import type {
   Service,
 } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
+import { BrandLoadingScreen } from "@/components/Brand";
 import { brl } from "@/lib/format";
 import { postPublicApi } from "@/lib/api-fetch";
 
@@ -165,11 +166,7 @@ function AssinarPage() {
   });
 
   if (loading || !session) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
+    return <BrandLoadingScreen />;
   }
 
   return (

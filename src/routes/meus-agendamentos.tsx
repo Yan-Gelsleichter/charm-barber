@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-auth";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
-import { BrandMark } from "@/components/Brand";
+import { BrandMark, BrandLoadingScreen } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { fmtDate, fmtTime, brl, phoneDigits } from "@/lib/format";
 import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
@@ -310,11 +310,7 @@ function MeusAgendamentosPage() {
   });
 
   if (loading || (!session && !guestId)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
+    return <BrandLoadingScreen />;
   }
 
   const guestName = dataQ.data?.appointments[0]?.customer_name ?? null;

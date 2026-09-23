@@ -41,7 +41,7 @@ import {
 } from "@/hooks/use-subscription-gate";
 
 import { useApplyPrimaryColor } from "@/lib/theme";
-import { BrandMark } from "@/components/Brand";
+import { BrandMark, BrandLoadingScreen } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { brl } from "@/lib/format";
@@ -213,11 +213,7 @@ function PainelPage() {
   }, [isMobile, tab, navigate]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
+    return <BrandLoadingScreen />;
   }
 
   if (!session) return null;
@@ -360,11 +356,7 @@ WHERE user_id = '${currentUid}';`;
   }
 
   if (subscriptionGate.loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
+    return <BrandLoadingScreen />;
   }
 
   if (subscriptionGate.blocked && subscriptionGate.reason) {
