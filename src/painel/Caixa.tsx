@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, ShoppingBag, PackageCheck, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, ShoppingBag, PackageCheck, Eye, EyeOff, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -31,8 +31,10 @@ import { brl, fmtTime, DIAS_SEMANA, capitalizeWords } from "@/lib/format";
 import { brazilDateKey, brazilDayBounds, brazilDateTime, BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 import { useFaturamentoTotais, type Periodo } from "@/hooks/use-faturamento-totais";
+import { useCaixaEvolucao } from "@/hooks/use-caixa-evolucao";
 import { CaixaRelatorioRepasse } from "@/painel/CaixaRelatorioRepasse";
 import { CaixaGraficos } from "@/painel/CaixaGraficos";
+import { CaixaEvolucao } from "@/painel/CaixaEvolucao";
 import { cn } from "@/lib/utils";
 
 const CARDS: { key: Periodo; label: string }[] = [
@@ -324,6 +326,8 @@ export function CaixaTab({ barber }: { barber: Barber }) {
   const [cancelling, setCancelling] = useState<Appointment | null>(null);
   const [relatorioOpen, setRelatorioOpen] = useState(false);
   const [showTopCards, setShowTopCards] = useState(true);
+  const [evolucaoOpen, setEvolucaoOpen] = useState(false);
+  const evolucaoHook = useCaixaEvolucao(barber, evolucaoOpen);
 
   const deleteWalkin = useMutation({
     mutationFn: async (appointmentId: string) => {
@@ -632,12 +636,24 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           >
             {showTopCards ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="md:h-10 md:px-4 md:text-base"
+            onClick={() => setEvolucaoOpen((v) => !v)}
+          >
+            <TrendingUp className="mr-1 size-4 md:size-5" /> {evolucaoOpen ? "Voltar" : "Evolução"}
+          </Button>
           <Button variant="outline" size="sm" className="md:h-10 md:px-4 md:text-base" onClick={() => setRelatorioOpen(true)}>
             <FileText className="mr-1 size-4 md:size-5" /> Relatório de repasse
           </Button>
         </div>
       </div>
 
+      {evolucaoOpen ? (
+        <CaixaEvolucao semanas={evolucaoHook.semanas} meses={evolucaoHook.meses} isLoading={evolucaoHook.isLoading} />
+      ) : (
+        <>
       {showTopCards && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {CARDS.map((c) => (
@@ -741,6 +757,8 @@ export function CaixaTab({ barber }: { barber: Barber }) {
               : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? []),
           )}
         </div>
+      )}
+        </>
       )}
 
       <WalkinDialog
