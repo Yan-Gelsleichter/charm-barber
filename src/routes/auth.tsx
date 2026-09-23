@@ -371,7 +371,7 @@ function AuthPage() {
           </button>
           {!isSignup && (
             <>
-              <p className="text-[11px]">
+              <p className="text-[11px] md:text-sm">
                 Barbeiros: use o mesmo formulário para entrar. Cadastro de barbeiro é feito pelo admin.
               </p>
               {!hideOwnerCta && (
@@ -385,13 +385,6 @@ function AuthPage() {
               )}
             </>
           )}
-          <p>
-            Voltar para{" "}
-            <Link to="/" className="brand-text font-semibold">
-              início
-            </Link>
-            .
-          </p>
         </div>
       </form>
 
