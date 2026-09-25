@@ -58,6 +58,7 @@ import { Route as ApiPublicPlatformSubscriptionUpgradeRouteImport } from './rout
 import { Route as ApiPublicProductOrderCreateRouteImport } from './routes/api/public/product-order-create'
 import { Route as ApiPublicProductOrderFulfillRouteImport } from './routes/api/public/product-order-fulfill'
 import { Route as ApiPublicProductOrderPushTokenRouteImport } from './routes/api/public/product-order-push-token'
+import { Route as ApiPublicSubscriptionLookupRouteImport } from './routes/api/public/subscription-lookup'
 import { Route as ApiPublicSubscriptionStatusRouteImport } from './routes/api/public/subscription-status'
 import { Route as ApiWebhooksMercadopagoRouteImport } from './routes/api/webhooks/mercadopago'
 import { Route as ApiPublicWebhooksMercadopagoRouteImport } from './routes/api/public/webhooks/mercadopago'
@@ -342,6 +343,12 @@ const ApiPublicProductOrderPushTokenRoute =
     path: '/api/public/product-order-push-token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicSubscriptionLookupRoute =
+  ApiPublicSubscriptionLookupRouteImport.update({
+    id: '/api/public/subscription-lookup',
+    path: '/api/public/subscription-lookup',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicSubscriptionStatusRoute =
   ApiPublicSubscriptionStatusRouteImport.update({
     id: '/api/public/subscription-status',
@@ -410,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/api/public/product-order-create': typeof ApiPublicProductOrderCreateRoute
   '/api/public/product-order-fulfill': typeof ApiPublicProductOrderFulfillRoute
   '/api/public/product-order-push-token': typeof ApiPublicProductOrderPushTokenRoute
+  '/api/public/subscription-lookup': typeof ApiPublicSubscriptionLookupRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -464,6 +472,7 @@ export interface FileRoutesByTo {
   '/api/public/product-order-create': typeof ApiPublicProductOrderCreateRoute
   '/api/public/product-order-fulfill': typeof ApiPublicProductOrderFulfillRoute
   '/api/public/product-order-push-token': typeof ApiPublicProductOrderPushTokenRoute
+  '/api/public/subscription-lookup': typeof ApiPublicSubscriptionLookupRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -519,6 +528,7 @@ export interface FileRoutesById {
   '/api/public/product-order-create': typeof ApiPublicProductOrderCreateRoute
   '/api/public/product-order-fulfill': typeof ApiPublicProductOrderFulfillRoute
   '/api/public/product-order-push-token': typeof ApiPublicProductOrderPushTokenRoute
+  '/api/public/subscription-lookup': typeof ApiPublicSubscriptionLookupRoute
   '/api/public/subscription-status': typeof ApiPublicSubscriptionStatusRoute
   '/api/webhooks/mercadopago': typeof ApiWebhooksMercadopagoRoute
   '/api/public/webhooks/mercadopago': typeof ApiPublicWebhooksMercadopagoRoute
@@ -575,6 +585,7 @@ export interface FileRouteTypes {
     | '/api/public/product-order-create'
     | '/api/public/product-order-fulfill'
     | '/api/public/product-order-push-token'
+    | '/api/public/subscription-lookup'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -629,6 +640,7 @@ export interface FileRouteTypes {
     | '/api/public/product-order-create'
     | '/api/public/product-order-fulfill'
     | '/api/public/product-order-push-token'
+    | '/api/public/subscription-lookup'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -683,6 +695,7 @@ export interface FileRouteTypes {
     | '/api/public/product-order-create'
     | '/api/public/product-order-fulfill'
     | '/api/public/product-order-push-token'
+    | '/api/public/subscription-lookup'
     | '/api/public/subscription-status'
     | '/api/webhooks/mercadopago'
     | '/api/public/webhooks/mercadopago'
@@ -738,6 +751,7 @@ export interface RootRouteChildren {
   ApiPublicProductOrderCreateRoute: typeof ApiPublicProductOrderCreateRoute
   ApiPublicProductOrderFulfillRoute: typeof ApiPublicProductOrderFulfillRoute
   ApiPublicProductOrderPushTokenRoute: typeof ApiPublicProductOrderPushTokenRoute
+  ApiPublicSubscriptionLookupRoute: typeof ApiPublicSubscriptionLookupRoute
   ApiPublicSubscriptionStatusRoute: typeof ApiPublicSubscriptionStatusRoute
   ApiWebhooksMercadopagoRoute: typeof ApiWebhooksMercadopagoRoute
   ApiPublicWebhooksMercadopagoRoute: typeof ApiPublicWebhooksMercadopagoRoute
@@ -1088,6 +1102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicProductOrderPushTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/subscription-lookup': {
+      id: '/api/public/subscription-lookup'
+      path: '/api/public/subscription-lookup'
+      fullPath: '/api/public/subscription-lookup'
+      preLoaderRoute: typeof ApiPublicSubscriptionLookupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/subscription-status': {
       id: '/api/public/subscription-status'
       path: '/api/public/subscription-status'
@@ -1171,6 +1192,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicProductOrderCreateRoute: ApiPublicProductOrderCreateRoute,
   ApiPublicProductOrderFulfillRoute: ApiPublicProductOrderFulfillRoute,
   ApiPublicProductOrderPushTokenRoute: ApiPublicProductOrderPushTokenRoute,
+  ApiPublicSubscriptionLookupRoute: ApiPublicSubscriptionLookupRoute,
   ApiPublicSubscriptionStatusRoute: ApiPublicSubscriptionStatusRoute,
   ApiWebhooksMercadopagoRoute: ApiWebhooksMercadopagoRoute,
   ApiPublicWebhooksMercadopagoRoute: ApiPublicWebhooksMercadopagoRoute,

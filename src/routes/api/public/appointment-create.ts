@@ -19,6 +19,9 @@ const requestSchema = z.object({
   // Presente só quando o cliente escolheu usar um resgate de fidelidade
   // nesse agendamento — sempre revalidado no servidor, nunca confiado.
   loyalty_program_id: z.string().uuid().optional(),
+  // Só pelo painel (barbeiro logado): serviços FORA do plano do assinante,
+  // cobrados à parte. Viram um atendimento extra pendente ligado a este.
+  extra_service_ids: z.array(z.string().uuid()).optional(),
 });
 
 const CORS_HEADERS = {
@@ -123,6 +126,44 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           );
           const serviceNames = orderedServices.map((s) => s.name ?? "Serviço").join(" + ");
 
+          // Serviços fora do plano (só o painel pode pedir): valida quem pediu
+          // e que os serviços são do mesmo barbeiro/barbearia.
+          const extraIds = d.extra_service_ids ?? [];
+          let extraServices: typeof services = [];
+          if (extraIds.length > 0) {
+            if (extraIds.some((id) => d.service_ids.includes(id))) {
+              return json({ error: "Erro ao salvar agendamento: serviço repetido no plano e fora dele." }, 400);
+            }
+            const staff = userId
+              ? await admin
+                  .from("barbers")
+                  .select("id")
+                  .eq("user_id", userId)
+                  .eq("barbershop_id", barber.barbershop_id)
+                  .limit(1)
+              : null;
+            if (!staff || ((staff.data ?? []) as unknown[]).length === 0) {
+              return json({ error: "Erro ao salvar agendamento: só o painel da barbearia pode incluir serviço fora do plano." }, 403);
+            }
+            const extraResult = await admin
+              .from("services")
+              .select("id, barber_id, barbershop_id, price, name, duration_minutes")
+              .in("id", extraIds);
+            extraServices = (extraResult.data ?? []) as typeof services;
+            const extrasValid =
+              extraServices.length === extraIds.length &&
+              extraServices.every(
+                (s) =>
+                  (!s.barber_id || s.barber_id === d.barber_id) &&
+                  (!s.barbershop_id || s.barbershop_id === barber.barbershop_id),
+              );
+            if (extraResult.error || !extrasValid) {
+              return json({ error: "Erro ao salvar agendamento: serviço fora do plano inválido." }, 400);
+            }
+          }
+          const extraDuration = extraServices.reduce((sum, s) => sum + Number(s.duration_minutes ?? 30), 0);
+          const extraPrice = extraServices.reduce((sum, s) => sum + Number(s.price ?? 0), 0);
+
           // Cobertura por assinatura: não depende de qual barbeiro atende, só
           // da identidade do cliente e dos serviços escolhidos nesta barbearia
           // (o plano precisa cobrir TODOS eles).
@@ -141,6 +182,13 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             } catch (coverageError) {
               console.error("[appointment-create] falha ao checar cobertura de assinatura", coverageError);
             }
+          }
+
+          if (extraServices.length > 0 && !subscriptionCoverage) {
+            return json(
+              { error: "Erro ao salvar agendamento: o cliente não tem plano que cubra esses serviços." },
+              400,
+            );
           }
 
           // Resgate de fidelidade: só se não estiver coberto por assinatura
@@ -198,7 +246,9 @@ export const Route = createFileRoute("/api/public/appointment-create")({
               // histórico) e a disponibilidade não devem mudar retroativamente
               // se o preço/duração de um serviço for alterado depois.
               service_price_snapshot: totalPrice,
-              duration_minutes_snapshot: totalDuration,
+              // Com serviço fora do plano, o horário reservado cobre também a
+              // duração dele (o extra em si não ocupa horário, é avulso).
+              duration_minutes_snapshot: totalDuration + extraDuration,
             })
             .select(
               "id, barber_id, service_id, service_ids, customer_name, customer_phone, appointment_time, payment_status, covered_by_subscription_id",
@@ -287,6 +337,43 @@ export const Route = createFileRoute("/api/public/appointment-create")({
                 programId: loyaltyCoverage.programId,
                 error: redemption.error,
               });
+            }
+          }
+
+          // Serviços fora do plano: atendimento extra pendente ligado a este
+          // (mesmo formato do "serviço extra" da Caixa — aparece agrupado com
+          // o agendamento e é cobrado pelo Caixa). Melhor esforço: o
+          // agendamento principal já está confirmado.
+          let extraAppointmentId: string | null = null;
+          let extraError: string | null = null;
+          if (extraServices.length > 0) {
+            const extraInsert = await admin
+              .from("appointments")
+              .insert({
+                barber_id: d.barber_id,
+                service_id: extraServices[0].id,
+                service_ids: extraServices.map((s) => s.id),
+                barbershop_id: barber.barbershop_id,
+                customer_name: d.customer_name.trim(),
+                customer_phone: d.customer_phone,
+                appointment_time: appointmentTimeIso,
+                status: "confirmado",
+                payment_status: "pendente",
+                service_price_snapshot: extraPrice,
+                duration_minutes_snapshot: extraDuration,
+                is_walk_in: true,
+                parent_appointment_id: savedAppointment.id,
+              })
+              .select("id")
+              .maybeSingle();
+            if (extraInsert.error || !extraInsert.data) {
+              extraError = extraInsert.error?.message ?? "não retornou o registro";
+              console.error("[appointment-create] falha ao gravar serviço fora do plano", {
+                appointmentId: savedAppointment.id,
+                error: extraInsert.error,
+              });
+            } else {
+              extraAppointmentId = String(extraInsert.data.id);
             }
           }
 
@@ -413,6 +500,8 @@ export const Route = createFileRoute("/api/public/appointment-create")({
             appointment: confirmedAppointment,
             covered_by_subscription: Boolean(subscriptionCoverage),
             covered_by_loyalty_program: Boolean(loyaltyCoverage),
+            extra_appointment_id: extraAppointmentId,
+            extra_error: extraError,
           });
 
 

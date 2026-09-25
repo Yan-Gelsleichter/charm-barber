@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, ShoppingBag, PackageCheck, Eye, EyeOff, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
@@ -27,7 +27,9 @@ import {
 } from "@/components/ui/dialog";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { postPublicApi } from "@/lib/api-fetch";
-import { brl, fmtTime, DIAS_SEMANA, capitalizeWords } from "@/lib/format";
+import { brl, fmtTime, DIAS_SEMANA, capitalizeWords, phoneDigits } from "@/lib/format";
+import { PhoneInput } from "@/components/PhoneInput";
+import { useAssinanteLookup, coveredServiceIds, splitByPlan } from "@/hooks/use-assinante-lookup";
 import { brazilDateKey, brazilDayBounds, brazilDateTime, BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { filterActiveAppointments, isCancellationMarker } from "@/lib/availability";
 import { useFaturamentoTotais, type Periodo } from "@/hooks/use-faturamento-totais";
@@ -246,6 +248,25 @@ export function CaixaTab({ barber }: { barber: Barber }) {
     ];
     return linhas.sort((x, y) => y.time - x.time);
   }, [rowsToRender, productOrdersDiaQ.data]);
+
+  // Em cima: "Próximos atendimentos" (ainda não marcados como atendido /
+  // venda de produto ainda não entregue), do horário mais cedo pro mais
+  // tarde. Embaixo: "Atendimentos realizados", na ordem de sempre (mais
+  // recente primeiro).
+  const { proximas, realizadas } = useMemo(() => {
+    // Cobertos por assinatura/fidelidade não têm o botão de "confirmar
+    // comparecimento" (só pagos têm) — pra esses, vale o horário já ter passado.
+    const agora = Date.now();
+    const feita = (l: (typeof linhasDoDia)[number]) =>
+      l.kind === "atendimento"
+        ? !!l.a.attendance_confirmed ||
+          ((l.a.payment_status ?? "").startsWith("coberto_") && l.time < agora)
+        : !!l.o.fulfilled_at;
+    return {
+      proximas: linhasDoDia.filter((l) => !feita(l)).sort((x, y) => x.time - y.time),
+      realizadas: linhasDoDia.filter(feita),
+    };
+  }, [linhasDoDia]);
 
   const markPaid = useMutation({
     mutationFn: async ({
@@ -709,7 +730,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Atendimentos do dia
+          Próximos atendimentos
         </h3>
         <div className="flex gap-2">
           <Button
@@ -744,19 +765,42 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           Nenhum atendimento neste dia.
         </div>
       ) : (
-        // Desktop: linha da esquerda pra direita (mais recente primeiro, no
-        // canto esquerdo), quebrando pra linha de baixo conforme enche —
-        // grid de 4 colunas preenche nessa ordem naturalmente. `h-full` no
-        // card (ver renderRow/renderProductRow) deixa todos os cards da
-        // mesma linha com a mesma altura, já que a grade estica cada
-        // célula pra bater com a mais alta da linha por padrão.
-        <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-4">
-          {linhasDoDia.map((linha) =>
-            linha.kind === "atendimento"
-              ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
-              : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? []),
+        // Desktop: linha da esquerda pra direita, quebrando pra linha de
+        // baixo conforme enche — grid de 4 colunas preenche nessa ordem
+        // naturalmente. `h-full` no card (ver renderRow/renderProductRow)
+        // deixa todos os cards da mesma linha com a mesma altura, já que a
+        // grade estica cada célula pra bater com a mais alta da linha por
+        // padrão.
+        <>
+          {proximas.length === 0 ? (
+            <div className="surface p-4 text-center text-sm text-muted-foreground">
+              Nenhum atendimento pendente neste dia.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-4">
+              {proximas.map((linha) =>
+                linha.kind === "atendimento"
+                  ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
+                  : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? []),
+              )}
+            </div>
           )}
-        </div>
+
+          {realizadas.length > 0 && (
+            <>
+              <h3 className="pt-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                Atendimentos realizados
+              </h3>
+              <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-4">
+                {realizadas.map((linha) =>
+                  linha.kind === "atendimento"
+                    ? renderRow(linha.a, childrenByParent.get(linha.a.id) ?? [])
+                    : renderProductRow(linha.o, productItemsByOrder.get(linha.o.id) ?? []),
+                )}
+              </div>
+            </>
+          )}
+        </>
       )}
         </>
       )}
@@ -942,6 +986,9 @@ function WalkinDialog({
   // Só usado ao criar um avulso novo — editar e adicionar serviço não mexem
   // no status inicial de pagamento.
   const [statusInicial, setStatusInicial] = useState<"pago" | "pendente">("pago");
+  // Telefone (opcional) — só ao criar um avulso novo; serve pra identificar
+  // se o cliente é assinante de algum plano.
+  const [telefone, setTelefone] = useState("");
 
   // Reabre o formulário do zero a cada vez (criar, editar ou adicionar serviço a outro registro).
   const [openedFor, setOpenedFor] = useState<string | null>(null);
@@ -955,10 +1002,30 @@ function WalkinDialog({
     setPreco(s.preco);
     setQuando(s.quando);
     setStatusInicial("pago");
+    setTelefone("");
   }
   if (!open && openedFor !== null) setOpenedFor(null);
 
   const servicos = barberId ? (servicosPorBarbeiro.get(barberId) ?? []) : [];
+
+  // Cliente assinante (achado pelo telefone): serviços do plano saem sem
+  // custo; o que estiver fora do plano é cobrado à parte.
+  const criando = !isEdit && !isAddService;
+  const assinanteQ = useAssinanteLookup(criando && open ? phoneDigits(telefone) : "");
+  const assinanteSubs = criando ? (assinanteQ.data ?? []) : [];
+  const planoCobre = barberId ? coveredServiceIds(assinanteSubs, barberId) : new Set<string>();
+  const plano = splitByPlan(assinanteSubs, barberId, serviceIds);
+  const assinanteOutroBarbeiro = !!barberId && assinanteSubs.length > 0 && planoCobre.size === 0;
+  const totalForaDoPlano = plano.extras.reduce((sum, id) => sum + (servicosMap.get(id)?.price ?? 0), 0);
+  const tudoCoberto = !!plano.subscription && plano.extras.length === 0;
+
+  // Valor cobrado = só o que está fora do plano (o resto sai sem custo).
+  const planoKey = plano.subscription ? `${plano.subscription.subscription_id}:${plano.extras.join(",")}` : "";
+  useEffect(() => {
+    if (!planoKey) return;
+    setPreco(String(totalForaDoPlano));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planoKey]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -982,14 +1049,37 @@ function WalkinDialog({
           token,
         );
       } else {
-        await postPublicApi(
+        const digits = phoneDigits(telefone);
+        const comPlano = !!plano.subscription;
+        return postPublicApi<{ extra_error?: string }>(
           "/api/public/caixa-walkin-create",
-          { ...body, payment_status: statusInicial },
+          {
+            ...body,
+            // Assinante: o que o plano cobre entra sem custo; o que estiver
+            // fora do plano vai como extra, cobrado pelo valor informado.
+            service_ids: comPlano ? plano.covered : serviceIds,
+            price: comPlano ? 0 : body.price,
+            payment_status: statusInicial,
+            customer_phone: digits.length >= 8 ? digits : undefined,
+            subscription_id: plano.subscription?.subscription_id,
+            extra:
+              comPlano && plano.extras.length > 0
+                ? { service_ids: plano.extras, price: Number(preco.replace(",", ".")) || 0 }
+                : undefined,
+          },
           token,
         );
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result && typeof result === "object" && "extra_error" in result && result.extra_error) {
+        toast.warning(result.extra_error, {
+          description: "Use \"Adicionar serviço\" no card do atendimento para registrar o serviço fora do plano.",
+          duration: 8000,
+        });
+        onSaved();
+        return;
+      }
       if (isAddService) {
         // Fica no modal — o admin pode querer remover outro extra ou
         // adicionar mais um em seguida. Só a lista é atualizada.
@@ -1080,6 +1170,35 @@ function WalkinDialog({
                   onChange={(e) => setNome(capitalizeWords(e.target.value))}
                 />
               </label>
+              {criando && (
+                <label className="grid gap-1 text-xs text-muted-foreground">
+                  Telefone (opcional — identifica cliente assinante)
+                  <PhoneInput value={telefone} onChange={setTelefone} />
+                </label>
+              )}
+              {criando && assinanteSubs.length > 0 && (
+                <div className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs">
+                  <p className="font-semibold text-foreground">
+                    Cliente assinante — {assinanteSubs.map((s) => s.plan_name).join(", ")}
+                  </p>
+                  {!barberId ? (
+                    <p className="text-muted-foreground">Escolha o barbeiro para ver o que o plano cobre.</p>
+                  ) : assinanteOutroBarbeiro ? (
+                    <p className="text-muted-foreground">
+                      O plano não inclui este barbeiro, então o atendimento será cobrado normalmente.
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Serviços do plano (sem custo):{" "}
+                      {servicos
+                        .filter((s) => planoCobre.has(s.id))
+                        .map((s) => s.name)
+                        .join(", ") || "—"}
+                      . Para fazer outro serviço, escolha-o abaixo: ele é cobrado à parte.
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -1137,7 +1256,10 @@ function WalkinDialog({
                         const next = current.includes(s.id)
                           ? current.filter((id) => id !== s.id)
                           : [...current, s.id];
-                        const total = next.reduce(
+                        // Assinante: só o que está fora do plano é cobrado.
+                        const split = splitByPlan(assinanteSubs, barberId, next);
+                        const cobrados = split.subscription ? split.extras : next;
+                        const total = cobrados.reduce(
                           (sum, id) => sum + (servicos.find((x) => x.id === id)?.price ?? 0),
                           0,
                         );
@@ -1153,7 +1275,14 @@ function WalkinDialog({
                     )}
                   >
                     <span>{s.name}</span>
-                    <span className="shrink-0 font-semibold">{brl(s.price)}</span>
+                    {planoCobre.has(s.id) ? (
+                      <span className="shrink-0 font-semibold text-[color:var(--success)]">Incluso no plano</span>
+                    ) : (
+                      <span className="shrink-0 font-semibold">
+                        {planoCobre.size > 0 && <span className="mr-2 text-xs font-normal">fora do plano</span>}
+                        {brl(s.price)}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -1162,10 +1291,11 @@ function WalkinDialog({
 
           <div className="grid gap-3">
             <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-              Valor cobrado
+              {plano.subscription ? "Valor cobrado (só o que está fora do plano)" : "Valor cobrado"}
               <Input
                 inputMode="decimal"
-                value={preco}
+                value={tudoCoberto ? "0" : preco}
+                disabled={tudoCoberto}
                 onChange={(e) => setPreco(e.target.value)}
                 placeholder="0,00"
               />
@@ -1206,7 +1336,7 @@ function WalkinDialog({
             )}
           </div>
 
-          {!isEdit && !isAddService && (
+          {!isEdit && !isAddService && !tudoCoberto && (
             <div className="grid gap-1 text-xs text-muted-foreground">
               Status inicial
               <div className="grid grid-cols-2 gap-2">

@@ -25,6 +25,7 @@ import { PaymentBadge } from "@/components/PaymentBadge";
 import { PhoneInput } from "@/components/PhoneInput";
 import { EmailInput } from "@/components/EmailInput";
 import { useDirectAppointments } from "@/hooks/use-direct-appointments";
+import { useAssinanteLookup, coveredServiceIds, splitByPlan } from "@/hooks/use-assinante-lookup";
 
 
 
@@ -176,6 +177,14 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   const selectedNovoLoyaltyProgram =
     eligibleNovoLoyaltyPrograms.find((p) => p.program.id === novoLoyaltyProgramId) ?? null;
 
+  // Cliente assinante (achado pelo telefone): serviços do plano saem sem
+  // custo; o que estiver fora do plano é cobrado à parte.
+  const assinanteQ = useAssinanteLookup(novoLoyaltyPhoneDigits);
+  const assinanteSubs = assinanteQ.data ?? [];
+  const planoCobre = coveredServiceIds(assinanteSubs, barber.id);
+  const novoPlano = splitByPlan(assinanteSubs, barber.id, novoServicos);
+  const assinanteOutroBarbeiro = assinanteSubs.length > 0 && planoCobre.size === 0;
+
   const criarAgendamento = useMutation({
     mutationFn: async (inicio: Date) => {
       const nome = novoNome.trim();
@@ -183,6 +192,9 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       const telefone = novoTelefone.trim();
       if (telefone.replace(/\D/g, "").length < 10) throw new Error("Informe um telefone válido.");
       if (novoServicos.length === 0) throw new Error("Selecione ao menos um serviço.");
+      // Assinante: os serviços do plano vão como agendamento principal (sem
+      // custo) e o que for fora do plano segue como extra cobrado à parte.
+      const enviados = novoPlano.subscription ? novoPlano.covered : novoServicos;
       // Usa a API central: agendamento + cliente na mesma transação.
       const { data: sessionData } = await supabase.auth.getSession();
       const payload = await postPublicApi<{
@@ -199,17 +211,20 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           appointment_time: string;
         };
         covered_by_loyalty_program?: boolean;
+        covered_by_subscription?: boolean;
+        extra_error?: string | null;
         error?: string;
       }>(
         "/api/public/appointment-create",
         {
           barber_id: barber.id,
-          service_ids: novoServicos,
+          service_ids: enviados,
           customer_name: nome,
           customer_phone: telefone.replace(/\D/g, ""),
           email: novoEmail.trim() || null,
           appointment_time: inicio.toISOString(),
-          loyalty_program_id: selectedNovoLoyaltyProgram?.program.id,
+          loyalty_program_id: novoPlano.subscription ? undefined : selectedNovoLoyaltyProgram?.program.id,
+          extra_service_ids: novoPlano.subscription && novoPlano.extras.length > 0 ? novoPlano.extras : undefined,
         },
         sessionData.session?.access_token,
       );
@@ -220,19 +235,36 @@ export function AgendaTab({ barber }: { barber: Barber }) {
         !savedAppointment ||
         savedAppointment.id !== payload.id ||
         savedAppointment.barber_id !== barber.id ||
-        JSON.stringify(savedAppointment.service_ids ?? []) !== JSON.stringify(novoServicos) ||
+        JSON.stringify(savedAppointment.service_ids ?? []) !== JSON.stringify(enviados) ||
         savedAppointment.customer_phone !== telefone.replace(/\D/g, "") ||
         savedAppointment.customer_name.trim() !== nome ||
         new Date(savedAppointment.appointment_time).getTime() !== inicio.getTime()
       ) {
         throw new Error(payload?.error ?? "Não foi possível salvar o agendamento.");
       }
-      return { coveredByLoyalty: Boolean(payload.covered_by_loyalty_program) };
+      return {
+        coveredByLoyalty: Boolean(payload.covered_by_loyalty_program),
+        coveredBySubscription: Boolean(payload.covered_by_subscription),
+        extraError: payload.extra_error ?? null,
+      };
     },
-    onSuccess: async ({ coveredByLoyalty }) => {
+    onSuccess: async ({ coveredByLoyalty, coveredBySubscription, extraError }) => {
       await directAppointments.refresh();
       await qc.invalidateQueries({ queryKey: ["loyalty-status"] });
-      toast.success(coveredByLoyalty ? "Agendamento criado — resgate de fidelidade aplicado" : "Agendamento criado");
+      if (extraError) {
+        toast.warning("Agendamento criado, mas o serviço fora do plano não foi registrado", {
+          description: "Registre o serviço à parte pelo Caixa (Adicionar serviço).",
+          duration: 8000,
+        });
+      } else {
+        toast.success(
+          coveredBySubscription
+            ? "Agendamento criado — coberto pelo plano do cliente"
+            : coveredByLoyalty
+              ? "Agendamento criado — resgate de fidelidade aplicado"
+              : "Agendamento criado",
+        );
+      }
       setNovoNome("");
       setNovoTelefone("");
       setNovoEmail("");
@@ -509,6 +541,27 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               </label>
 
             </div>
+            {assinanteSubs.length > 0 && (
+              <div className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs md:text-sm">
+                <p className="font-semibold text-foreground">
+                  Cliente assinante — {assinanteSubs.map((s) => s.plan_name).join(", ")}
+                </p>
+                {assinanteOutroBarbeiro ? (
+                  <p className="text-muted-foreground">
+                    O plano não inclui este barbeiro, então o atendimento será cobrado normalmente.
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Serviços do plano (sem custo):{" "}
+                    {(q.data?.services ?? [])
+                      .filter((s) => planoCobre.has(s.id))
+                      .map((s) => s.name)
+                      .join(", ") || "—"}
+                    . Para fazer outro serviço, escolha-o abaixo: ele é cobrado à parte.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground md:text-sm">
               Serviço (pode escolher mais de um)
               <div className="grid grid-cols-1 gap-2">
@@ -535,18 +588,34 @@ export function AgendaTab({ barber }: { barber: Barber }) {
                       <span>
                         {s.name} · {s.duration_minutes} min
                       </span>
-                      <span className="shrink-0 font-semibold">{brl(s.price)}</span>
+                      {planoCobre.has(s.id) ? (
+                        <span className="shrink-0 font-semibold text-[color:var(--success)]">Incluso no plano</span>
+                      ) : (
+                        <span className="shrink-0 font-semibold">
+                          {planoCobre.size > 0 && <span className="mr-2 text-xs font-normal">fora do plano</span>}
+                          {brl(s.price)}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
-              {novoServicos.length > 1 && (
+              {novoPlano.subscription ? (
                 <p>
-                  {novoServicos.length} serviços · {novoServicosDuracao} min ·{" "}
-                  {brl(
-                    novoServicos.reduce((sum, id) => sum + (servicesMap.get(id)?.price ?? 0), 0),
-                  )}
+                  {novoServicos.length} serviço{novoServicos.length === 1 ? "" : "s"} · {novoServicosDuracao} min ·{" "}
+                  {novoPlano.covered.length} no plano (sem custo)
+                  {novoPlano.extras.length > 0 &&
+                    ` · a cobrar: ${brl(novoPlano.extras.reduce((sum, id) => sum + (servicesMap.get(id)?.price ?? 0), 0))}`}
                 </p>
+              ) : (
+                novoServicos.length > 1 && (
+                  <p>
+                    {novoServicos.length} serviços · {novoServicosDuracao} min ·{" "}
+                    {brl(
+                      novoServicos.reduce((sum, id) => sum + (servicesMap.get(id)?.price ?? 0), 0),
+                    )}
+                  </p>
+                )
               )}
             </div>
 
