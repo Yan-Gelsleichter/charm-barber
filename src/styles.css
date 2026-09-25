@@ -289,6 +289,6 @@
 .liquid-glass-tint,
 .light .liquid-glass-tint {
   background:
-    linear-gradient(90deg, color-mix(in oklab, var(--brand-from) 10%, transparent) 0%, color-mix(in oklab, var(--brand-from) 88%, transparent) 100%),
+    linear-gradient(90deg, color-mix(in oklab, var(--brand-from) 3%, transparent) 0%, color-mix(in oklab, var(--brand-from) 48%, transparent) 100%),
     linear-gradient(160deg, rgb(255 255 255 / 0.2) 0%, rgb(255 255 255 / 0.03) 55%, transparent 100%);
 }
