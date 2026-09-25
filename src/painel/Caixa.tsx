@@ -1008,6 +1008,17 @@ function WalkinDialog({
 
   const servicos = barberId ? (servicosPorBarbeiro.get(barberId) ?? []) : [];
 
+  // Desktop: o seletor de hora nativo do navegador lista todos os minutos
+  // (ignora o "passo" de 5), então lá usamos dois seletores próprios —
+  // hora e minuto de 5 em 5. Se o horário já gravado não for múltiplo de 5
+  // (editar um registro antigo), ele continua na lista pra não se perder.
+  const [horaAtual = "00", minutoAtual = "00"] = (quando.split("T")[1] ?? "00:00").split(":");
+  const horasOpcoes = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+  const minutosOpcoes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+  if (!minutosOpcoes.includes(minutoAtual)) minutosOpcoes.push(minutoAtual);
+  minutosOpcoes.sort();
+  const trocarHora = (h: string, m: string) => setQuando(`${quando.split("T")[0] ?? ""}T${h}:${m}`);
+
   // Cliente assinante (achado pelo telefone): serviços do plano saem sem
   // custo; o que estiver fora do plano é cobrado à parte.
   const criando = !isEdit && !isAddService;
@@ -1322,7 +1333,7 @@ function WalkinDialog({
                 </label>
                 <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
                   Hora
-                  <div className="h-9 w-full min-w-0 max-w-full overflow-hidden rounded-md border border-input">
+                  <div className="h-9 w-full min-w-0 max-w-full overflow-hidden rounded-md border border-input md:hidden">
                     <Input
                       type="time"
                       step={300}
@@ -1330,6 +1341,33 @@ function WalkinDialog({
                       onChange={(e) => setQuando(`${quando.split("T")[0] ?? ""}T${e.target.value}`)}
                       className="h-9 w-full min-w-0 max-w-full border-0 bg-transparent"
                     />
+                  </div>
+                  <div className="hidden h-9 items-center gap-1 md:flex">
+                    <select
+                      aria-label="Hora"
+                      className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                      value={horaAtual}
+                      onChange={(e) => trocarHora(e.target.value, minutoAtual)}
+                    >
+                      {horasOpcoes.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-foreground">:</span>
+                    <select
+                      aria-label="Minutos"
+                      className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                      value={minutoAtual}
+                      onChange={(e) => trocarHora(horaAtual, e.target.value)}
+                    >
+                      {minutosOpcoes.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </label>
               </div>
