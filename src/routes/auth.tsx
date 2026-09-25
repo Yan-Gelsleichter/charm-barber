@@ -25,6 +25,8 @@ import { useShopConfig } from "@/hooks/use-shop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AppBackground } from "@/components/AppBackground";
+import { LOGIN_BG_URL } from "@/lib/backgrounds";
 import {
   Dialog,
   DialogContent,
@@ -272,6 +274,8 @@ function AuthPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-10">
+      {/* Fundo fixo da tela de login (não muda por barbeiro). */}
+      <AppBackground src={LOGIN_BG_URL} />
       <div className="text-center">
         <BrandTitle>{shopName ?? "APP BARBEARIAS"}</BrandTitle>
         <p className="mt-2 text-sm text-muted-foreground">

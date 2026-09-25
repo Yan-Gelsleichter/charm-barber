@@ -13,6 +13,10 @@ export type Barber = {
   mp_user_id?: string | null;
   commission_percent?: number | null;
   product_commission_percent?: number | null;
+  /** Fundo da tela inicial do celular / das demais abas / imagens próprias (docs/add-backgrounds.sql). */
+  bg_home?: string | null;
+  bg_tabs?: string | null;
+  bg_custom?: string[] | null;
 };
 export type BarberInsert = {
   id?: string;
@@ -26,6 +30,9 @@ export type BarberInsert = {
   barbershop_id?: string | null;
   commission_percent?: number | null;
   product_commission_percent?: number | null;
+  bg_home?: string | null;
+  bg_tabs?: string | null;
+  bg_custom?: string[] | null;
 };
 
 export type Service = {

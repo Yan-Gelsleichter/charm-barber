@@ -42,6 +42,8 @@ import {
 
 import { useApplyPrimaryColor } from "@/lib/theme";
 import { BrandMark, BrandLoadingScreen } from "@/components/Brand";
+import { AppBackground } from "@/components/AppBackground";
+import { backgroundUrl, BG_PLAIN, DEFAULT_HOME_BG } from "@/lib/backgrounds";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { brl } from "@/lib/format";
@@ -418,6 +420,13 @@ WHERE user_id = '${currentUid}';`;
 
   return (
     <div className="min-h-screen pb-24 md:pb-0 md:pl-56">
+      {/* Fundo escolhido pelo barbeiro (Perfil): uma imagem pra tela Início do
+          celular e outra pras demais abas (celular e desktop). */}
+      <AppBackground
+        src={backgroundUrl(
+          tab === "inicio" && isMobile ? (barber.bg_home ?? DEFAULT_HOME_BG) : (barber.bg_tabs ?? BG_PLAIN),
+        )}
+      />
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div
           // O cabeçalho é sempre igual em todas as abas — só o conteúdo

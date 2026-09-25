@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell, CreditCard, Share2, Smartphone, MessageCircle } from "lucide-react";
+import { Loader2, KeyRound, Save, Upload, Image as ImageIcon, Palette, QrCode, Copy, Moon, Sun, Mail, Bell, CreditCard, Share2, Smartphone, MessageCircle, ImagePlus, ChevronLeft, ChevronRight, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
@@ -18,6 +18,8 @@ import { publicAppOrigin } from "@/lib/app-url";
 import { postPublicApi } from "@/lib/api-fetch";
 import { brl, fmtDate, capitalizeWords } from "@/lib/format";
 import { useSubscriptionStatusQuery } from "@/hooks/use-subscription-gate";
+import { BG_PLAIN, DEFAULT_HOME_BG, PRESET_BACKGROUNDS } from "@/lib/backgrounds";
+import { cn } from "@/lib/utils";
 
 
 const PRESET_COLORS = [
@@ -307,6 +309,8 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
         </Button>
       </section>
 
+      <FundosSection barber={barber} />
+
       <NotificationsSection barberId={barber.id} />
 
       {barber.barbershop_id ? (
@@ -381,7 +385,239 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
   );
 }
 
-const SUPORTE_WHATSAPP_URL = `https://wa.me/5531996245848?text=${encodeURIComponent(
+const MAX_CUSTOM_BACKGROUNDS = 12;
+
+/** Carrossel de fundos: o barbeiro escolhe a imagem da tela inicial (celular) e a das demais abas. */
+function FundosSection({ barber }: { barber: Barber }) {
+  const qc = useQueryClient();
+  const { dark, setDark } = useDarkMode();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [alvo, setAlvo] = useState<"home" | "tabs">("home");
+  const [uploading, setUploading] = useState(false);
+
+  const custom = barber.bg_custom ?? [];
+  const atualHome = barber.bg_home ?? DEFAULT_HOME_BG;
+  const atualTabs = barber.bg_tabs ?? BG_PLAIN;
+  const atual = alvo === "home" ? atualHome : atualTabs;
+
+  const save = useMutation({
+    mutationFn: async (patch: { bg_home?: string | null; bg_tabs?: string | null; bg_custom?: string[] }) => {
+      const { error } = await supabase.from("barbers").update(patch).eq("id", barber.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["me-barber"] }),
+    onError: (e: Error) =>
+      toast.error("Não foi possível salvar o fundo", {
+        description: `${e.message}. Se o erro falar de coluna, rode docs/add-backgrounds.sql no Supabase.`,
+      }),
+  });
+
+  function escolher(valor: string) {
+    save.mutate(alvo === "home" ? { bg_home: valor } : { bg_tabs: valor });
+  }
+
+  async function onUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Envie um arquivo de imagem");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Máximo 5MB");
+      return;
+    }
+    if (custom.length >= MAX_CUSTOM_BACKGROUNDS) {
+      toast.error(`Limite de ${MAX_CUSTOM_BACKGROUNDS} imagens próprias — apague alguma antes`);
+      return;
+    }
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${barber.id}/bg-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("barberlogos")
+      .upload(path, file, { cacheControl: "3600", upsert: true });
+    if (error) {
+      setUploading(false);
+      toast.error("Falha no upload", { description: error.message });
+      return;
+    }
+    const { data } = supabase.storage.from("barberlogos").getPublicUrl(path);
+    setUploading(false);
+    save.mutate(
+      { bg_custom: [...custom, data.publicUrl] },
+      { onSuccess: () => toast.success("Imagem adicionada ao carrossel") },
+    );
+  }
+
+  function apagar(url: string) {
+    save.mutate({
+      bg_custom: custom.filter((u) => u !== url),
+      ...(barber.bg_home === url ? { bg_home: null } : {}),
+      ...(barber.bg_tabs === url ? { bg_tabs: null } : {}),
+    });
+    // Melhor esforço: tira o arquivo do armazenamento também.
+    const marker = "/barberlogos/";
+    const idx = url.indexOf(marker);
+    if (idx >= 0) void supabase.storage.from("barberlogos").remove([decodeURIComponent(url.slice(idx + marker.length))]);
+  }
+
+  function rolar(direcao: 1 | -1) {
+    carouselRef.current?.scrollBy({ left: direcao * 260, behavior: "smooth" });
+  }
+
+  const tileBase =
+    "relative aspect-[9/16] w-24 shrink-0 snap-start overflow-hidden rounded-xl border-2 transition-colors md:w-28";
+
+  return (
+    <section className="surface space-y-4 p-4">
+      <div className="flex items-center gap-2">
+        <ImageIcon className="text-muted-foreground" size={18} />
+        <h2 className="font-semibold">Fundo do app</h2>
+      </div>
+      <p className="text-xs text-muted-foreground md:text-sm">
+        Escolha uma imagem para a tela inicial do celular e outra para as demais abas (vale no celular e no
+        computador). Você também pode enviar as suas.
+      </p>
+
+      <div className="grid grid-cols-2 gap-2">
+        {(
+          [
+            { id: "home", label: "Tela inicial (celular)" },
+            { id: "tabs", label: "Demais abas" },
+          ] as const
+        ).map((o) => (
+          <Button
+            key={o.id}
+            type="button"
+            size="sm"
+            variant={alvo === o.id ? "hero" : "outline"}
+            onClick={() => setAlvo(o.id)}
+          >
+            {o.label}
+          </Button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-1">
+        <Button type="button" variant="ghost" size="icon" onClick={() => rolar(-1)} aria-label="Anterior">
+          <ChevronLeft />
+        </Button>
+        <div ref={carouselRef} className="flex min-w-0 flex-1 snap-x gap-3 overflow-x-auto pb-2">
+          {/* Cor padrão do app — escuro e claro */}
+          {(
+            [
+              { id: "escuro", label: "Cor padrão escuro", color: "oklch(0.16 0.018 250)", isDark: true },
+              { id: "claro", label: "Cor padrão claro", color: "oklch(0.91 0.008 250)", isDark: false },
+            ] as const
+          ).map((c) => {
+            const selecionado = atual === BG_PLAIN && dark === c.isDark;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  escolher(BG_PLAIN);
+                  setDark(c.isDark);
+                }}
+                className={cn(tileBase, selecionado ? "border-[color:var(--brand-from)]" : "border-border")}
+                style={{ background: c.color }}
+                aria-label={c.label}
+                aria-pressed={selecionado}
+              >
+                <span
+                  className={cn(
+                    "absolute inset-x-0 bottom-0 p-1 text-center text-[10px] font-semibold",
+                    c.isDark ? "text-white" : "text-black",
+                  )}
+                >
+                  {c.label}
+                </span>
+                {selecionado && <SelectedBadge />}
+              </button>
+            );
+          })}
+
+          {PRESET_BACKGROUNDS.map((p) => {
+            const selecionado = atual === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => escolher(p.id)}
+                className={cn(tileBase, selecionado ? "border-[color:var(--brand-from)]" : "border-border")}
+                aria-label={p.label}
+                aria-pressed={selecionado}
+              >
+                <img src={p.url} alt={p.label} className="h-full w-full object-cover" loading="lazy" />
+                {selecionado && <SelectedBadge />}
+              </button>
+            );
+          })}
+
+          {custom.map((url, i) => {
+            const selecionado = atual === url;
+            return (
+              <div key={url} className="relative shrink-0 snap-start">
+                <button
+                  type="button"
+                  onClick={() => escolher(url)}
+                  className={cn(tileBase, selecionado ? "border-[color:var(--brand-from)]" : "border-border")}
+                  aria-label={`Minha imagem ${i + 1}`}
+                  aria-pressed={selecionado}
+                >
+                  <img src={url} alt={`Minha imagem ${i + 1}`} className="h-full w-full object-cover" loading="lazy" />
+                  {selecionado && <SelectedBadge />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => apagar(url)}
+                  className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-destructive"
+                  aria-label="Apagar minha imagem"
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <Button type="button" variant="ghost" size="icon" onClick={() => rolar(1)} aria-label="Próxima">
+          <ChevronRight />
+        </Button>
+      </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void onUpload(f);
+          e.target.value = "";
+        }}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading || save.isPending}
+      >
+        {uploading ? <Loader2 className="animate-spin" /> : <ImagePlus />}
+        Adicionar minha imagem
+      </Button>
+    </section>
+  );
+}
+
+function SelectedBadge() {
+  return (
+    <span className="brand-gradient absolute right-1 top-1 flex size-5 items-center justify-center rounded-full text-white">
+      <Check className="size-3" />
+    </span>
+  );
+}
+
+const SUPORTE_WHATSAPP_URL =`https://wa.me/5531996245848?text=${encodeURIComponent(
   "Olá, preciso de ajuda com o App Barbearias",
 )}`;
 
