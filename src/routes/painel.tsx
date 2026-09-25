@@ -635,12 +635,12 @@ function InicioGrid({
             key={n.id}
             type="button"
             onClick={() => navigate({ to: "/painel", search: { tab: n.id }, replace: true })}
-            className="liquid-glass flex min-h-0 min-w-0 flex-col items-center justify-center gap-1.5 rounded-2xl px-2 text-center transition-transform active:scale-[0.97]"
+            className="liquid-glass liquid-glass-tint flex min-h-0 min-w-0 flex-col items-center justify-center gap-2 rounded-2xl px-2 text-center text-white transition-transform active:scale-[0.97]"
           >
-            <span className="liquid-glass-icon flex size-11 shrink-0 items-center justify-center rounded-full">
-              <Icon className="size-6 text-white drop-shadow" />
+            <Icon className="size-11 shrink-0 drop-shadow-[0_2px_3px_rgb(0_0_0/0.45)]" strokeWidth={1.75} />
+            <span className="w-full truncate text-sm font-semibold leading-tight [text-shadow:0_1px_3px_rgb(0_0_0/0.55)]">
+              {n.label}
             </span>
-            <span className="w-full truncate text-sm font-medium leading-tight">{n.label}</span>
           </button>
         );
       })}
