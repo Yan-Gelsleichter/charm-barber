@@ -469,18 +469,23 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Novo agendamento
           </h2>
-          <Button variant="outline" size="sm" onClick={() => setNovoOpen((v) => !v)}>
-            <Plus className="mr-1 size-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="md:h-10 md:px-4 md:text-base"
+            onClick={() => setNovoOpen((v) => !v)}
+          >
+            <Plus className="mr-1 size-4 md:size-5" />
             {novoOpen ? "Fechar" : "Agendar cliente"}
           </Button>
         </div>
 
         {novoOpen && (
-          <div className="surface grid gap-3 p-4">
-            <p className="text-xs text-muted-foreground">
+          <div className="surface grid gap-3 p-4 md:mx-auto md:max-w-lg">
+            <p className="text-xs text-muted-foreground md:text-sm">
               Informe os dados do cliente e escolha um horário livre do dia selecionado.
             </p>
-            <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
+            <label className="grid grid-cols-1 gap-1 text-xs text-muted-foreground md:text-sm">
               Nome do cliente
               <Input
                 value={novoNome}
@@ -490,11 +495,11 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               />
             </label>
             <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground md:text-sm">
                 WhatsApp / Telefone
                 <PhoneInput value={novoTelefone} onChange={setNovoTelefone} />
               </label>
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground md:text-sm">
                 E-mail (opcional)
                 <EmailInput
                   maxLength={120}
@@ -504,7 +509,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
               </label>
 
             </div>
-            <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
+            <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground md:text-sm">
               Serviço (pode escolher mais de um)
               <div className="grid grid-cols-1 gap-2">
                 {(q.data?.services ?? []).map((s) => {
@@ -575,7 +580,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
             )}
 
             {novoServicos.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Selecione ao menos um serviço para ver os horários.</p>
+              <p className="text-xs text-muted-foreground md:text-sm">Selecione ao menos um serviço para ver os horários.</p>
             ) : novoSlots.length === 0 ? (
               <p className="text-xs text-muted-foreground">Sem expediente neste dia.</p>
             ) : (
@@ -615,8 +620,13 @@ export function AgendaTab({ barber }: { barber: Barber }) {
           <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Bloqueios
           </h2>
-          <Button variant="outline" size="sm" onClick={() => setBlockOpen((v) => !v)}>
-            <Lock className="mr-1 size-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="md:h-10 md:px-4 md:text-base"
+            onClick={() => setBlockOpen((v) => !v)}
+          >
+            <Lock className="mr-1 size-4 md:size-5" />
             {blockOpen ? "Fechar" : "Bloquear agenda"}
           </Button>
         </div>

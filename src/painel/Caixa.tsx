@@ -874,14 +874,18 @@ export function CaixaTab({ barber }: { barber: Barber }) {
 
 function localDateTimeValue(date: Date, time?: string): string {
   const key = keyOfDay(date.getFullYear(), date.getMonth(), date.getDate());
+  // Sem horário informado, usa "agora" arredondado pra baixo de 5 em 5
+  // minutos — o seletor de hora do avulso só oferece múltiplos de 5.
   const hhmm =
     time ??
-    new Date().toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: BRAZIL_TIME_ZONE,
-      hour12: false,
-    });
+    new Date()
+      .toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: BRAZIL_TIME_ZONE,
+        hour12: false,
+      })
+      .replace(/:(\d{2})$/, (_m, mm: string) => `:${String(Math.floor(Number(mm) / 5) * 5).padStart(2, "0")}`);
   return `${key}T${hhmm}`;
 }
 
@@ -1191,6 +1195,7 @@ function WalkinDialog({
                   <div className="h-9 w-full min-w-0 max-w-full overflow-hidden rounded-md border border-input">
                     <Input
                       type="time"
+                      step={300}
                       value={quando.split("T")[1] ?? ""}
                       onChange={(e) => setQuando(`${quando.split("T")[0] ?? ""}T${e.target.value}`)}
                       className="h-9 w-full min-w-0 max-w-full border-0 bg-transparent"
