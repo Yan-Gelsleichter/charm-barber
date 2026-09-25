@@ -202,11 +202,14 @@ export type SubscriptionPlanBarber = {
   id: string;
   plan_id: string;
   barber_id: string;
+  /** % que o barbeiro recebe pelos atendimentos desse plano (docs/add-plan-barber-commission.sql). */
+  commission_percent?: number | null;
 };
 export type SubscriptionPlanBarberInsert = {
   id?: string;
   plan_id: string;
   barber_id: string;
+  commission_percent?: number;
 };
 
 export type SubscriptionStatus =

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, Pencil, X, Save, Power, Users, Trash2 } from "lucide-react";
+import { Plus, Loader2, Pencil, X, Save, Power, Users, Trash2, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { brl } from "@/lib/format";
 import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { postPublicApi } from "@/lib/api-fetch";
+import { ProducaoDialog } from "@/painel/Producao";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pendente",
@@ -34,11 +35,14 @@ export function PlanosTab({ barber }: { barber: Barber }) {
   const qc = useQueryClient();
   const shopId = barber.barbershop_id ?? null;
 
+  const [producaoOpen, setProducaoOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
   const [selectedBarberIds, setSelectedBarberIds] = useState<Set<string>>(new Set());
+  // % que cada barbeiro recebe nesse plano (texto do campo), por id do barbeiro.
+  const [barberPercent, setBarberPercent] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<SubscriptionPlan | null>(null);
 
   // Todos os serviços da barbearia (de todos os barbeiros), para montar a
@@ -145,7 +149,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
       const barberName = barberNameById.get(link.barber_id);
       if (!barberName) continue;
       if (!groups.has(link.plan_id)) groups.set(link.plan_id, []);
-      groups.get(link.plan_id)!.push(barberName);
+      groups.get(link.plan_id)!.push(`${barberName} (${Number(link.commission_percent) || 0}%)`);
     }
     return groups;
   }, [planBarbersQ.data, barberNameById]);
@@ -205,6 +209,7 @@ export function PlanosTab({ barber }: { barber: Barber }) {
     setPrice("");
     setSelectedServiceIds(new Set());
     setSelectedBarberIds(new Set());
+    setBarberPercent({});
     setEditing(null);
   }
 
@@ -216,6 +221,11 @@ export function PlanosTab({ barber }: { barber: Barber }) {
     const included = servicesByPlan.get(p.id) ?? [];
     setSelectedServiceIds(new Set(included.map((s) => s.id)));
     setSelectedBarberIds(new Set(barberIdsByPlan.get(p.id) ?? []));
+    const percents: Record<string, string> = {};
+    for (const link of planBarbersQ.data ?? []) {
+      if (link.plan_id === p.id) percents[link.barber_id] = String(Number(link.commission_percent) || 0);
+    }
+    setBarberPercent(percents);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -244,6 +254,15 @@ export function PlanosTab({ barber }: { barber: Barber }) {
       if (!pre || pre <= 0) throw new Error("Valor mensal inválido");
       if (selectedServiceIds.size === 0) throw new Error("Selecione ao menos um serviço incluso");
       if (selectedBarberIds.size === 0) throw new Error("Selecione ao menos um barbeiro para o plano");
+      const percentByBarber = new Map<string, number>();
+      for (const id of selectedBarberIds) {
+        const raw = (barberPercent[id] ?? "").trim().replace(",", ".");
+        const pct = Number(raw);
+        if (raw === "" || Number.isNaN(pct) || pct < 0 || pct > 100) {
+          throw new Error(`Informe a porcentagem (0 a 100) de ${barberNameById.get(id) ?? "cada barbeiro"}`);
+        }
+        percentByBarber.set(id, pct);
+      }
 
       const { getBarbershopIdByBarberId } = await import("@/lib/barbershop");
       const barbershopId = shopId ?? (await getBarbershopIdByBarberId(barber.id));
@@ -286,12 +305,33 @@ export function PlanosTab({ barber }: { barber: Barber }) {
       const { error: insErr } = await supabase.from("subscription_plan_services").insert(serviceRows);
       if (insErr) throw insErr;
 
-      const barberRows = Array.from(selectedBarberIds).map((barber_id) => ({ plan_id: planId, barber_id }));
+      const barberRows = Array.from(selectedBarberIds).map((barber_id) => ({
+        plan_id: planId,
+        barber_id,
+        commission_percent: percentByBarber.get(barber_id) ?? 0,
+      }));
       const { error: insBarberErr } = await supabase.from("subscription_plan_barbers").insert(barberRows);
-      if (insBarberErr) throw insBarberErr;
+      if (insBarberErr) {
+        // Coluna ainda não existe no banco (docs/add-plan-barber-commission.sql
+        // não foi rodado): salva o plano sem as porcentagens em vez de perder
+        // os barbeiros — e avisa.
+        if (!insBarberErr.message?.includes("commission_percent")) throw insBarberErr;
+        const { error: retryErr } = await supabase
+          .from("subscription_plan_barbers")
+          .insert(barberRows.map(({ plan_id, barber_id }) => ({ plan_id, barber_id })));
+        if (retryErr) throw retryErr;
+        return { percentsSaved: false };
+      }
+      return { percentsSaved: true };
     },
-    onSuccess: () => {
-      toast.success(editing ? "Plano atualizado" : "Plano criado");
+    onSuccess: (result) => {
+      if (result && !result.percentsSaved) {
+        toast.warning("Plano salvo, mas as porcentagens não foram gravadas", {
+          description: "Rode docs/add-plan-barber-commission.sql no Supabase e salve o plano de novo.",
+        });
+      } else {
+        toast.success(editing ? "Plano atualizado" : "Plano criado");
+      }
       reset();
       qc.invalidateQueries({ queryKey: ["subscription-plans", shopId] });
       qc.invalidateQueries({ queryKey: ["subscription-plan-services", shopId] });
@@ -418,6 +458,41 @@ export function PlanosTab({ barber }: { barber: Barber }) {
           </p>
         </div>
 
+        {selectedBarberIds.size > 0 && (
+          <div className="space-y-2">
+            <Label>Porcentagem que cada barbeiro recebe nesse plano</Label>
+            <div className="rounded-lg border border-border p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {(barbersQ.data ?? [])
+                  .filter((b) => selectedBarberIds.has(b.id))
+                  .map((b) => (
+                    <div key={b.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate">{b.name}</span>
+                      <div className="flex w-28 shrink-0 items-center gap-1">
+                        <Input
+                          inputMode="decimal"
+                          value={barberPercent[b.id] ?? ""}
+                          onChange={(e) =>
+                            setBarberPercent((prev) => ({
+                              ...prev,
+                              [b.id]: e.target.value.replace(/[^\d.,]/g, ""),
+                            }))
+                          }
+                          placeholder="0"
+                          aria-label={`Porcentagem de ${b.name}`}
+                        />
+                        <span className="text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground md:text-sm">
+              Quanto do valor de cada atendimento de assinante do plano fica pro barbeiro (usado no repasse).
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label>Serviços inclusos (ilimitados no mês)</Label>
           {servicesQ.isLoading && <Loader2 className="animate-spin" />}
@@ -522,9 +597,19 @@ export function PlanosTab({ barber }: { barber: Barber }) {
       </section>
 
       <section>
-        <h2 className="mb-2 flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          <Users className="size-4" /> Assinantes
-        </h2>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            <Users className="size-4" /> Assinantes
+          </h2>
+          <Button
+            variant="outline"
+            size="sm"
+            className="md:h-10 md:px-4 md:text-base"
+            onClick={() => setProducaoOpen(true)}
+          >
+            <TrendingUp className="mr-1 size-4 md:size-5" /> Produção por barbeiros
+          </Button>
+        </div>
         {subscribersQ.data?.length === 0 && (
           <div className="surface p-6 text-center text-sm text-muted-foreground">
             Ninguém assinou um plano ainda.
@@ -557,6 +642,8 @@ export function PlanosTab({ barber }: { barber: Barber }) {
           })}
         </div>
       </section>
+
+      <ProducaoDialog barber={barber} open={producaoOpen} onOpenChange={setProducaoOpen} />
     </div>
   );
 }

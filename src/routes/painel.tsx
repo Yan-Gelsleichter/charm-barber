@@ -16,7 +16,6 @@ import {
   CreditCard,
   Trophy,
   Repeat,
-  TrendingUp,
   Lock,
   AlertTriangle,
   Sparkles,
@@ -24,6 +23,7 @@ import {
   Home,
   Gift,
   Package,
+  TrendingUp,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -59,7 +59,7 @@ import { PerfilTab } from "@/painel/Perfil";
 import { PagamentosTab } from "@/painel/Pagamentos";
 import { FaturamentoTab } from "@/painel/Faturamento";
 import { PlanosTab } from "@/painel/Planos";
-import { ProducaoTab } from "@/painel/Producao";
+import { ProducaoBarbeiroTab } from "@/painel/ProducaoBarbeiro";
 import { FidelidadeTab } from "@/painel/Fidelidade";
 import { ProdutosTab } from "@/painel/Produtos";
 
@@ -81,7 +81,14 @@ type Tab =
   | "fidelidade"
   | "produtos";
 
-const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
+const NAV: {
+  id: Tab;
+  label: string;
+  icon: React.ElementType;
+  adminOnly?: boolean;
+  /** Só aparece pro barbeiro comum (o admin vê isso dentro da aba Planos). */
+  barberOnly?: boolean;
+}[] = [
   { id: "caixa", label: "Caixa", icon: Banknote, adminOnly: true },
   { id: "dashboard", label: "Painel", icon: LayoutDashboard },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
@@ -90,7 +97,7 @@ const NAV: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolea
   { id: "planos", label: "Planos", icon: Repeat, adminOnly: true },
   { id: "fidelidade", label: "Fidelidade", icon: Gift, adminOnly: true },
   { id: "produtos", label: "Produtos", icon: Package },
-  { id: "producao", label: "Produção", icon: TrendingUp },
+  { id: "producao", label: "Produção", icon: TrendingUp, barberOnly: true },
   { id: "horarios", label: "Horários", icon: Clock4 },
   { id: "historico", label: "Histórico", icon: History },
   { id: "barbeiros", label: "Barbeiros", icon: Users, adminOnly: true },
@@ -398,6 +405,7 @@ WHERE user_id = '${currentUid}';`;
   const items = NAV.filter(
     (n) =>
       (!n.adminOnly || barber.is_admin) &&
+      (!n.barberOnly || !barber.is_admin) &&
       // Barbeiro comum só vê Pagamentos quando o admin ativa o split por subcontas.
       (n.id !== "pagamentos" || barber.is_admin || splitOn),
   );
@@ -505,7 +513,7 @@ WHERE user_id = '${currentUid}';`;
         {tab === "planos" && barber.is_admin && <PlanosTab barber={barber} />}
         {tab === "fidelidade" && barber.is_admin && <FidelidadeTab barber={barber} />}
         {tab === "produtos" && <ProdutosTab barber={barber} />}
-        {tab === "producao" && <ProducaoTab barber={barber} />}
+        {tab === "producao" && !barber.is_admin && <ProducaoBarbeiroTab barber={barber} />}
         {tab === "clientes" && <ClientesTab barber={barber} />}
         {tab === "perfil" && <PerfilTab barber={barber} email={session.user.email ?? null} />}
 
