@@ -419,7 +419,14 @@ WHERE user_id = '${currentUid}';`;
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-0 md:pl-56">
+    <div
+      className={cn(
+        "min-h-screen md:pb-0 md:pl-56",
+        // Na tela Início do celular não existe a barra de baixo, então não
+        // reserva espaço pra ela (senão a tela ganha rolagem à toa).
+        tab === "inicio" && isMobile ? "pb-0" : "pb-24",
+      )}
+    >
       {/* Fundo escolhido pelo barbeiro (Perfil): uma imagem pra tela Início do
           celular e outra pras demais abas (celular e desktop). */}
       <AppBackground
@@ -427,7 +434,7 @@ WHERE user_id = '${currentUid}';`;
           tab === "inicio" && isMobile ? (barber.bg_home ?? DEFAULT_HOME_BG) : (barber.bg_tabs ?? BG_PLAIN),
         )}
       />
-      <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
+      <header className="liquid-glass-bar sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div
           // O cabeçalho é sempre igual em todas as abas — só o conteúdo
           // abaixo dele (main) muda de largura dependendo da aba.
@@ -507,6 +514,7 @@ WHERE user_id = '${currentUid}';`;
           // Caixa/Painel/Agenda ocupam a largura toda da tela no desktop
           // (cards em grade, como a Caixa já tinha).
           FULL_WIDTH_TABS.includes(tab) ? "max-w-5xl md:max-w-none md:px-8" : "max-w-5xl",
+          tab === "inicio" && isMobile && "py-3",
         )}
       >
         {tab === "inicio" && isMobile && <InicioGrid items={items} navigate={navigate} />}
@@ -607,8 +615,19 @@ function InicioGrid({
   items: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[];
   navigate: ReturnType<typeof useNavigate>;
 }) {
+  // Vidro líquido (ver .liquid-glass em styles.css). 2 colunas; a grade tem a
+  // altura exata da área livre da tela (100dvh menos o cabeçalho e as
+  // margens) e reparte essa altura entre as linhas — assim todos os
+  // atalhos preenchem a tela sem precisar rolar (14 do admin = 7 linhas).
+  const rows = Math.max(1, Math.ceil(items.length / 2));
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div
+      className="grid grid-cols-2 gap-2"
+      style={{
+        height: "calc(100dvh - 5.75rem)",
+        gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+      }}
+    >
       {items.map((n) => {
         const Icon = n.icon;
         return (
@@ -616,12 +635,12 @@ function InicioGrid({
             key={n.id}
             type="button"
             onClick={() => navigate({ to: "/painel", search: { tab: n.id }, replace: true })}
-            className="surface flex flex-col items-center justify-center gap-3 rounded-2xl p-6 text-center transition-colors hover:border-primary active:scale-[0.98]"
+            className="liquid-glass flex min-h-0 min-w-0 flex-col items-center justify-center gap-1.5 rounded-2xl px-2 text-center transition-transform active:scale-[0.97]"
           >
-            <div className="brand-gradient flex size-14 items-center justify-center rounded-full">
-              <Icon className="size-7 text-white" />
-            </div>
-            <span className="text-sm font-medium">{n.label}</span>
+            <span className="liquid-glass-icon flex size-11 shrink-0 items-center justify-center rounded-full">
+              <Icon className="size-6 text-white drop-shadow" />
+            </span>
+            <span className="w-full truncate text-sm font-medium leading-tight">{n.label}</span>
           </button>
         );
       })}
