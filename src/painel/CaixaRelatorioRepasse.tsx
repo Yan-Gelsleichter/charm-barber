@@ -17,6 +17,14 @@ import { cn } from "@/lib/utils";
 
 type PeriodoRepasse = "semana" | "mes" | "custom";
 
+// Valor sem o "R$" — a moeda aparece só na coluna Total repasse e na linha
+// de totais; nas demais colunas os números ficam limpos e alinhados.
+const numBr = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+
+const thNum = "px-3 py-2 text-right whitespace-nowrap";
+const tdNum = "px-3 py-2 text-right tabular-nums whitespace-nowrap";
+
 function parseInicio(s: string): number | null {
   if (!s) return null;
   const [y, m, d] = s.split("-").map(Number);
@@ -323,23 +331,23 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-sm">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <th className="py-2">Barbeiro</th>
-                  <th className="py-2 text-right">Online</th>
-                  <th className="py-2 text-right">Presencial</th>
-                  <th className="py-2 text-right">Avulso</th>
-                  <th className="py-2 text-right">Bruto</th>
+                <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <th className="py-2 pr-3 text-left">Barbeiro</th>
+                  <th className={thNum}>Online</th>
+                  <th className={thNum}>Presencial</th>
+                  <th className={thNum}>Avulso</th>
+                  <th className={thNum}>Bruto</th>
                   {aplicarComissao && (
                     <>
-                      <th className="py-2 text-right">%</th>
-                      <th className="py-2 text-right">Líquido</th>
+                      <th className={thNum}>%</th>
+                      <th className={thNum}>Líquido</th>
                     </>
                   )}
-                  <th className="py-2 text-right">Produtos</th>
+                  <th className={thNum}>Produtos</th>
                   {aplicarComissao && (
                     <>
-                      <th className="py-2 text-right">Comissão produtos</th>
-                      <th className="py-2 text-right">Total repasse</th>
+                      <th className={thNum}>Comissão produtos</th>
+                      <th className={thNum}>Total repasse</th>
                     </>
                   )}
                 </tr>
@@ -347,49 +355,54 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
               <tbody>
                 {linhas.map((r) => (
                   <tr key={r.barbeiro.id} className="border-t border-border">
-                    <td className="py-2 font-medium">{r.barbeiro.name}</td>
-                    <td className="py-2 text-right">{brl(r.online)}</td>
-                    <td className="py-2 text-right">{brl(r.presencial)}</td>
-                    <td className="py-2 text-right">{brl(r.avulso)}</td>
-                    <td className="py-2 text-right font-semibold">{brl(r.bruto)}</td>
+                    <td className="py-2 pr-3 font-medium">{r.barbeiro.name}</td>
+                    <td className={tdNum}>{numBr(r.online)}</td>
+                    <td className={tdNum}>{numBr(r.presencial)}</td>
+                    <td className={tdNum}>{numBr(r.avulso)}</td>
+                    <td className={cn(tdNum, "font-semibold")}>{numBr(r.bruto)}</td>
                     {aplicarComissao && (
                       <>
-                        <td className="py-2 text-right text-muted-foreground">
+                        <td className={cn(tdNum, "text-muted-foreground")}>
                           {Number(r.barbeiro.commission_percent) || 0}%
                         </td>
-                        <td className="brand-text py-2 text-right font-semibold">{brl(r.liquido)}</td>
+                        <td className={cn(tdNum, "font-semibold")}>{numBr(r.liquido)}</td>
                       </>
                     )}
-                    <td className="py-2 text-right">{brl(r.produtosBruto)}</td>
+                    <td className={tdNum}>{numBr(r.produtosBruto)}</td>
                     {aplicarComissao && (
                       <>
-                        <td className="py-2 text-right text-muted-foreground">
-                          {Number(r.barbeiro.product_commission_percent) || 0}%: {brl(r.produtosComissao)}
+                        <td className={tdNum}>
+                          <span className="flex items-baseline justify-between gap-3">
+                            <span className="text-muted-foreground">
+                              {Number(r.barbeiro.product_commission_percent) || 0}%
+                            </span>
+                            <span>{numBr(r.produtosComissao)}</span>
+                          </span>
                         </td>
-                        <td className="brand-text py-2 text-right font-semibold">{brl(r.totalRepasse)}</td>
+                        <td className={cn(tdNum, "brand-text font-semibold")}>{brl(r.totalRepasse)}</td>
                       </>
                     )}
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className={cn("border-t-2 border-border font-semibold")}>
-                  <td className="py-2">Total</td>
-                  <td className="py-2 text-right">{brl(totalGeral.online)}</td>
-                  <td className="py-2 text-right">{brl(totalGeral.presencial)}</td>
-                  <td className="py-2 text-right">{brl(totalGeral.avulso)}</td>
-                  <td className="py-2 text-right">{brl(totalGeral.bruto)}</td>
+                <tr className="border-t-2 border-border font-semibold">
+                  <td className="py-2 pr-3">Total</td>
+                  <td className={tdNum}>{brl(totalGeral.online)}</td>
+                  <td className={tdNum}>{brl(totalGeral.presencial)}</td>
+                  <td className={tdNum}>{brl(totalGeral.avulso)}</td>
+                  <td className={tdNum}>{brl(totalGeral.bruto)}</td>
                   {aplicarComissao && (
                     <>
-                      <td className="py-2" />
-                      <td className="brand-text py-2 text-right">{brl(totalGeral.liquido)}</td>
+                      <td className={tdNum} />
+                      <td className={tdNum}>{brl(totalGeral.liquido)}</td>
                     </>
                   )}
-                  <td className="py-2 text-right">{brl(totalGeral.produtosBruto)}</td>
+                  <td className={tdNum}>{brl(totalGeral.produtosBruto)}</td>
                   {aplicarComissao && (
                     <>
-                      <td className="py-2 text-right">{brl(totalGeral.produtosComissao)}</td>
-                      <td className="brand-text py-2 text-right">{brl(totalGeral.totalRepasse)}</td>
+                      <td className={tdNum}>{brl(totalGeral.produtosComissao)}</td>
+                      <td className={cn(tdNum, "brand-text")}>{brl(totalGeral.totalRepasse)}</td>
                     </>
                   )}
                 </tr>

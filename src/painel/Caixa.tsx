@@ -632,7 +632,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
             size="icon"
             className="hidden md:inline-flex"
             onClick={() => setShowTopCards((v) => !v)}
-            title={showTopCards ? "Esconder cards Hoje/Semana/Mês/Ano" : "Mostrar cards Hoje/Semana/Mês/Ano"}
+            title={showTopCards ? "Esconder cards e gráficos" : "Mostrar cards e gráficos"}
           >
             {showTopCards ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
           </Button>
@@ -675,7 +675,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         </div>
       )}
 
-      <CaixaGraficos barbeiros={barbeiros} stats={totaisHook.statsPorBarbeiro} />
+      {showTopCards && <CaixaGraficos barbeiros={barbeiros} stats={totaisHook.statsPorBarbeiro} />}
 
       <div className="surface flex items-center justify-between p-3">
         <Button

@@ -305,7 +305,7 @@ function AuthPage() {
         )}
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>
-          <EmailInput id="email" value={email} onChange={setEmail} />
+          <EmailInput id="email" value={email} onChange={setEmail} className="md:text-base" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Senha</Label>
@@ -314,6 +314,7 @@ function AuthPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
+            className="md:text-base"
           />
         </div>
         <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>
