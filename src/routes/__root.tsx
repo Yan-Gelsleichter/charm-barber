@@ -15,6 +15,39 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { useDarkMode } from "@/lib/theme";
 
+/**
+ * Depois que sai uma versão nova do app, quem estava com o app aberto (ou com
+ * a página antiga guardada no navegador) ainda aponta pra arquivos da versão
+ * anterior, que deixam de existir — daí "Importing a module script failed".
+ * Isso não se resolve tentando de novo o mesmo arquivo: precisa baixar a
+ * página de novo, com um parâmetro novo na URL pra driblar qualquer cópia
+ * guardada.
+ */
+function isStaleBundleError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /Importing a module script failed|Failed to fetch dynamically imported module|error loading dynamically imported module|Unable to preload CSS|Loading chunk .+ failed/i.test(
+    message,
+  );
+}
+
+function forceFreshReload(path?: string) {
+  const url = new URL(path ?? window.location.href, window.location.origin);
+  url.searchParams.set("_r", String(Date.now()));
+  window.location.replace(url.toString());
+}
+
+/** Recarrega sozinho, no máximo uma vez a cada 15s (evita loop se o problema for outro). */
+function autoRecoverFromStaleBundle() {
+  try {
+    const last = Number(sessionStorage.getItem("stale-bundle-reload-at") ?? 0);
+    if (Date.now() - last < 15_000) return;
+    sessionStorage.setItem("stale-bundle-reload-at", String(Date.now()));
+  } catch {
+    /* sem sessionStorage: recarrega mesmo assim, uma vez por erro */
+  }
+  forceFreshReload();
+}
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -40,9 +73,13 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const staleBundle = isStaleBundleError(error);
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
+  useEffect(() => {
+    if (staleBundle) autoRecoverFromStaleBundle();
+  }, [staleBundle]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -52,6 +89,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
+              if (staleBundle) {
+                forceFreshReload();
+                return;
+              }
               router.invalidate();
               reset();
             }}
@@ -61,6 +102,11 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           </button>
           <a
             href="/"
+            onClick={(e) => {
+              if (!staleBundle) return;
+              e.preventDefault();
+              forceFreshReload("/");
+            }}
             className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-medium"
           >
             Início
@@ -137,6 +183,18 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   const { dark } = useDarkMode();
+
+  // O Vite avisa (vite:preloadError) quando um arquivo da tela que estava
+  // sendo aberta não carrega — versão nova publicada com a página antiga
+  // ainda aberta. Em vez de mostrar erro, baixa a página nova.
+  useEffect(() => {
+    const onPreloadError = (event: Event) => {
+      event.preventDefault();
+      autoRecoverFromStaleBundle();
+    };
+    window.addEventListener("vite:preloadError", onPreloadError);
+    return () => window.removeEventListener("vite:preloadError", onPreloadError);
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
