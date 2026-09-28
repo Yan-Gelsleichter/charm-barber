@@ -7,37 +7,50 @@ export const Route = createFileRoute("/privacidade")({
   component: PrivacidadePage,
 });
 
-/**
- * Texto simples, ainda placeholder — precisa ser revisado por vocês (ou um
- * advogado) antes de valer como política de privacidade de verdade. Serve
- * pra cumprir a exigência de ter um link público, e explicar em linhas
- * gerais o que a exclusão de conta faz.
- */
 function PrivacidadePage() {
   return (
     <main className="mx-auto max-w-2xl px-5 py-12 text-sm leading-relaxed text-muted-foreground">
       <BrandTitle>Privacidade</BrandTitle>
-      <p className="mt-2 text-xs uppercase tracking-wider text-muted-foreground">
-        Texto de exemplo — revise antes de publicar de verdade.
-      </p>
 
       <div className="surface mt-6 space-y-4 p-5 text-foreground">
         <p>
-          O APP BARBEARIAS guarda os dados necessários para o funcionamento do agendamento: nome, telefone,
-          e-mail e histórico de atendimentos e pagamentos de cada cliente, e dados de cadastro de barbeiros e
-          barbearias.
+          O APP BARBEARIAS preza pela segurança e privacidade dos seus dados. Esta política descreve como
+          coletamos, usamos e protegemos suas informações.
         </p>
         <p>
-          Você pode excluir sua conta e seus dados pessoais a qualquer momento, pelo Perfil dentro do app ou
-          por <Link to="/excluir-dados" className="brand-text font-semibold">esta página</Link>. Agendamentos
-          e vendas já registrados continuam guardados de forma anônima (sem seu nome, telefone ou e-mail),
-          pois a barbearia precisa desse histórico para o faturamento dela.
+          <span className="font-semibold text-foreground">Dados coletados:</span> guardamos os dados
+          estritamente necessários para o funcionamento da plataforma e dos agendamentos — nome, telefone,
+          e-mail, histórico de atendimentos e dados de pagamentos de cada cliente, além dos dados cadastrais
+          dos barbeiros e das barbearias parceiras.
         </p>
         <p>
-          Dados de pagamento são processados pelo Mercado Pago — não guardamos número de cartão nenhum.
+          <span className="font-semibold text-foreground">Uso dos dados:</span> as informações são utilizadas
+          para viabilizar os agendamentos, processar cobranças, enviar lembretes e garantir a comunicação
+          direta entre o cliente e a barbearia escolhida.
         </p>
         <p>
-          Dúvidas sobre seus dados: escreva para{" "}
+          <span className="font-semibold text-foreground">Exclusão de conta e dados:</span> você pode excluir
+          sua conta e seus dados pessoais a qualquer momento, diretamente pelo Perfil dentro do app, pela
+          página <Link to="/excluir-dados" className="brand-text font-semibold">excluir meus dados</Link>, ou
+          solicitando através do nosso suporte.
+        </p>
+        <p>
+          <span className="font-semibold text-foreground">Histórico das barbearias:</span> agendamentos e
+          vendas já registrados anteriormente continuam guardados de forma anônima (sem nome, telefone ou
+          e-mail do cliente), pois a barbearia precisa desse histórico contábil para fins de faturamento e
+          gestão fiscal.
+        </p>
+        <p>
+          <span className="font-semibold text-foreground">Dados de pagamento:</span> todos os dados de
+          transações e cartões são processados de forma segura pelo Mercado Pago. O APP BARBEARIAS não
+          armazena números de cartão de crédito ou dados sensíveis de pagamento em seus servidores.
+        </p>
+        <p>
+          <span className="font-semibold text-foreground">Identificação do controlador:</span> desenvolvido e
+          administrado por Yan Ramon Rodrigues Gelsleichter (CPF: 057.667.949-67).
+        </p>
+        <p>
+          <span className="font-semibold text-foreground">Dúvidas sobre seus dados:</span> escreva para{" "}
           <a href="mailto:appbarbeariassuporte@gmail.com" className="brand-text font-semibold">
             appbarbeariassuporte@gmail.com
           </a>
