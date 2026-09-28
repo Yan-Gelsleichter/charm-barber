@@ -651,6 +651,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           <Button
             variant="outline"
             size="icon"
+            className="hidden md:inline-flex"
             onClick={() => setShowTopCards((v) => !v)}
             title={showTopCards ? "Esconder cards e gráficos" : "Mostrar cards e gráficos"}
           >
@@ -696,6 +697,19 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       )}
 
       {showTopCards && <CaixaGraficos barbeiros={barbeiros} stats={totaisHook.statsPorBarbeiro} />}
+
+      {/* No celular o botão do olho fica aqui, embaixo dos cards (no desktop
+          já está lá em cima, junto de Evolução/Relatório de repasse). */}
+      <div className="flex justify-end md:hidden">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowTopCards((v) => !v)}
+          title={showTopCards ? "Esconder cards e gráficos" : "Mostrar cards e gráficos"}
+        >
+          {showTopCards ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+        </Button>
+      </div>
 
       <div className="surface flex items-center justify-between p-3">
         <Button

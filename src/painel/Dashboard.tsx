@@ -116,7 +116,9 @@ export function DashboardTab({ barber }: { barber: Barber }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      {/* No desktop o botão do olho fica aqui em cima; no celular ele desce
+          pra baixo dos cards (mesmo padrão da aba Caixa). */}
+      <div className="hidden justify-end md:flex">
         <Button
           variant="outline"
           size="icon"
@@ -135,6 +137,17 @@ export function DashboardTab({ barber }: { barber: Barber }) {
           <Stat icon={Users} label="Clientes (30d)" value={String(clientesUnicos)} />
         </section>
       )}
+
+      <div className="flex justify-end md:hidden">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowTopCards((v) => !v)}
+          title={showTopCards ? "Esconder cards" : "Mostrar cards"}
+        >
+          {showTopCards ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+        </Button>
+      </div>
 
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
