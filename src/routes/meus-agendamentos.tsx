@@ -14,6 +14,7 @@ import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { postPublicApi } from "@/lib/api-fetch";
+import { ExcluirContaSection } from "@/components/ExcluirContaSection";
 
 const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
   pending: "Aguardando confirmação",
@@ -669,6 +670,12 @@ function MeusAgendamentosPage() {
           </Link>
         </Button>
       </div>
+
+      {session && (
+        <div className="mt-6">
+          <ExcluirContaSection redirectTo="/" />
+        </div>
+      )}
     </div>
   );
 }

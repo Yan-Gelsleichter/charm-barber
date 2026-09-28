@@ -12,9 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ComecarRouteImport } from './routes/comecar'
+import { Route as ExcluirDadosRouteImport } from './routes/excluir-dados'
 import { Route as MeusAgendamentosRouteImport } from './routes/meus-agendamentos'
 import { Route as PainelRouteImport } from './routes/painel'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
+import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AgendarBarbeiroIdRouteImport } from './routes/agendar.$barbeiroId'
 import { Route as AssinarBarbershopIdRouteImport } from './routes/assinar.$barbershopId'
 import { Route as AssinaturaConfirmadaSubscriptionIdRouteImport } from './routes/assinatura-confirmada.$subscriptionId'
@@ -25,6 +28,7 @@ import { Route as PedidoConfirmadoOrderIdRouteImport } from './routes/pedido-con
 import { Route as ProdutosBarbershopIdRouteImport } from './routes/produtos.$barbershopId'
 import { Route as ApiCronAppointmentRemindersRouteImport } from './routes/api/cron/appointment-reminders'
 import { Route as ApiCronProcessPlanChangesRouteImport } from './routes/api/cron/process-plan-changes'
+import { Route as ApiPublicAccountDeleteRouteImport } from './routes/api/public/account-delete'
 import { Route as ApiPublicAppointmentConfirmAttendanceRouteImport } from './routes/api/public/appointment-confirm-attendance'
 import { Route as ApiPublicAppointmentCreateRouteImport } from './routes/api/public/appointment-create'
 import { Route as ApiPublicAppointmentLocalPaymentRouteImport } from './routes/api/public/appointment-local-payment'
@@ -78,6 +82,11 @@ const ComecarRoute = ComecarRouteImport.update({
   path: '/comecar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExcluirDadosRoute = ExcluirDadosRouteImport.update({
+  id: '/excluir-dados',
+  path: '/excluir-dados',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MeusAgendamentosRoute = MeusAgendamentosRouteImport.update({
   id: '/meus-agendamentos',
   path: '/meus-agendamentos',
@@ -88,9 +97,19 @@ const PainelRoute = PainelRouteImport.update({
   path: '/painel',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
   id: '/redefinir-senha',
   path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgendarBarbeiroIdRoute = AgendarBarbeiroIdRouteImport.update({
@@ -147,6 +166,11 @@ const ApiCronProcessPlanChangesRoute =
     path: '/api/cron/process-plan-changes',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAccountDeleteRoute = ApiPublicAccountDeleteRouteImport.update({
+  id: '/api/public/account-delete',
+  path: '/api/public/account-delete',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicAppointmentConfirmAttendanceRoute =
   ApiPublicAppointmentConfirmAttendanceRouteImport.update({
     id: '/api/public/appointment-confirm-attendance',
@@ -371,9 +395,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/comecar': typeof ComecarRoute
+  '/excluir-dados': typeof ExcluirDadosRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
@@ -384,6 +411,7 @@ export interface FileRoutesByFullPath {
   '/produtos/$barbershopId': typeof ProdutosBarbershopIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
+  '/api/public/account-delete': typeof ApiPublicAccountDeleteRoute
   '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
@@ -426,9 +454,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/comecar': typeof ComecarRoute
+  '/excluir-dados': typeof ExcluirDadosRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
@@ -439,6 +470,7 @@ export interface FileRoutesByTo {
   '/produtos/$barbershopId': typeof ProdutosBarbershopIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
+  '/api/public/account-delete': typeof ApiPublicAccountDeleteRoute
   '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
@@ -482,9 +514,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/comecar': typeof ComecarRoute
+  '/excluir-dados': typeof ExcluirDadosRoute
   '/meus-agendamentos': typeof MeusAgendamentosRoute
   '/painel': typeof PainelRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/agendar/$barbeiroId': typeof AgendarBarbeiroIdRoute
   '/assinar/$barbershopId': typeof AssinarBarbershopIdRoute
   '/assinatura-confirmada/$subscriptionId': typeof AssinaturaConfirmadaSubscriptionIdRoute
@@ -495,6 +530,7 @@ export interface FileRoutesById {
   '/produtos/$barbershopId': typeof ProdutosBarbershopIdRoute
   '/api/cron/appointment-reminders': typeof ApiCronAppointmentRemindersRoute
   '/api/cron/process-plan-changes': typeof ApiCronProcessPlanChangesRoute
+  '/api/public/account-delete': typeof ApiPublicAccountDeleteRoute
   '/api/public/appointment-confirm-attendance': typeof ApiPublicAppointmentConfirmAttendanceRoute
   '/api/public/appointment-create': typeof ApiPublicAppointmentCreateRoute
   '/api/public/appointment-local-payment': typeof ApiPublicAppointmentLocalPaymentRoute
@@ -539,9 +575,12 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/comecar'
+    | '/excluir-dados'
     | '/meus-agendamentos'
     | '/painel'
+    | '/privacidade'
     | '/redefinir-senha'
+    | '/termos'
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
@@ -552,6 +591,7 @@ export interface FileRouteTypes {
     | '/produtos/$barbershopId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
+    | '/api/public/account-delete'
     | '/api/public/appointment-confirm-attendance'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
@@ -594,9 +634,12 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/comecar'
+    | '/excluir-dados'
     | '/meus-agendamentos'
     | '/painel'
+    | '/privacidade'
     | '/redefinir-senha'
+    | '/termos'
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
@@ -607,6 +650,7 @@ export interface FileRouteTypes {
     | '/produtos/$barbershopId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
+    | '/api/public/account-delete'
     | '/api/public/appointment-confirm-attendance'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
@@ -649,9 +693,12 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/comecar'
+    | '/excluir-dados'
     | '/meus-agendamentos'
     | '/painel'
+    | '/privacidade'
     | '/redefinir-senha'
+    | '/termos'
     | '/agendar/$barbeiroId'
     | '/assinar/$barbershopId'
     | '/assinatura-confirmada/$subscriptionId'
@@ -662,6 +709,7 @@ export interface FileRouteTypes {
     | '/produtos/$barbershopId'
     | '/api/cron/appointment-reminders'
     | '/api/cron/process-plan-changes'
+    | '/api/public/account-delete'
     | '/api/public/appointment-confirm-attendance'
     | '/api/public/appointment-create'
     | '/api/public/appointment-local-payment'
@@ -705,9 +753,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   ComecarRoute: typeof ComecarRoute
+  ExcluirDadosRoute: typeof ExcluirDadosRoute
   MeusAgendamentosRoute: typeof MeusAgendamentosRoute
   PainelRoute: typeof PainelRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  TermosRoute: typeof TermosRoute
   AgendarBarbeiroIdRoute: typeof AgendarBarbeiroIdRoute
   AssinarBarbershopIdRoute: typeof AssinarBarbershopIdRoute
   AssinaturaConfirmadaSubscriptionIdRoute: typeof AssinaturaConfirmadaSubscriptionIdRoute
@@ -718,6 +769,7 @@ export interface RootRouteChildren {
   ProdutosBarbershopIdRoute: typeof ProdutosBarbershopIdRoute
   ApiCronAppointmentRemindersRoute: typeof ApiCronAppointmentRemindersRoute
   ApiCronProcessPlanChangesRoute: typeof ApiCronProcessPlanChangesRoute
+  ApiPublicAccountDeleteRoute: typeof ApiPublicAccountDeleteRoute
   ApiPublicAppointmentConfirmAttendanceRoute: typeof ApiPublicAppointmentConfirmAttendanceRoute
   ApiPublicAppointmentCreateRoute: typeof ApiPublicAppointmentCreateRoute
   ApiPublicAppointmentLocalPaymentRoute: typeof ApiPublicAppointmentLocalPaymentRoute
@@ -780,6 +832,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComecarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/excluir-dados': {
+      id: '/excluir-dados'
+      path: '/excluir-dados'
+      fullPath: '/excluir-dados'
+      preLoaderRoute: typeof ExcluirDadosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/meus-agendamentos': {
       id: '/meus-agendamentos'
       path: '/meus-agendamentos'
@@ -794,11 +853,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PainelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/redefinir-senha': {
       id: '/redefinir-senha'
       path: '/redefinir-senha'
       fullPath: '/redefinir-senha'
       preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agendar/$barbeiroId': {
@@ -869,6 +942,13 @@ declare module '@tanstack/react-router' {
       path: '/api/cron/process-plan-changes'
       fullPath: '/api/cron/process-plan-changes'
       preLoaderRoute: typeof ApiCronProcessPlanChangesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/account-delete': {
+      id: '/api/public/account-delete'
+      path: '/api/public/account-delete'
+      fullPath: '/api/public/account-delete'
+      preLoaderRoute: typeof ApiPublicAccountDeleteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/appointment-confirm-attendance': {
@@ -1137,9 +1217,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   ComecarRoute: ComecarRoute,
+  ExcluirDadosRoute: ExcluirDadosRoute,
   MeusAgendamentosRoute: MeusAgendamentosRoute,
   PainelRoute: PainelRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
+  TermosRoute: TermosRoute,
   AgendarBarbeiroIdRoute: AgendarBarbeiroIdRoute,
   AssinarBarbershopIdRoute: AssinarBarbershopIdRoute,
   AssinaturaConfirmadaSubscriptionIdRoute:
@@ -1151,6 +1234,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProdutosBarbershopIdRoute: ProdutosBarbershopIdRoute,
   ApiCronAppointmentRemindersRoute: ApiCronAppointmentRemindersRoute,
   ApiCronProcessPlanChangesRoute: ApiCronProcessPlanChangesRoute,
+  ApiPublicAccountDeleteRoute: ApiPublicAccountDeleteRoute,
   ApiPublicAppointmentConfirmAttendanceRoute:
     ApiPublicAppointmentConfirmAttendanceRoute,
   ApiPublicAppointmentCreateRoute: ApiPublicAppointmentCreateRoute,

@@ -18,6 +18,7 @@ import { publicAppOrigin } from "@/lib/app-url";
 import { postPublicApi } from "@/lib/api-fetch";
 import { brl, fmtDate, capitalizeWords } from "@/lib/format";
 import { useSubscriptionStatusQuery } from "@/hooks/use-subscription-gate";
+import { ExcluirContaSection } from "@/components/ExcluirContaSection";
 import { BG_PLAIN, DEFAULT_HOME_BG, PRESET_BACKGROUNDS } from "@/lib/backgrounds";
 import { cn } from "@/lib/utils";
 
@@ -381,6 +382,8 @@ export function PerfilTab({ barber, email }: { barber: Barber; email: string | n
       </section>
 
       {barber.is_admin && <SuporteSection />}
+
+      <ExcluirContaSection />
     </div>
   );
 }

@@ -272,6 +272,20 @@ function Home() {
           </Link>
         </div>
       )}
+
+      <footer className="mt-10 flex items-center justify-center gap-3 pb-4 text-xs text-muted-foreground">
+        <Link to="/privacidade" className="hover:text-foreground hover:underline">
+          Privacidade
+        </Link>
+        <span aria-hidden>·</span>
+        <Link to="/termos" className="hover:text-foreground hover:underline">
+          Termos
+        </Link>
+        <span aria-hidden>·</span>
+        <Link to="/excluir-dados" className="hover:text-foreground hover:underline">
+          Excluir meus dados
+        </Link>
+      </footer>
     </main>
   );
 }

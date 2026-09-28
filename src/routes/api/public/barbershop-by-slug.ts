@@ -32,17 +32,18 @@ export const Route = createFileRoute("/api/public/barbershop-by-slug")({
 
           const { data, error } = await admin
             .from("barbershops")
-            .select("id")
+            .select("id, closed_at")
             .eq("slug", slug)
             .maybeSingle();
           if (error) {
             console.error("Barbearia por slug: falha na busca", error);
             return json({ error: "Não foi possível localizar a barbearia." }, 500);
           }
-          const id = (data as { id?: string } | null)?.id;
-          if (!id) return json({ error: "Barbearia não encontrada." }, 404);
+          const row = data as { id?: string; closed_at?: string | null } | null;
+          if (!row?.id) return json({ error: "Barbearia não encontrada." }, 404);
+          if (row.closed_at) return json({ error: "Esta barbearia não está mais disponível.", closed: true }, 404);
 
-          return json({ id });
+          return json({ id: row.id });
         } catch (error) {
           console.error("Barbearia por slug: erro inesperado", error);
           return json({ error: "Não foi possível localizar a barbearia." }, 500);

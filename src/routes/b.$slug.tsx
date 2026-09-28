@@ -15,7 +15,7 @@ function BarbershopLinkPage() {
   const { slug } = Route.useParams();
   const navigate = useNavigate();
   const { session, loading: loadingSession } = useSession();
-  const [status, setStatus] = useState<"loading" | "not_found">("loading");
+  const [status, setStatus] = useState<"loading" | "not_found" | "closed">("loading");
 
   useEffect(() => {
     if (loadingSession) return;
@@ -25,10 +25,14 @@ function BarbershopLinkPage() {
       const res = await fetch(`/api/public/barbershop-by-slug?slug=${encodeURIComponent(slug)}`, {
         cache: "no-store",
       }).catch(() => null);
-      const body = (await res?.json().catch(() => null)) as { id?: string } | null;
+      const body = (await res?.json().catch(() => null)) as { id?: string; closed?: boolean } | null;
       const barbershopId = body?.id;
       if (cancelled) return;
 
+      if (body?.closed) {
+        setStatus("closed");
+        return;
+      }
       if (!barbershopId) {
         setStatus("not_found");
         return;
@@ -76,6 +80,15 @@ function BarbershopLinkPage() {
       <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-5 text-center">
         <BrandMark size={48} />
         <p className="text-sm text-muted-foreground">Link inválido ou barbearia não encontrada.</p>
+      </main>
+    );
+  }
+
+  if (status === "closed") {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-5 text-center">
+        <BrandMark size={48} />
+        <p className="text-sm text-muted-foreground">Esta barbearia não está mais disponível.</p>
       </main>
     );
   }

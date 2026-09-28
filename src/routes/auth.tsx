@@ -393,6 +393,16 @@ function AuthPage() {
         </div>
       </form>
 
+      <div className="mt-6 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+        <Link to="/privacidade" className="hover:text-foreground hover:underline">
+          Privacidade
+        </Link>
+        <span aria-hidden>·</span>
+        <Link to="/termos" className="hover:text-foreground hover:underline">
+          Termos
+        </Link>
+      </div>
+
       <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

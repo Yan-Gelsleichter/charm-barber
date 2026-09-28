@@ -9,6 +9,8 @@
  * pela linha exata de `clients` usada num agendamento específico.
  */
 
+import { mpPlatformCredentials } from "@/lib/mp-platform.server";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = { from: (table: string) => any };
 
@@ -220,4 +222,48 @@ export async function subscriptionCoversServices(
   ]);
   const covered = new Set(((planServices.data ?? []) as { service_id: string }[]).map((r) => r.service_id));
   return opts.serviceIds.every((id) => covered.has(id)) && ((planBarber.data ?? []) as unknown[]).length > 0;
+}
+
+/**
+ * Cancela AGORA (sem carência) a preapproval de uma assinatura de cliente no
+ * Mercado Pago — mesma lógica de token (conta da barbearia, com fallback pra
+ * plataforma) já usada em `api/public/mercadopago-subscription-cancel.ts`.
+ * Best-effort: uma falha aqui nunca deve travar quem está excluindo a
+ * própria conta, só fica registrada pra investigar depois.
+ */
+export async function cancelClientSubscriptionPreapproval(
+  admin: Admin,
+  subscription: { mp_preapproval_id: string | null; barbershop_id: string },
+): Promise<void> {
+  if (!subscription.mp_preapproval_id) return;
+  try {
+    const { data: shop } = await admin
+      .from("barbershops")
+      .select("mp_access_token")
+      .eq("id", subscription.barbershop_id)
+      .maybeSingle();
+    const platform = mpPlatformCredentials();
+    const token =
+      String((shop as { mp_access_token?: string | null } | null)?.mp_access_token ?? "").trim() ||
+      platform?.accessToken ||
+      "";
+    if (!token) return;
+    const res = await fetch(
+      `https://api.mercadopago.com/preapproval/${encodeURIComponent(subscription.mp_preapproval_id)}`,
+      {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      },
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("[account-deletion] Mercado Pago recusou o cancelamento da assinatura do cliente", {
+        status: res.status,
+        body: text.slice(0, 500),
+      });
+    }
+  } catch (error) {
+    console.error("[account-deletion] falha ao cancelar preapproval do cliente", error);
+  }
 }
