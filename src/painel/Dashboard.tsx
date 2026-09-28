@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarCheck, DollarSign, TrendingUp, Users } from "lucide-react";
+import { CalendarCheck, DollarSign, Eye, EyeOff, TrendingUp, Users } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Appointment, Barber, Service } from "@/integrations/supabase/db-types";
+import { Button } from "@/components/ui/button";
 import { brl, fmtTime } from "@/lib/format";
 import { BRAZIL_TIME_ZONE, brazilStartOfDay, brazilStartOfWeek, brazilStartOfMonth } from "@/lib/timezone";
 import { filterActiveAppointments, hideRejectedPayments } from "@/lib/availability";
@@ -11,6 +12,7 @@ import { PaymentBadge } from "@/components/PaymentBadge";
 import { useDirectAppointments } from "@/hooks/use-direct-appointments";
 
 export function DashboardTab({ barber }: { barber: Barber }) {
+  const [showTopCards, setShowTopCards] = useState(true);
   // Calculado uma única vez por montagem: se recalculado a cada render (new Date()
   // direto no corpo do componente), a string ISO muda a cada milissegundo e recria
   // o efeito dentro de useDirectAppointments, causando um loop de refetch infinito.
@@ -114,12 +116,25 @@ export function DashboardTab({ barber }: { barber: Barber }) {
 
   return (
     <div className="space-y-6">
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <Stat icon={DollarSign} label="Hoje" value={brl(ganhosDia)} />
-        <Stat icon={TrendingUp} label="Esta semana" value={brl(ganhosSemana)} />
-        <Stat icon={CalendarCheck} label="Este mês" value={brl(ganhosMes)} />
-        <Stat icon={Users} label="Clientes (30d)" value={String(clientesUnicos)} />
-      </section>
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowTopCards((v) => !v)}
+          title={showTopCards ? "Esconder cards" : "Mostrar cards"}
+        >
+          {showTopCards ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+        </Button>
+      </div>
+
+      {showTopCards && (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <Stat icon={DollarSign} label="Hoje" value={brl(ganhosDia)} />
+          <Stat icon={TrendingUp} label="Esta semana" value={brl(ganhosSemana)} />
+          <Stat icon={CalendarCheck} label="Este mês" value={brl(ganhosMes)} />
+          <Stat icon={Users} label="Clientes (30d)" value={String(clientesUnicos)} />
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">

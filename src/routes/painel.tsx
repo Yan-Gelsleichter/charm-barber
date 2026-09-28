@@ -451,7 +451,7 @@ WHERE user_id = '${currentUid}';`;
               <BrandMark size={36} />
             )}
             <div className="leading-tight">
-              <p className="text-xs text-muted-foreground md:hidden">
+              <p className="text-xs font-bold text-[color:var(--brand-from)] md:hidden">
                 {shopName ? shopName : "Olá,"}
               </p>
               <p className="flex items-center gap-2 font-semibold md:font-medium">

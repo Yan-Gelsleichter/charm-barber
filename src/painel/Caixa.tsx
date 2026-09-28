@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, ShoppingBag, PackageCheck, Eye, EyeOff, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, PackageCheck, Eye, EyeOff, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -651,7 +651,6 @@ export function CaixaTab({ barber }: { barber: Barber }) {
           <Button
             variant="outline"
             size="icon"
-            className="hidden md:inline-flex"
             onClick={() => setShowTopCards((v) => !v)}
             title={showTopCards ? "Esconder cards e gráficos" : "Mostrar cards e gráficos"}
           >
@@ -729,17 +728,20 @@ export function CaixaTab({ barber }: { barber: Barber }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+        {/* No celular a linha quebra (flex-wrap): os botões ficam acima do
+            título nessa ordem. No desktop cabem na mesma linha, então a
+            ordem volta ao normal (título à esquerda, botões à direita). */}
+        <h3 className="order-2 text-sm font-medium uppercase tracking-wider text-muted-foreground md:order-1">
           Próximos atendimentos
         </h3>
-        <div className="flex gap-2">
+        <div className="order-1 flex gap-2 md:order-2">
           <Button
             variant="outline"
             size="sm"
             className="md:h-10 md:px-4 md:text-base"
             onClick={() => setProductSaleOpen(true)}
           >
-            <ShoppingBag className="mr-1 size-4 md:size-5" /> Nova venda de produto
+            <Plus className="mr-1 size-4 md:size-5" /> Venda de produto
           </Button>
           <Button
             variant="outline"

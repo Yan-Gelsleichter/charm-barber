@@ -289,7 +289,7 @@ function AuthPage() {
         </p>
       )}
 
-      <form onSubmit={onSubmit} className="surface mt-8 space-y-5 p-6">
+      <form onSubmit={onSubmit} className="auth-glass mt-8 space-y-5 rounded-2xl p-6">
         {isSignup && (
           <>
             <div className="space-y-2">
