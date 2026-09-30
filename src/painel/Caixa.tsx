@@ -1243,7 +1243,7 @@ function WalkinDialog({
               </label>
               {criando && (
                 <label className="grid gap-1 text-xs text-muted-foreground">
-                  Telefone (opcional — identifica cliente assinante ou fidelidade)
+                  Telefone (opcional — identifica cliente assinante e fidelidade)
                   <PhoneInput value={telefone} onChange={setTelefone} />
                 </label>
               )}
