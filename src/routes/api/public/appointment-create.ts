@@ -209,7 +209,14 @@ export const Route = createFileRoute("/api/public/appointment-create")({
                 !!match &&
                 (match.program.scope === "generic" ||
                   d.service_ids.some((id) => match.serviceIds.includes(id)));
-              if (match && match.allowServiceReward && match.availableNow >= 1 && servicesMatch) {
+              // No escopo "generic", um programa pode estar restrito a
+              // barbeiros específicos (lista vazia = vale pra todos).
+              const barberMatch =
+                !!match &&
+                (match.program.scope !== "generic" ||
+                  match.barberIds.length === 0 ||
+                  match.barberIds.includes(d.barber_id));
+              if (match && match.allowServiceReward && match.availableNow >= 1 && servicesMatch && barberMatch) {
                 loyaltyCoverage = { programId: match.program.id };
               }
             } catch (loyaltyError) {

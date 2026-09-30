@@ -152,6 +152,7 @@ export function AgendaTab({ barber }: { barber: Barber }) {
   type LoyaltyStatus = {
     program: { id: string; name: string; scope: "generic" | "services"; goal: number };
     serviceIds: string[];
+    barberIds: string[];
     availableNow: number;
     progressInCycle: number;
     allowServiceReward?: boolean;
@@ -167,12 +168,16 @@ export function AgendaTab({ barber }: { barber: Barber }) {
       }),
   });
   // Mesma regra de elegibilidade da tela pública do cliente: resgate
-  // disponível e serviço(s) escolhido(s) batem com o escopo do programa.
+  // disponível e serviço(s) escolhido(s) batem com o escopo do programa —
+  // e, no escopo "generic", o barbeiro precisa participar do programa
+  // (lista vazia de barbeiros = vale pra todos).
   const eligibleNovoLoyaltyPrograms = (novoLoyaltyQ.data?.programs ?? []).filter(
     (p) =>
       p.allowServiceReward !== false &&
       p.availableNow >= 1 &&
-      (p.program.scope === "generic" || novoServicos.some((id) => p.serviceIds.includes(id))),
+      (p.program.scope === "generic"
+        ? p.barberIds.length === 0 || p.barberIds.includes(barber.id)
+        : novoServicos.some((id) => p.serviceIds.includes(id))),
   );
   const selectedNovoLoyaltyProgram =
     eligibleNovoLoyaltyPrograms.find((p) => p.program.id === novoLoyaltyProgramId) ?? null;

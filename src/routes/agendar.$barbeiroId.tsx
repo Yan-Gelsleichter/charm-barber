@@ -197,6 +197,7 @@ function AgendarPage() {
   type LoyaltyStatus = {
     program: { id: string; name: string; scope: "generic" | "services"; goal: number };
     serviceIds: string[];
+    barberIds: string[];
     availableNow: number;
     progressInCycle: number;
     allowServiceReward?: boolean;
@@ -213,12 +214,16 @@ function AgendarPage() {
       }),
   });
   // Só oferece o resgate pra programas com resgate disponível cujos
-  // serviços batem com o que o cliente escolheu (genérico sempre bate).
+  // serviços batem com o que o cliente escolheu (genérico sempre bate,
+  // exceto quando o programa está restrito a barbeiros específicos e este
+  // não é um deles).
   const eligibleLoyaltyPrograms = (loyaltyQ.data?.programs ?? []).filter(
     (p) =>
       p.allowServiceReward !== false &&
       p.availableNow >= 1 &&
-      (p.program.scope === "generic" || serviceIds.some((id) => p.serviceIds.includes(id))),
+      (p.program.scope === "generic"
+        ? p.barberIds.length === 0 || p.barberIds.includes(barbeiroId)
+        : serviceIds.some((id) => p.serviceIds.includes(id))),
   );
   const selectedLoyaltyProgram =
     eligibleLoyaltyPrograms.find((p) => p.program.id === useLoyaltyProgramId) ?? null;

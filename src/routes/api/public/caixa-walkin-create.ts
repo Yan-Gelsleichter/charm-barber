@@ -40,6 +40,9 @@ const requestSchema = z.object({
       price: z.number().nonnegative(),
     })
     .optional(),
+  // Resgate de fidelidade pelo telefone do cliente — sempre revalidado aqui
+  // no servidor (nunca confia no que a tela mostrou).
+  loyalty_program_id: z.string().uuid().optional(),
 });
 
 function json(body: unknown, status = 200) {
@@ -134,11 +137,40 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
 
           // Cliente assinante: atendimento coberto pelo plano (sem cobrança).
           const subscriptionId = parsed.data.subscription_id;
+          const loyaltyProgramId = parsed.data.loyalty_program_id;
           if (parsed.data.extra && !subscriptionId) {
             return json({ error: "Serviço fora do plano só vale para cliente assinante." }, 400);
           }
           if (subscriptionId && isExtra) {
             return json({ error: "Assinatura não se aplica a serviço extra." }, 400);
+          }
+          if (loyaltyProgramId && (subscriptionId || isExtra)) {
+            return json({ error: "Resgate de fidelidade não se combina com assinatura ou serviço extra." }, 400);
+          }
+          if (loyaltyProgramId && !parsed.data.customer_phone) {
+            return json({ error: "Informe o telefone do cliente para usar o resgate de fidelidade." }, 400);
+          }
+          let loyaltyCoverage: { programId: string } | null = null;
+          if (loyaltyProgramId) {
+            const { computeLoyaltyStatus } = await import("@/lib/loyalty.server");
+            const statuses = await computeLoyaltyStatus(admin, {
+              barbershopId,
+              phone: parsed.data.customer_phone!,
+            });
+            const match = statuses.find((s) => s.program.id === loyaltyProgramId);
+            const servicesMatch =
+              !!match &&
+              (match.program.scope === "generic" ||
+                parsed.data.service_ids.some((id) => match.serviceIds.includes(id)));
+            const barberMatch =
+              !!match &&
+              (match.program.scope !== "generic" ||
+                match.barberIds.length === 0 ||
+                match.barberIds.includes(parsed.data.barber_id));
+            if (!match || !match.allowServiceReward || match.availableNow < 1 || !servicesMatch || !barberMatch) {
+              return json({ error: "Esse resgate de fidelidade não está mais disponível." }, 400);
+            }
+            loyaltyCoverage = { programId: match.program.id };
           }
           if (subscriptionId) {
             const { subscriptionCoversServices } = await import("@/lib/subscription.server");
@@ -177,15 +209,19 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
 
           const paymentStatus = subscriptionId
             ? "coberto_por_assinatura"
-            : isExtra
-              ? "pendente"
-              : (parsed.data.payment_status ?? "pago");
+            : loyaltyCoverage
+              ? "coberto_por_fidelidade"
+              : isExtra
+                ? "pendente"
+                : (parsed.data.payment_status ?? "pago");
           const paid = paymentStatus === "pago";
-          // Coberto pelo plano: o valor gravado é o de referência (preço dos
-          // serviços), calculado aqui no servidor — não é dinheiro cobrado.
-          const priceSnapshot = subscriptionId
-            ? targetServices.reduce((sum, s) => sum + Number(s.price ?? 0), 0)
-            : parsed.data.price;
+          // Coberto pelo plano/fidelidade: o valor gravado é o de referência
+          // (preço dos serviços), calculado aqui no servidor — não é dinheiro
+          // cobrado.
+          const priceSnapshot =
+            subscriptionId || loyaltyCoverage
+              ? targetServices.reduce((sum, s) => sum + Number(s.price ?? 0), 0)
+              : parsed.data.price;
 
           const inserted = await admin
             .from("appointments")
@@ -206,12 +242,28 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
               is_walk_in: true,
               parent_appointment_id: parsed.data.parent_appointment_id ?? null,
               covered_by_subscription_id: subscriptionId ?? null,
+              covered_by_loyalty_program_id: loyaltyCoverage?.programId ?? null,
             })
             .select("*")
             .maybeSingle();
           if (inserted.error || !inserted.data) {
             console.error("[caixa-walkin-create] falha ao inserir", inserted.error);
             return json({ error: "Não foi possível registrar o atendimento." }, 500);
+          }
+
+          // Melhor esforço: uma falha aqui não desfaz o atendimento já
+          // registrado, só fica sem o vínculo do resgate pra abater do total
+          // disponível — logado pra investigar se acontecer.
+          if (loyaltyCoverage) {
+            const redemption = await admin.from("loyalty_redemptions").insert({
+              program_id: loyaltyCoverage.programId,
+              barbershop_id: barbershopId,
+              customer_phone: parsed.data.customer_phone!,
+              appointment_id: (inserted.data as { id: string }).id,
+            });
+            if (redemption.error) {
+              console.error("[caixa-walkin-create] falha ao gravar resgate de fidelidade", redemption.error);
+            }
           }
 
           // Serviços fora do plano: atendimento extra ligado ao principal,

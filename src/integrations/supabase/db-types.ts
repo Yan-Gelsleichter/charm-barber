@@ -322,6 +322,17 @@ export type LoyaltyProgramServiceInsert = {
   service_id: string;
 };
 
+export type LoyaltyProgramBarber = {
+  id: string;
+  program_id: string;
+  barber_id: string;
+};
+export type LoyaltyProgramBarberInsert = {
+  id?: string;
+  program_id: string;
+  barber_id: string;
+};
+
 export type LoyaltyRedemption = {
   id: string;
   program_id: string;
@@ -434,6 +445,7 @@ export type Database = {
       subscription_charges: Table<SubscriptionCharge, SubscriptionChargeInsert>;
       loyalty_programs: Table<LoyaltyProgram, LoyaltyProgramInsert>;
       loyalty_program_services: Table<LoyaltyProgramService, LoyaltyProgramServiceInsert>;
+      loyalty_program_barbers: Table<LoyaltyProgramBarber, LoyaltyProgramBarberInsert>;
       loyalty_redemptions: Table<LoyaltyRedemption, LoyaltyRedemptionInsert>;
       loyalty_program_products: Table<LoyaltyProgramProduct, LoyaltyProgramProductInsert>;
       products: Table<Product, ProductInsert>;

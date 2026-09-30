@@ -27,6 +27,8 @@ export type LoyaltyProgramStatus = {
   rewardProducts: { id: string; title: string; stock_quantity: number }[];
   serviceNames: string[];
   serviceIds: string[];
+  /** Barbeiros que participam (só relevante no escopo "generic"). Vazio = todos. */
+  barberIds: string[];
   totalEarned: number;
   totalSpent: number;
   availableNow: number;
@@ -58,12 +60,13 @@ export async function computeLoyaltyStatus(
 
   const programIds = programs.map((p) => p.id);
 
-  const [{ data: linksData }, { data: apptsData }, { data: redemptionsData }, { data: productLinksData }] =
+  const [{ data: linksData }, { data: barberLinksData }, { data: apptsData }, { data: redemptionsData }, { data: productLinksData }] =
     await Promise.all([
     admin.from("loyalty_program_services").select("program_id, service_id").in("program_id", programIds),
+    admin.from("loyalty_program_barbers").select("program_id, barber_id").in("program_id", programIds),
     admin
       .from("appointments")
-      .select("id, service_id, service_ids, is_walk_in")
+      .select("id, barber_id, service_id, service_ids, is_walk_in")
       .eq("barbershop_id", opts.barbershopId)
       .eq("customer_phone", phone)
       .eq("payment_status", "pago")
@@ -97,8 +100,10 @@ export async function computeLoyaltyStatus(
   }
 
   const links = (linksData ?? []) as { program_id: string; service_id: string }[];
+  const barberLinks = (barberLinksData ?? []) as { program_id: string; barber_id: string }[];
   const appts = (apptsData ?? []) as {
     id: string;
+    barber_id: string;
     service_id: string;
     service_ids: string[] | null;
     is_walk_in: boolean | null;
@@ -130,6 +135,13 @@ export async function computeLoyaltyStatus(
     serviceIdsByProgram.set(link.program_id, set);
   }
 
+  const barberIdsByProgram = new Map<string, Set<string>>();
+  for (const link of barberLinks) {
+    const set = barberIdsByProgram.get(link.program_id) ?? new Set<string>();
+    set.add(link.barber_id);
+    barberIdsByProgram.set(link.program_id, set);
+  }
+
   let serviceNamesById = new Map<string, string>();
   if (links.length > 0) {
     const { data: servicesData } = await admin
@@ -146,10 +158,13 @@ export async function computeLoyaltyStatus(
 
   return programs.map((program) => {
     const eligibleServiceIds = serviceIdsByProgram.get(program.id) ?? new Set<string>();
+    const eligibleBarberIds = barberIdsByProgram.get(program.id) ?? new Set<string>();
 
     const totalEarned = appts.filter((a) => {
       if (!program.include_walk_in && a.is_walk_in) return false;
-      if (program.scope === "generic") return true;
+      if (program.scope === "generic") {
+        return eligibleBarberIds.size === 0 || eligibleBarberIds.has(a.barber_id);
+      }
       const ids = a.service_ids?.length ? a.service_ids : [a.service_id];
       return ids.some((id) => eligibleServiceIds.has(id));
     }).length;
@@ -183,6 +198,7 @@ export async function computeLoyaltyStatus(
         .filter((p): p is { id: string; title: string; stock_quantity: number } => !!p),
       serviceNames: Array.from(eligibleServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"),
       serviceIds: Array.from(eligibleServiceIds),
+      barberIds: Array.from(eligibleBarberIds),
       totalEarned,
       totalSpent,
       availableNow,

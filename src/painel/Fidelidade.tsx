@@ -10,6 +10,7 @@ import type {
   Product,
   LoyaltyProgram,
   LoyaltyProgramService,
+  LoyaltyProgramBarber,
   LoyaltyProgramProduct,
 } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
   const [goal, setGoal] = useState("10");
   const [includeWalkIn, setIncludeWalkIn] = useState(true);
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
+  const [selectedBarberIds, setSelectedBarberIds] = useState<Set<string>>(new Set());
   const [allowServiceReward, setAllowServiceReward] = useState(true);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<LoyaltyProgram | null>(null);
@@ -110,6 +112,20 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     },
   });
 
+  const programBarbersQ = useQuery({
+    queryKey: ["loyalty-program-barbers", shopId, programsQ.data?.map((p) => p.id).join(",")],
+    enabled: !!programsQ.data && programsQ.data.length > 0,
+    queryFn: async () => {
+      const programIds = (programsQ.data ?? []).map((p) => p.id);
+      const { data, error } = await supabase
+        .from("loyalty_program_barbers")
+        .select("*")
+        .in("program_id", programIds);
+      if (error) throw error;
+      return data as LoyaltyProgramBarber[];
+    },
+  });
+
   const programProductsQ = useQuery({
     queryKey: ["loyalty-program-products", shopId, programsQ.data?.map((p) => p.id).join(",")],
     enabled: !!programsQ.data && programsQ.data.length > 0,
@@ -147,6 +163,17 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     return m;
   }, [servicesQ.data]);
 
+  const barbersByProgram = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const link of programBarbersQ.data ?? []) {
+      const name = barberNameById.get(link.barber_id);
+      if (!name) continue;
+      if (!groups.has(link.program_id)) groups.set(link.program_id, []);
+      groups.get(link.program_id)!.push(name);
+    }
+    return groups;
+  }, [programBarbersQ.data, barberNameById]);
+
   const servicesByProgram = useMemo(() => {
     const groups = new Map<string, Service[]>();
     for (const link of programServicesQ.data ?? []) {
@@ -164,6 +191,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     setGoal("10");
     setIncludeWalkIn(true);
     setSelectedServiceIds(new Set());
+    setSelectedBarberIds(new Set());
     setAllowServiceReward(true);
     setSelectedProductIds(new Set());
     setEditing(null);
@@ -177,6 +205,9 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     setIncludeWalkIn(p.include_walk_in);
     const included = servicesByProgram.get(p.id) ?? [];
     setSelectedServiceIds(new Set(included.map((s) => s.id)));
+    setSelectedBarberIds(
+      new Set((programBarbersQ.data ?? []).filter((l) => l.program_id === p.id).map((l) => l.barber_id)),
+    );
     setAllowServiceReward(p.allow_service_reward !== false);
     setSelectedProductIds(
       new Set((programProductsQ.data ?? []).filter((l) => l.program_id === p.id).map((l) => l.product_id)),
@@ -195,6 +226,15 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
 
   function toggleService(id: string) {
     setSelectedServiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleBarber(id: string) {
+    setSelectedBarberIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -242,6 +282,11 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
           .delete()
           .eq("program_id", programId);
         if (delProdErr) throw delProdErr;
+        const { error: delBarberErr } = await supabase
+          .from("loyalty_program_barbers")
+          .delete()
+          .eq("program_id", programId);
+        if (delBarberErr) throw delBarberErr;
       } else {
         const { data, error } = await supabase
           .from("loyalty_programs")
@@ -265,6 +310,12 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
         if (insErr) throw insErr;
       }
 
+      if (scope === "generic" && selectedBarberIds.size > 0) {
+        const barberRows = Array.from(selectedBarberIds).map((barber_id) => ({ program_id: programId, barber_id }));
+        const { error: insBarberErr } = await supabase.from("loyalty_program_barbers").insert(barberRows);
+        if (insBarberErr) throw insBarberErr;
+      }
+
       if (selectedProductIds.size > 0) {
         const productRows = Array.from(selectedProductIds).map((product_id) => ({
           program_id: programId,
@@ -280,6 +331,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
       qc.invalidateQueries({ queryKey: ["loyalty-programs", shopId] });
       qc.invalidateQueries({ queryKey: ["loyalty-program-services", shopId] });
       qc.invalidateQueries({ queryKey: ["loyalty-program-products", shopId] });
+      qc.invalidateQueries({ queryKey: ["loyalty-program-barbers", shopId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -376,9 +428,39 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
           </div>
         </div>
 
+        {scope === "generic" && (
+          <div className="space-y-2">
+            <Label>Barbeiros que participam</Label>
+            {barbersQ.isLoading && <Loader2 className="animate-spin" />}
+            {!barbersQ.isLoading && (barbersQ.data ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhum barbeiro cadastrado ainda.</p>
+            )}
+            {(barbersQ.data ?? []).length > 0 && (
+              <div className="rounded-lg border border-border p-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {barbersQ.data?.map((b) => (
+                    <label key={b.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedBarberIds.has(b.id)}
+                        onChange={() => toggleBarber(b.id)}
+                      />
+                      {b.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground md:text-sm">
+              Nenhum marcado = vale para todos os barbeiros. Marcando um ou mais, só eles contam ponto e
+              podem oferecer o resgate.
+            </p>
+          </div>
+        )}
+
         {scope === "services" && (
           <div className="space-y-2">
-            <Label>Serviços que contam ponto</Label>
+            <Label>Serviços que contam ponto (escolha os barbeiros que participam do programa)</Label>
             {servicesQ.isLoading && <Loader2 className="animate-spin" />}
             {!servicesQ.isLoading && (servicesQ.data ?? []).length === 0 && (
               <p className="text-sm text-muted-foreground">
@@ -485,6 +567,11 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
                   : (servicesByProgram.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
                 {" · "}a cada {p.goal}
               </p>
+              {p.scope === "generic" && (barbersByProgram.get(p.id) ?? []).length > 0 && (
+                <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">
+                  Só com: {(barbersByProgram.get(p.id) ?? []).join(", ")}
+                </p>
+              )}
               <p className="mt-1 text-xs text-muted-foreground md:text-sm">
                 {p.include_walk_in ? "Inclui atendimentos avulsos" : "Só atendimentos feitos pelo app"}
               </p>

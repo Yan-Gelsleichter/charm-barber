@@ -837,6 +837,7 @@ export function CaixaTab({ barber }: { barber: Barber }) {
         addServiceTo={addServiceTo}
         existingExtras={addServiceTo ? (childrenByParent.get(addServiceTo.id) ?? []) : []}
         servicosMap={totaisHook.servicosMap}
+        barbershopId={barber.barbershop_id ?? null}
         onListChanged={() => {
           qc.invalidateQueries({ queryKey: ["caixa-dia"] });
           qc.invalidateQueries({ queryKey: ["faturamento"] });
@@ -953,6 +954,7 @@ function WalkinDialog({
   open,
   onOpenChange,
   barbeiros,
+  barbershopId,
   servicosPorBarbeiro,
   servicosMap,
   selectedDate,
@@ -965,6 +967,7 @@ function WalkinDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   barbeiros: Barber[];
+  barbershopId: string | null;
   servicosPorBarbeiro: Map<string, Service[]>;
   servicosMap: Map<string, Service>;
   selectedDate: Date;
@@ -1003,8 +1006,9 @@ function WalkinDialog({
   // no status inicial de pagamento.
   const [statusInicial, setStatusInicial] = useState<"pago" | "pendente">("pago");
   // Telefone (opcional) — só ao criar um avulso novo; serve pra identificar
-  // se o cliente é assinante de algum plano.
+  // se o cliente é assinante de algum plano ou tem fidelidade acumulada.
   const [telefone, setTelefone] = useState("");
+  const [walkinLoyaltyProgramId, setWalkinLoyaltyProgramId] = useState<string | null>(null);
 
   // Reabre o formulário do zero a cada vez (criar, editar ou adicionar serviço a outro registro).
   const [openedFor, setOpenedFor] = useState<string | null>(null);
@@ -1019,6 +1023,7 @@ function WalkinDialog({
     setQuando(s.quando);
     setStatusInicial("pago");
     setTelefone("");
+    setWalkinLoyaltyProgramId(null);
   }
   if (!open && openedFor !== null) setOpenedFor(null);
 
@@ -1045,6 +1050,41 @@ function WalkinDialog({
   const assinanteOutroBarbeiro = !!barberId && assinanteSubs.length > 0 && planoCobre.size === 0;
   const totalForaDoPlano = plano.extras.reduce((sum, id) => sum + (servicosMap.get(id)?.price ?? 0), 0);
   const tudoCoberto = !!plano.subscription && plano.extras.length === 0;
+
+  // Fidelidade pelo telefone: cliente que já usou o app e tem ponto
+  // acumulado pode resgatar o prêmio também num atendimento avulso. Não se
+  // combina com cliente assinante — cada avulso usa um ou outro.
+  type LoyaltyStatus = {
+    program: { id: string; name: string; scope: "generic" | "services"; goal: number };
+    serviceIds: string[];
+    barberIds: string[];
+    availableNow: number;
+    allowServiceReward?: boolean;
+  };
+  const walkinLoyaltyPhoneDigits = phoneDigits(telefone);
+  const walkinLoyaltyQ = useQuery({
+    queryKey: ["loyalty-status", barbershopId, walkinLoyaltyPhoneDigits],
+    enabled: criando && open && !!barbershopId && !plano.subscription && walkinLoyaltyPhoneDigits.length >= 10,
+    queryFn: async () =>
+      postPublicApi<{ programs: LoyaltyStatus[] }>("/api/public/loyalty-status", {
+        barbershop_id: barbershopId,
+        customer_phone: walkinLoyaltyPhoneDigits,
+      }),
+  });
+  const eligibleWalkinLoyaltyPrograms =
+    criando && !plano.subscription
+      ? (walkinLoyaltyQ.data?.programs ?? []).filter(
+          (p) =>
+            p.allowServiceReward !== false &&
+            p.availableNow >= 1 &&
+            (p.program.scope === "generic"
+              ? p.barberIds.length === 0 || (!!barberId && p.barberIds.includes(barberId))
+              : serviceIds.some((id) => p.serviceIds.includes(id))),
+        )
+      : [];
+  const walkinLoyaltyProgram =
+    eligibleWalkinLoyaltyPrograms.find((p) => p.program.id === walkinLoyaltyProgramId) ?? null;
+  const tudoCobertoPorFidelidade = !!walkinLoyaltyProgram;
 
   // Valor cobrado = só o que está fora do plano (o resto sai sem custo).
   const planoKey = plano.subscription ? `${plano.subscription.subscription_id}:${plano.extras.join(",")}` : "";
@@ -1078,14 +1118,16 @@ function WalkinDialog({
       } else {
         const digits = phoneDigits(telefone);
         const comPlano = !!plano.subscription;
+        const comFidelidade = !comPlano && !!walkinLoyaltyProgram;
         return postPublicApi<{ extra_error?: string }>(
           "/api/public/caixa-walkin-create",
           {
             ...body,
             // Assinante: o que o plano cobre entra sem custo; o que estiver
             // fora do plano vai como extra, cobrado pelo valor informado.
+            // Fidelidade: o avulso inteiro sai sem custo.
             service_ids: comPlano ? plano.covered : serviceIds,
-            price: comPlano ? 0 : body.price,
+            price: comPlano || comFidelidade ? 0 : body.price,
             payment_status: statusInicial,
             customer_phone: digits.length >= 8 ? digits : undefined,
             subscription_id: plano.subscription?.subscription_id,
@@ -1093,6 +1135,7 @@ function WalkinDialog({
               comPlano && plano.extras.length > 0
                 ? { service_ids: plano.extras, price: Number(preco.replace(",", ".")) || 0 }
                 : undefined,
+            loyalty_program_id: comFidelidade ? walkinLoyaltyProgram!.program.id : undefined,
           },
           token,
         );
@@ -1117,6 +1160,7 @@ function WalkinDialog({
         return;
       }
       toast.success(isEdit ? "Atendimento avulso atualizado" : "Atendimento avulso registrado");
+      setWalkinLoyaltyProgramId(null);
       onSaved();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1199,7 +1243,7 @@ function WalkinDialog({
               </label>
               {criando && (
                 <label className="grid gap-1 text-xs text-muted-foreground">
-                  Telefone (opcional — identifica cliente assinante)
+                  Telefone (opcional — identifica cliente assinante ou fidelidade)
                   <PhoneInput value={telefone} onChange={setTelefone} />
                 </label>
               )}
@@ -1316,13 +1360,41 @@ function WalkinDialog({
             </div>
           </div>
 
+          {criando && eligibleWalkinLoyaltyPrograms.length > 0 && (
+            <div className="grid gap-1 rounded-lg border border-border/60 bg-card/40 p-3 text-xs text-muted-foreground">
+              Fidelidade
+              {eligibleWalkinLoyaltyPrograms.map((p) => {
+                const selected = walkinLoyaltyProgramId === p.program.id;
+                return (
+                  <button
+                    key={p.program.id}
+                    type="button"
+                    onClick={() => setWalkinLoyaltyProgramId(selected ? null : p.program.id)}
+                    className={cn(
+                      "flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition",
+                      selected
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-card/60 text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    <span>Usar resgate — {p.program.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="grid gap-3">
             <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-              {plano.subscription ? "Valor cobrado (só o que está fora do plano)" : "Valor cobrado"}
+              {tudoCobertoPorFidelidade
+                ? "Valor cobrado (coberto pela fidelidade)"
+                : plano.subscription
+                  ? "Valor cobrado (só o que está fora do plano)"
+                  : "Valor cobrado"}
               <Input
                 inputMode="decimal"
-                value={tudoCoberto ? "0" : preco}
-                disabled={tudoCoberto}
+                value={tudoCoberto || tudoCobertoPorFidelidade ? "0" : preco}
+                disabled={tudoCoberto || tudoCobertoPorFidelidade}
                 onChange={(e) => setPreco(e.target.value)}
                 placeholder="0,00"
               />
@@ -1390,7 +1462,7 @@ function WalkinDialog({
             )}
           </div>
 
-          {!isEdit && !isAddService && !tudoCoberto && (
+          {!isEdit && !isAddService && !tudoCoberto && !tudoCobertoPorFidelidade && (
             <div className="grid gap-1 text-xs text-muted-foreground">
               Status inicial
               <div className="grid grid-cols-2 gap-2">
