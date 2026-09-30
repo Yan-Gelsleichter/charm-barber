@@ -199,24 +199,17 @@ export const Route = createFileRoute("/api/public/appointment-create")({
           let loyaltyCoverage: { programId: string } | null = null;
           if (!subscriptionCoverage && d.loyalty_program_id && barber.barbershop_id) {
             try {
-              const { computeLoyaltyStatus } = await import("@/lib/loyalty.server");
+              const { computeLoyaltyStatus, loyaltyRewardMatches } = await import("@/lib/loyalty.server");
               const statuses = await computeLoyaltyStatus(admin, {
                 barbershopId: barber.barbershop_id,
                 phone: d.customer_phone,
               });
               const match = statuses.find((s) => s.program.id === d.loyalty_program_id);
-              const servicesMatch =
-                !!match &&
-                (match.program.scope === "generic" ||
-                  d.service_ids.some((id) => match.serviceIds.includes(id)));
-              // No escopo "generic", um programa pode estar restrito a
-              // barbeiros específicos (lista vazia = vale pra todos).
-              const barberMatch =
-                !!match &&
-                (match.program.scope !== "generic" ||
-                  match.barberIds.length === 0 ||
-                  match.barberIds.includes(d.barber_id));
-              if (match && match.allowServiceReward && match.availableNow >= 1 && servicesMatch && barberMatch) {
+              // O resgate vale só pro serviço/barbeiro marcado como prêmio
+              // no programa, não pra qualquer um dos serviços que contam ponto.
+              const rewardMatch =
+                !!match && loyaltyRewardMatches(match, { serviceIds: d.service_ids, barberId: d.barber_id });
+              if (match && match.allowServiceReward && match.availableNow >= 1 && rewardMatch) {
                 loyaltyCoverage = { programId: match.program.id };
               }
             } catch (loyaltyError) {

@@ -152,22 +152,21 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
           }
           let loyaltyCoverage: { programId: string } | null = null;
           if (loyaltyProgramId) {
-            const { computeLoyaltyStatus } = await import("@/lib/loyalty.server");
+            const { computeLoyaltyStatus, loyaltyRewardMatches } = await import("@/lib/loyalty.server");
             const statuses = await computeLoyaltyStatus(admin, {
               barbershopId,
               phone: parsed.data.customer_phone!,
             });
             const match = statuses.find((s) => s.program.id === loyaltyProgramId);
-            const servicesMatch =
+            // O resgate vale só pro serviço/barbeiro marcado como prêmio
+            // no programa, não pra qualquer um dos serviços que contam ponto.
+            const rewardMatch =
               !!match &&
-              (match.program.scope === "generic" ||
-                parsed.data.service_ids.some((id) => match.serviceIds.includes(id)));
-            const barberMatch =
-              !!match &&
-              (match.program.scope !== "generic" ||
-                match.barberIds.length === 0 ||
-                match.barberIds.includes(parsed.data.barber_id));
-            if (!match || !match.allowServiceReward || match.availableNow < 1 || !servicesMatch || !barberMatch) {
+              loyaltyRewardMatches(match, {
+                serviceIds: parsed.data.service_ids,
+                barberId: parsed.data.barber_id,
+              });
+            if (!match || !match.allowServiceReward || match.availableNow < 1 || !rewardMatch) {
               return json({ error: "Esse resgate de fidelidade não está mais disponível." }, 400);
             }
             loyaltyCoverage = { programId: match.program.id };

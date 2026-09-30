@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { postPublicApi } from "@/lib/api-fetch";
-import { brl, fmtTime, DIAS_SEMANA, capitalizeWords, phoneDigits } from "@/lib/format";
+import { brl, fmtTime, DIAS_SEMANA, capitalizeWords, phoneDigits, maskPhoneBR } from "@/lib/format";
 import { PhoneInput } from "@/components/PhoneInput";
 import { useAssinanteLookup, coveredServiceIds, splitByPlan } from "@/hooks/use-assinante-lookup";
 import { brazilDateKey, brazilDayBounds, brazilDateTime, BRAZIL_TIME_ZONE } from "@/lib/timezone";
@@ -1062,6 +1062,10 @@ function WalkinDialog({
     program: { id: string; name: string; scope: "generic" | "services"; goal: number };
     serviceIds: string[];
     barberIds: string[];
+    rewardServiceIds: string[];
+    rewardServiceNames: string[];
+    rewardBarberIds: string[];
+    rewardUnrestricted: boolean;
     availableNow: number;
     allowServiceReward?: boolean;
   };
@@ -1081,9 +1085,8 @@ function WalkinDialog({
           (p) =>
             p.allowServiceReward !== false &&
             p.availableNow >= 1 &&
-            (p.program.scope === "generic"
-              ? p.barberIds.length === 0 || (!!barberId && p.barberIds.includes(barberId))
-              : serviceIds.some((id) => p.serviceIds.includes(id))),
+            (p.rewardUnrestricted || p.rewardBarberIds.length === 0 || (!!barberId && p.rewardBarberIds.includes(barberId))) &&
+            (p.rewardUnrestricted || serviceIds.some((id) => p.rewardServiceIds.includes(id))),
         )
       : [];
   const walkinLoyaltyProgram =
@@ -1226,6 +1229,12 @@ function WalkinDialog({
               <p>
                 <span className="text-muted-foreground">Horário:</span>{" "}
                 <span className="font-medium">{fmtTime(addServiceTo!.appointment_time)}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Telefone:</span>{" "}
+                <span className="font-medium">
+                  {addServiceTo!.customer_phone ? maskPhoneBR(addServiceTo!.customer_phone) : "—"}
+                </span>
               </p>
             </div>
           ) : (

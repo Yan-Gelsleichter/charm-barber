@@ -187,6 +187,9 @@ function MeusAgendamentosPage() {
     progressInCycle: number;
     availableNow: number;
     allowServiceReward?: boolean;
+    rewardServiceNames?: string[];
+    rewardBarberNames?: string[];
+    rewardUnrestricted?: boolean;
     rewardProducts?: { id: string; title: string; stock_quantity: number }[];
   };
   // Mesma identidade usada pra buscar os agendamentos (telefone), e a mesma
@@ -467,7 +470,14 @@ function MeusAgendamentosPage() {
                       <p className="text-xs text-muted-foreground">Escolha seu prêmio:</p>
                       {p.allowServiceReward !== false && (
                         <p className="text-sm">
-                          Atendimento grátis — é só marcar um horário e ativar o resgate na hora de confirmar.
+                          Atendimento grátis —{" "}
+                          {p.rewardUnrestricted
+                            ? "qualquer serviço"
+                            : (p.rewardServiceNames ?? []).join(", ") || "qualquer serviço"}
+                          {!p.rewardUnrestricted && (p.rewardBarberNames ?? []).length > 0
+                            ? ` com ${(p.rewardBarberNames ?? []).join(", ")}`
+                            : ""}
+                          . É só marcar um horário e ativar o resgate na hora de confirmar.
                         </p>
                       )}
                       {(p.rewardProducts ?? []).map((prod) => (

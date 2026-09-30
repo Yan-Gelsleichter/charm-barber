@@ -29,11 +29,40 @@ export type LoyaltyProgramStatus = {
   serviceIds: string[];
   /** Barbeiros que participam (só relevante no escopo "generic"). Vazio = todos. */
   barberIds: string[];
+  /**
+   * Serviço(s) que valem como o prêmio "atendimento grátis" — configurado
+   * à parte dos serviços que contam ponto. Quando nenhum foi marcado pelo
+   * admin, cai no comportamento antigo (preservado): no escopo "services",
+   * os mesmos serviços que contam ponto; no escopo "generic",
+   * `rewardUnrestricted=true` (qualquer serviço vale).
+   */
+  rewardServiceIds: string[];
+  rewardServiceNames: string[];
+  /** Barbeiros cujo(s) serviço(s) de prêmio acima pertencem. Vazio = todos. */
+  rewardBarberIds: string[];
+  rewardBarberNames: string[];
+  rewardUnrestricted: boolean;
   totalEarned: number;
   totalSpent: number;
   availableNow: number;
   progressInCycle: number;
 };
+
+/**
+ * Um resgate só vale pro serviço/barbeiro configurado como prêmio no
+ * programa (rewardServiceIds/rewardBarberIds) — nunca pros serviços que só
+ * contam ponto. Usado nos dois lugares que criam agendamento com resgate
+ * (appointment-create.ts e caixa-walkin-create.ts).
+ */
+export function loyaltyRewardMatches(
+  match: LoyaltyProgramStatus,
+  opts: { serviceIds: string[]; barberId: string },
+): boolean {
+  const servicesMatch =
+    match.rewardUnrestricted || opts.serviceIds.some((id) => match.rewardServiceIds.includes(id));
+  const barberMatch = match.rewardBarberIds.length === 0 || match.rewardBarberIds.includes(opts.barberId);
+  return servicesMatch && barberMatch;
+}
 
 export async function computeLoyaltyStatus(
   admin: Admin,
@@ -60,9 +89,17 @@ export async function computeLoyaltyStatus(
 
   const programIds = programs.map((p) => p.id);
 
-  const [{ data: linksData }, { data: barberLinksData }, { data: apptsData }, { data: redemptionsData }, { data: productLinksData }] =
-    await Promise.all([
+  const [
+    { data: linksData },
+    { data: rewardLinksData },
+    { data: barberLinksData },
+    { data: apptsData },
+    { data: redemptionsData },
+    { data: productLinksData },
+    { data: barbersData },
+  ] = await Promise.all([
     admin.from("loyalty_program_services").select("program_id, service_id").in("program_id", programIds),
+    admin.from("loyalty_program_reward_services").select("program_id, service_id").in("program_id", programIds),
     admin.from("loyalty_program_barbers").select("program_id, barber_id").in("program_id", programIds),
     admin
       .from("appointments")
@@ -78,6 +115,7 @@ export async function computeLoyaltyStatus(
       .eq("customer_phone", phone)
       .in("program_id", programIds),
     admin.from("loyalty_program_products").select("program_id, product_id").in("program_id", programIds),
+    admin.from("barbers").select("id, name").eq("barbershop_id", opts.barbershopId),
   ]);
 
   // Só produtos ativos entram como opção de prêmio (o estoque aparece pra
@@ -100,7 +138,10 @@ export async function computeLoyaltyStatus(
   }
 
   const links = (linksData ?? []) as { program_id: string; service_id: string }[];
+  const rewardLinks = (rewardLinksData ?? []) as { program_id: string; service_id: string }[];
   const barberLinks = (barberLinksData ?? []) as { program_id: string; barber_id: string }[];
+  const barbers = (barbersData ?? []) as { id: string; name: string }[];
+  const barberNameById = new Map(barbers.map((b) => [b.id, b.name]));
   const appts = (apptsData ?? []) as {
     id: string;
     barber_id: string;
@@ -142,23 +183,52 @@ export async function computeLoyaltyStatus(
     barberIdsByProgram.set(link.program_id, set);
   }
 
+  const rewardServiceIdsByProgram = new Map<string, Set<string>>();
+  for (const link of rewardLinks) {
+    const set = rewardServiceIdsByProgram.get(link.program_id) ?? new Set<string>();
+    set.add(link.service_id);
+    rewardServiceIdsByProgram.set(link.program_id, set);
+  }
+
+  // Precisa dos serviços ligados tanto a "conta ponto" quanto a "vale como
+  // prêmio" — o barber_id de cada um é o que permite descobrir, sem tabela
+  // própria, quais barbeiros oferecem aquele prêmio.
+  const allServiceIds = Array.from(
+    new Set([...links.map((l) => l.service_id), ...rewardLinks.map((l) => l.service_id)]),
+  );
   let serviceNamesById = new Map<string, string>();
-  if (links.length > 0) {
-    const { data: servicesData } = await admin
-      .from("services")
-      .select("id, name")
-      .in(
-        "id",
-        Array.from(new Set(links.map((l) => l.service_id))),
-      );
-    serviceNamesById = new Map(
-      ((servicesData ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name]),
+  let serviceBarberById = new Map<string, string>();
+  if (allServiceIds.length > 0) {
+    const { data: servicesData } = await admin.from("services").select("id, name, barber_id").in("id", allServiceIds);
+    const rows = (servicesData ?? []) as { id: string; name: string; barber_id: string | null }[];
+    serviceNamesById = new Map(rows.map((s) => [s.id, s.name]));
+    serviceBarberById = new Map(
+      rows.filter((s): s is { id: string; name: string; barber_id: string } => !!s.barber_id).map((s) => [s.id, s.barber_id]),
     );
   }
 
   return programs.map((program) => {
     const eligibleServiceIds = serviceIdsByProgram.get(program.id) ?? new Set<string>();
     const eligibleBarberIds = barberIdsByProgram.get(program.id) ?? new Set<string>();
+
+    // Serviço(s) que valem como prêmio: o que o admin marcou explicitamente
+    // em "reward services"; se nada foi marcado, cai no comportamento de
+    // antes dessa funcionalidade (preserva programas já configurados).
+    const rawRewardServiceIds = rewardServiceIdsByProgram.get(program.id) ?? new Set<string>();
+    const rewardUnrestricted = program.scope === "generic" && rawRewardServiceIds.size === 0;
+    const effectiveRewardServiceIds =
+      rawRewardServiceIds.size > 0
+        ? rawRewardServiceIds
+        : program.scope === "services"
+          ? eligibleServiceIds
+          : new Set<string>();
+    const rewardBarberIds = rewardUnrestricted
+      ? eligibleBarberIds
+      : new Set(
+          Array.from(effectiveRewardServiceIds)
+            .map((id) => serviceBarberById.get(id))
+            .filter((id): id is string => !!id),
+        );
 
     const totalEarned = appts.filter((a) => {
       if (!program.include_walk_in && a.is_walk_in) return false;
@@ -199,6 +269,11 @@ export async function computeLoyaltyStatus(
       serviceNames: Array.from(eligibleServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"),
       serviceIds: Array.from(eligibleServiceIds),
       barberIds: Array.from(eligibleBarberIds),
+      rewardServiceIds: Array.from(effectiveRewardServiceIds),
+      rewardServiceNames: Array.from(effectiveRewardServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"),
+      rewardBarberIds: Array.from(rewardBarberIds),
+      rewardBarberNames: Array.from(rewardBarberIds).map((id) => barberNameById.get(id) ?? "Barbeiro"),
+      rewardUnrestricted,
       totalEarned,
       totalSpent,
       availableNow,

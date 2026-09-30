@@ -12,6 +12,7 @@ import type {
   LoyaltyProgramService,
   LoyaltyProgramBarber,
   LoyaltyProgramProduct,
+  LoyaltyProgramRewardService,
 } from "@/integrations/supabase/db-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
   const [selectedBarberIds, setSelectedBarberIds] = useState<Set<string>>(new Set());
   const [allowServiceReward, setAllowServiceReward] = useState(true);
+  const [selectedRewardServiceIds, setSelectedRewardServiceIds] = useState<Set<string>>(new Set());
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<LoyaltyProgram | null>(null);
 
@@ -126,6 +128,20 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     },
   });
 
+  const programRewardServicesQ = useQuery({
+    queryKey: ["loyalty-program-reward-services", shopId, programsQ.data?.map((p) => p.id).join(",")],
+    enabled: !!programsQ.data && programsQ.data.length > 0,
+    queryFn: async () => {
+      const programIds = (programsQ.data ?? []).map((p) => p.id);
+      const { data, error } = await supabase
+        .from("loyalty_program_reward_services")
+        .select("*")
+        .in("program_id", programIds);
+      if (error) throw error;
+      return data as LoyaltyProgramRewardService[];
+    },
+  });
+
   const programProductsQ = useQuery({
     queryKey: ["loyalty-program-products", shopId, programsQ.data?.map((p) => p.id).join(",")],
     enabled: !!programsQ.data && programsQ.data.length > 0,
@@ -185,6 +201,17 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     return groups;
   }, [programServicesQ.data, serviceById]);
 
+  const rewardServicesByProgram = useMemo(() => {
+    const groups = new Map<string, Service[]>();
+    for (const link of programRewardServicesQ.data ?? []) {
+      const svc = serviceById.get(link.service_id);
+      if (!svc) continue;
+      if (!groups.has(link.program_id)) groups.set(link.program_id, []);
+      groups.get(link.program_id)!.push(svc);
+    }
+    return groups;
+  }, [programRewardServicesQ.data, serviceById]);
+
   function reset() {
     setName("");
     setScope("generic");
@@ -193,6 +220,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
     setSelectedServiceIds(new Set());
     setSelectedBarberIds(new Set());
     setAllowServiceReward(true);
+    setSelectedRewardServiceIds(new Set());
     setSelectedProductIds(new Set());
     setEditing(null);
   }
@@ -209,6 +237,9 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
       new Set((programBarbersQ.data ?? []).filter((l) => l.program_id === p.id).map((l) => l.barber_id)),
     );
     setAllowServiceReward(p.allow_service_reward !== false);
+    setSelectedRewardServiceIds(
+      new Set((rewardServicesByProgram.get(p.id) ?? []).map((s) => s.id)),
+    );
     setSelectedProductIds(
       new Set((programProductsQ.data ?? []).filter((l) => l.program_id === p.id).map((l) => l.product_id)),
     );
@@ -235,6 +266,15 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
 
   function toggleBarber(id: string) {
     setSelectedBarberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleRewardService(id: string) {
+    setSelectedRewardServiceIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -287,6 +327,11 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
           .delete()
           .eq("program_id", programId);
         if (delBarberErr) throw delBarberErr;
+        const { error: delRewardErr } = await supabase
+          .from("loyalty_program_reward_services")
+          .delete()
+          .eq("program_id", programId);
+        if (delRewardErr) throw delRewardErr;
       } else {
         const { data, error } = await supabase
           .from("loyalty_programs")
@@ -324,6 +369,15 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
         const { error: prodErr } = await supabase.from("loyalty_program_products").insert(productRows);
         if (prodErr) throw prodErr;
       }
+
+      if (allowServiceReward && selectedRewardServiceIds.size > 0) {
+        const rewardRows = Array.from(selectedRewardServiceIds).map((service_id) => ({
+          program_id: programId,
+          service_id,
+        }));
+        const { error: rewardErr } = await supabase.from("loyalty_program_reward_services").insert(rewardRows);
+        if (rewardErr) throw rewardErr;
+      }
     },
     onSuccess: () => {
       toast.success(editing ? "Programa atualizado" : "Programa criado");
@@ -332,6 +386,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
       qc.invalidateQueries({ queryKey: ["loyalty-program-services", shopId] });
       qc.invalidateQueries({ queryKey: ["loyalty-program-products", shopId] });
       qc.invalidateQueries({ queryKey: ["loyalty-program-barbers", shopId] });
+      qc.invalidateQueries({ queryKey: ["loyalty-program-reward-services", shopId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -512,6 +567,43 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
             </div>
             <Switch checked={allowServiceReward} onCheckedChange={setAllowServiceReward} />
           </div>
+          {allowServiceReward && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <p className="text-sm font-medium">Qual serviço pode ser resgatado como atendimento grátis</p>
+              <p className="text-xs text-muted-foreground md:text-sm">
+                Nenhum marcado = {scope === "services" ? "vale pros mesmos serviços que contam ponto acima" : "vale pra qualquer atendimento"}
+                {" "}(igual já funciona hoje). Marcando um ou mais, só esses viram o prêmio — o cliente vê exatamente
+                qual serviço e com qual barbeiro antes de resgatar.
+              </p>
+              {servicesQ.isLoading && <Loader2 className="animate-spin" />}
+              {!servicesQ.isLoading && (servicesQ.data ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum serviço cadastrado ainda. Cadastre serviços na aba "Serviços" primeiro.
+                </p>
+              )}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {Array.from(servicesByBarber.entries()).map(([barberId, list]) => (
+                  <div key={barberId} className="rounded-lg border border-border p-3">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      {barberNameById.get(barberId) ?? "Sem barbeiro"}
+                    </p>
+                    <div className="space-y-1">
+                      {list.map((s) => (
+                        <label key={s.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedRewardServiceIds.has(s.id)}
+                            onChange={() => toggleRewardService(s.id)}
+                          />
+                          {s.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="rounded-lg border border-border p-3">
             <p className="mb-2 text-sm font-medium">Produtos (retirada na barbearia)</p>
             {productsQ.isLoading && <Loader2 className="animate-spin" />}
@@ -578,7 +670,22 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
               <p className="mt-1 text-xs text-muted-foreground md:text-sm">
                 Prêmio:{" "}
                 {[
-                  p.allow_service_reward !== false ? "atendimento grátis" : null,
+                  p.allow_service_reward !== false
+                    ? (() => {
+                        const rewardSvcs = rewardServicesByProgram.get(p.id) ?? [];
+                        if (rewardSvcs.length === 0) return "atendimento grátis";
+                        const rewardBarberNames = Array.from(
+                          new Set(
+                            rewardSvcs
+                              .map((s) => (s.barber_id ? barberNameById.get(s.barber_id) : null))
+                              .filter((n): n is string => !!n),
+                          ),
+                        );
+                        return `atendimento grátis (${rewardSvcs.map((s) => s.name).join(", ")}${
+                          rewardBarberNames.length > 0 ? ` · com ${rewardBarberNames.join(", ")}` : ""
+                        })`;
+                      })()
+                    : null,
                   ...(productsByProgram.get(p.id) ?? []),
                 ]
                   .filter(Boolean)

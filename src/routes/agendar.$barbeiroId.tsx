@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, Check, Clock, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Clock, Gift, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -198,6 +198,10 @@ function AgendarPage() {
     program: { id: string; name: string; scope: "generic" | "services"; goal: number };
     serviceIds: string[];
     barberIds: string[];
+    rewardServiceIds: string[];
+    rewardServiceNames: string[];
+    rewardBarberIds: string[];
+    rewardUnrestricted: boolean;
     availableNow: number;
     progressInCycle: number;
     allowServiceReward?: boolean;
@@ -213,17 +217,21 @@ function AgendarPage() {
         customer_phone: loyaltyPhoneDigits,
       }),
   });
-  // Só oferece o resgate pra programas com resgate disponível cujos
-  // serviços batem com o que o cliente escolheu (genérico sempre bate,
-  // exceto quando o programa está restrito a barbeiros específicos e este
-  // não é um deles).
-  const eligibleLoyaltyPrograms = (loyaltyQ.data?.programs ?? []).filter(
+  // Programas com resgate disponível pra esse barbeiro, independente do
+  // serviço já ter sido escolhido — mostrado logo abaixo do nome dele,
+  // pra o cliente saber que existe resgate antes mesmo de escolher o
+  // serviço (senão o aviso só aparecia tarde demais no fluxo).
+  const barberLoyaltyPrograms = (loyaltyQ.data?.programs ?? []).filter(
     (p) =>
       p.allowServiceReward !== false &&
       p.availableNow >= 1 &&
-      (p.program.scope === "generic"
-        ? p.barberIds.length === 0 || p.barberIds.includes(barbeiroId)
-        : serviceIds.some((id) => p.serviceIds.includes(id))),
+      (p.rewardUnrestricted || p.rewardBarberIds.length === 0 || p.rewardBarberIds.includes(barbeiroId)),
+  );
+  // Só oferece o botão de ativar o resgate quando o serviço escolhido
+  // realmente é o que está marcado como prêmio no programa (não qualquer
+  // um dos serviços que contam ponto).
+  const eligibleLoyaltyPrograms = barberLoyaltyPrograms.filter(
+    (p) => p.rewardUnrestricted || serviceIds.some((id) => p.rewardServiceIds.includes(id)),
   );
   const selectedLoyaltyProgram =
     eligibleLoyaltyPrograms.find((p) => p.program.id === useLoyaltyProgramId) ?? null;
@@ -442,6 +450,23 @@ function AgendarPage() {
             <p className="text-lg font-semibold">{barber.name}</p>
           </div>
         </header>
+      )}
+
+      {barberLoyaltyPrograms.length > 0 && (
+        <div className="surface mt-3 flex items-start gap-3 border border-primary/40 bg-primary/10 p-4">
+          <Gift className="mt-0.5 size-5 shrink-0 text-primary" />
+          <div className="space-y-1 text-sm">
+            {barberLoyaltyPrograms.map((p) => (
+              <p key={p.program.id}>
+                <span className="font-medium">Usando resgate</span>, você pode escolher{" "}
+                <span className="font-medium">
+                  {p.rewardUnrestricted ? "qualquer serviço" : p.rewardServiceNames.join(", ") || "qualquer serviço"}
+                </span>{" "}
+                que será grátis ({p.program.name}).
+              </p>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Step 1 — serviço(s) */}
