@@ -473,7 +473,7 @@ function MeusAgendamentosPage() {
               const progress = p.progressInCycle % p.program.goal;
               return (
                 <div key={p.program.id} className="surface space-y-3 p-4">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <Gift className="size-5 text-success" />
                       <div>
@@ -484,7 +484,7 @@ function MeusAgendamentosPage() {
                       </div>
                     </div>
                     {p.availableNow >= 1 && (
-                      <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                      <span className="shrink-0 rounded-lg border border-primary/40 bg-primary/10 px-2 py-1 text-center text-[11px] font-semibold uppercase leading-snug tracking-wider text-primary">
                         {p.availableNow} {p.availableNow > 1 ? "resgates disponíveis" : "resgate disponível"}
                       </span>
                     )}

@@ -629,6 +629,11 @@ function AgendarPage() {
                           Este atendimento sai grátis ({p.availableNow}{" "}
                           {p.availableNow > 1 ? "disponíveis" : "disponível"})
                         </span>
+                        {!selected && (
+                          <span className="mt-1 block text-xs font-bold text-[color:var(--success)]">
+                            Clique aqui para resgatar, e depois clique em Confirmar agendamento
+                          </span>
+                        )}
                       </span>
                       {selected && <Check className="size-4 shrink-0 text-[color:var(--success)]" />}
                     </button>
