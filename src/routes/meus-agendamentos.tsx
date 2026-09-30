@@ -464,7 +464,19 @@ function MeusAgendamentosPage() {
             Fidelidade
           </h2>
           <div className="surface mb-2 p-4 text-xs text-muted-foreground">
-            Acumule pontos a cada serviço realizado e troque por produtos ou serviços exclusivos.
+            {(() => {
+              const hasServiceReward = loyaltyQ.data.programs.some((p) => p.allowServiceReward !== false);
+              const hasProductReward = loyaltyQ.data.programs.some((p) => (p.rewardProducts ?? []).length > 0);
+              const reward =
+                hasServiceReward && hasProductReward
+                  ? "produtos ou serviços exclusivos"
+                  : hasProductReward
+                    ? "produtos exclusivos"
+                    : hasServiceReward
+                      ? "serviços exclusivos"
+                      : "recompensas exclusivas";
+              return `Acumule pontos a cada serviço realizado e troque por ${reward}.`;
+            })()}{" "}
             Cuide de si mesmo e ainda ganhe benefícios com a fidelidade.
           </div>
           <div className="grid grid-cols-1 gap-2">
