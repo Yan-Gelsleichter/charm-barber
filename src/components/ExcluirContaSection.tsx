@@ -131,13 +131,13 @@ export function ExcluirContaSection({ redirectTo = "/auth" }: { redirectTo?: str
     <section className="surface space-y-3 p-4">
       <div className="flex items-center gap-2">
         <Trash2 className="text-destructive" size={18} />
-        <h2 className="font-semibold">Excluir minha conta</h2>
+        <h2 className="font-semibold">Excluir conta</h2>
       </div>
       <p className="text-xs text-muted-foreground md:text-sm">
         Apaga seus dados pessoais e encerra seu acesso. Essa ação não pode ser desfeita.
       </p>
       <Button variant="outline" className="text-destructive" onClick={() => setOpen(true)}>
-        <Trash2 /> Excluir minha conta
+        <Trash2 /> Excluir conta
       </Button>
 
       <Dialog

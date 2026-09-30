@@ -78,7 +78,7 @@ function ExcluirDadosPage() {
       <AppBackground src={LOGIN_BG_URL} />
       <div className="text-center">
         <BrandTitle>APP BARBEARIAS</BrandTitle>
-        <p className="mt-2 text-sm text-muted-foreground">Excluir meus dados</p>
+        <p className="mt-2 text-sm text-muted-foreground">Excluir conta</p>
       </div>
 
       {!session ? (

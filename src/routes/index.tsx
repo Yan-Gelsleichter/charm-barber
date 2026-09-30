@@ -281,7 +281,7 @@ function Home() {
         </Link>
         <span aria-hidden>·</span>
         <Link to="/excluir-dados" className="hover:text-foreground hover:underline">
-          Excluir meus dados
+          Excluir conta
         </Link>
       </footer>
     </main>

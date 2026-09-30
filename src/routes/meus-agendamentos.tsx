@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, CreditCard, Loader2, LogOut, RefreshCw, X, Repeat, Gift } from "lucide-react";
+import { CalendarDays, CreditCard, Loader2, LogOut, RefreshCw, X, Repeat, Gift, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,6 @@ import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { cancellationMarkerName, cancellationMarkerTime, filterActiveAppointments } from "@/lib/availability";
 import { PaymentBadge } from "@/components/PaymentBadge";
 import { postPublicApi } from "@/lib/api-fetch";
-import { ExcluirContaSection } from "@/components/ExcluirContaSection";
 
 const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
   pending: "Aguardando confirmação",
@@ -672,8 +671,13 @@ function MeusAgendamentosPage() {
       </div>
 
       {session && (
-        <div className="mt-6">
-          <ExcluirContaSection redirectTo="/" />
+        <div className="mt-8 flex justify-center">
+          <Link
+            to="/excluir-dados"
+            className="flex items-center gap-1.5 text-xs text-destructive/80 hover:text-destructive hover:underline"
+          >
+            <Trash2 className="size-3.5" /> Excluir conta
+          </Link>
         </div>
       )}
     </div>
