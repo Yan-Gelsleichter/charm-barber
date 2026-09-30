@@ -32,6 +32,23 @@ export const Route = createFileRoute("/meus-agendamentos")({
   component: MeusAgendamentosPage,
 });
 
+// Um cancelamento que não conseguiu atualizar a linha original (bloqueado
+// pela RLS — depende do cadastro em "clients" bater direitinho) cai no
+// marcador "CANCELADO:...". Esse marcador pode ter um telefone diferente do
+// da conta logada (ex.: o agendamento original foi feito com outro número),
+// então não dá pra contar só com o filtro por telefone/nome pra reencontrá-lo
+// depois — por isso essa busca à parte, por barbeiro.
+async function fetchCancellationMarkers(barberIds: string[]): Promise<Appointment[]> {
+  if (barberIds.length === 0) return [];
+  const { data } = await supabase
+    .from("appointments")
+    .select("*")
+    .in("barber_id", barberIds)
+    .ilike("customer_name", "CANCELADO:%")
+    .limit(200);
+  return (data ?? []) as Appointment[];
+}
+
 function MeusAgendamentosPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -96,6 +113,7 @@ function MeusAgendamentosPage() {
           if (rows.length) list = rows;
         }
         const barberIds = Array.from(new Set(list.map((a) => a.barber_id)));
+        list = [...list, ...(await fetchCancellationMarkers(barberIds))];
         const serviceIds = Array.from(new Set(list.map((a) => a.service_id)));
         const [br, sv] = await Promise.all([
           supabase.from("barbers").select("*").in("id", barberIds),
@@ -128,7 +146,9 @@ function MeusAgendamentosPage() {
         .limit(50);
       if (error) throw error;
 
-      const appointments = (ap ?? []) as Appointment[];
+      const apRows = (ap ?? []) as Appointment[];
+      const barberIdsFetched = Array.from(new Set(apRows.map((a) => a.barber_id)));
+      const appointments = [...apRows, ...(await fetchCancellationMarkers(barberIdsFetched))];
       const barberIds = Array.from(new Set(appointments.map((a) => a.barber_id)));
       const serviceIds = Array.from(new Set(appointments.map((a) => a.service_id)));
 
@@ -319,11 +339,15 @@ function MeusAgendamentosPage() {
   const guestName = dataQ.data?.appointments[0]?.customer_name ?? null;
   const displayName = metaName || email || guestName || "Cliente";
   async function cancelAppointment(appointment: Appointment) {
+    // Filtra pelo telefone gravado NESSE agendamento, não pelo telefone da
+    // conta logada — podem ser diferentes (ex.: agendamento feito com outro
+    // número, ou corrigido depois pelo admin) e usar o da conta fazia o
+    // filtro não bater com nenhuma linha, sem erro nenhum aparecer.
     const { data: updated, error: updateError } = await supabase
       .from("appointments")
       .update({ status: "cancelado" })
       .eq("id", appointment.id)
-      .eq("customer_phone", phone)
+      .eq("customer_phone", appointment.customer_phone)
       .select("id")
       .maybeSingle();
 
