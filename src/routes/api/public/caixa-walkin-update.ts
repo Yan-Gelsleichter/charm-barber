@@ -17,6 +17,9 @@ const requestSchema = z.object({
   customer_name: z.string().trim().min(1).max(120),
   price: z.number().nonnegative(),
   appointment_time: z.string().min(1),
+  // Opcional: quando ausente, mantém o telefone que já estava gravado —
+  // só substitui quando a tela manda um valor novo.
+  customer_phone: z.string().regex(/^\d{8,15}$/).optional(),
 });
 
 function json(body: unknown, status = 200) {
@@ -118,6 +121,7 @@ export const Route = createFileRoute("/api/public/caixa-walkin-update")({
               appointment_time: appointmentTime.toISOString(),
               service_price_snapshot: parsed.data.price,
               duration_minutes_snapshot: totalDuration,
+              ...(parsed.data.customer_phone ? { customer_phone: parsed.data.customer_phone } : {}),
             })
             .eq("id", parsed.data.appointment_id)
             .eq("is_walk_in", true)

@@ -994,6 +994,10 @@ function WalkinDialog({
       quando: base
         ? localDateTimeValue(new Date(base.appointment_time), fmtTime(base.appointment_time))
         : localDateTimeValue(selectedDate),
+      // Ao editar, carrega o telefone já gravado — pra poder conferir/corrigir
+      // (é ele que identifica assinante e fidelidade, mas fica invisível se
+      // nunca for mostrado de volta).
+      telefone: editing?.customer_phone ?? "",
     };
   }
 
@@ -1005,9 +1009,9 @@ function WalkinDialog({
   // Só usado ao criar um avulso novo — editar e adicionar serviço não mexem
   // no status inicial de pagamento.
   const [statusInicial, setStatusInicial] = useState<"pago" | "pendente">("pago");
-  // Telefone (opcional) — só ao criar um avulso novo; serve pra identificar
-  // se o cliente é assinante de algum plano ou tem fidelidade acumulada.
-  const [telefone, setTelefone] = useState("");
+  // Telefone — identifica cliente assinante e fidelidade. Ao criar começa
+  // vazio; ao editar, vem preenchido com o que já está gravado.
+  const [telefone, setTelefone] = useState(() => initialState().telefone);
   const [walkinLoyaltyProgramId, setWalkinLoyaltyProgramId] = useState<string | null>(null);
 
   // Reabre o formulário do zero a cada vez (criar, editar ou adicionar serviço a outro registro).
@@ -1022,7 +1026,7 @@ function WalkinDialog({
     setPreco(s.preco);
     setQuando(s.quando);
     setStatusInicial("pago");
-    setTelefone("");
+    setTelefone(s.telefone);
     setWalkinLoyaltyProgramId(null);
   }
   if (!open && openedFor !== null) setOpenedFor(null);
@@ -1108,11 +1112,23 @@ function WalkinDialog({
         appointment_time,
       };
       if (isEdit) {
-        await postPublicApi("/api/public/caixa-walkin-update", { appointment_id: editing!.id, ...body }, token);
+        const digits = phoneDigits(telefone);
+        await postPublicApi(
+          "/api/public/caixa-walkin-update",
+          { appointment_id: editing!.id, ...body, customer_phone: digits.length >= 8 ? digits : undefined },
+          token,
+        );
       } else if (isAddService) {
+        // Herda o telefone do agendamento original — sem isso, o extra
+        // nunca contaria ponto de fidelidade nem seria achado pelo telefone.
+        const parentDigits = phoneDigits(addServiceTo!.customer_phone ?? "");
         await postPublicApi(
           "/api/public/caixa-walkin-create",
-          { ...body, parent_appointment_id: addServiceTo!.id },
+          {
+            ...body,
+            parent_appointment_id: addServiceTo!.id,
+            customer_phone: parentDigits.length >= 8 ? parentDigits : undefined,
+          },
           token,
         );
       } else {
@@ -1241,9 +1257,11 @@ function WalkinDialog({
                   onChange={(e) => setNome(capitalizeWords(e.target.value))}
                 />
               </label>
-              {criando && (
+              {!isAddService && (
                 <label className="grid gap-1 text-xs text-muted-foreground">
-                  Telefone (opcional — identifica cliente assinante e fidelidade)
+                  {criando
+                    ? "Telefone (opcional — identifica cliente assinante e fidelidade)"
+                    : "Telefone (identifica cliente assinante e fidelidade)"}
                   <PhoneInput value={telefone} onChange={setTelefone} />
                 </label>
               )}
