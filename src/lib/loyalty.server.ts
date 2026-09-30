@@ -266,11 +266,16 @@ export async function computeLoyaltyStatus(
         .filter((l) => l.program_id === program.id)
         .map((l) => rewardProductById.get(l.product_id))
         .filter((p): p is { id: string; title: string; stock_quantity: number } => !!p),
-      serviceNames: Array.from(eligibleServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"),
+      // Nomes sem repetir — vários barbeiros podem ter um serviço com o
+      // mesmo nome (ex.: "cabelo" cadastrado em 3 perfis diferentes), e pra
+      // quem lê não faz sentido ver "cabelo, cabelo, cabelo".
+      serviceNames: Array.from(new Set(Array.from(eligibleServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"))),
       serviceIds: Array.from(eligibleServiceIds),
       barberIds: Array.from(eligibleBarberIds),
       rewardServiceIds: Array.from(effectiveRewardServiceIds),
-      rewardServiceNames: Array.from(effectiveRewardServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"),
+      rewardServiceNames: Array.from(
+        new Set(Array.from(effectiveRewardServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço")),
+      ),
       rewardBarberIds: Array.from(rewardBarberIds),
       rewardBarberNames: Array.from(rewardBarberIds).map((id) => barberNameById.get(id) ?? "Barbeiro"),
       rewardUnrestricted,

@@ -572,7 +572,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
               <p className="text-sm font-medium">Qual serviço pode ser resgatado como atendimento grátis</p>
               <p className="text-xs text-muted-foreground md:text-sm">
                 Nenhum marcado = {scope === "services" ? "vale pros mesmos serviços que contam ponto acima" : "vale pra qualquer atendimento"}
-                {" "}(igual já funciona hoje). Marcando um ou mais, só esses viram o prêmio — o cliente vê exatamente
+                {". "}Marcando um ou mais, só esses viram o prêmio — o cliente vê exatamente
                 qual serviço e com qual barbeiro antes de resgatar.
               </p>
               {servicesQ.isLoading && <Loader2 className="animate-spin" />}
@@ -656,7 +656,8 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
               <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">
                 {p.scope === "generic"
                   ? "Qualquer atendimento"
-                  : (servicesByProgram.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
+                  : Array.from(new Set((servicesByProgram.get(p.id) ?? []).map((s) => s.name))).join(", ") ||
+                    "sem serviços"}
                 {" · "}a cada {p.goal}
               </p>
               {p.scope === "generic" && (barbersByProgram.get(p.id) ?? []).length > 0 && (
@@ -681,7 +682,8 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
                               .filter((n): n is string => !!n),
                           ),
                         );
-                        return `atendimento grátis (${rewardSvcs.map((s) => s.name).join(", ")}${
+                        const rewardSvcNames = Array.from(new Set(rewardSvcs.map((s) => s.name)));
+                        return `atendimento grátis (${rewardSvcNames.join(", ")}${
                           rewardBarberNames.length > 0 ? ` · com ${rewardBarberNames.join(", ")}` : ""
                         })`;
                       })()
