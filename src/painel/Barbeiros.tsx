@@ -264,8 +264,16 @@ export function BarbeirosTab() {
           {q.data?.map((b) => (
             <div key={b.id} className="surface flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white">
-                  {b.name.charAt(0).toUpperCase()}
+                <div className="brand-gradient flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white">
+                  {b.avatar_url || b.logo_url ? (
+                    <img
+                      src={b.avatar_url ?? b.logo_url ?? ""}
+                      alt={b.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    b.name.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div>
                   <p className="font-semibold">

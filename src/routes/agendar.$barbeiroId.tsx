@@ -420,8 +420,12 @@ function AgendarPage() {
       {barber && (
         <header className="surface flex items-center gap-4 p-4">
           <div className="brand-gradient flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white">
-            {barber.avatar_url ? (
-              <img src={barber.avatar_url} alt={barber.name} className="h-full w-full object-cover" />
+            {barber.avatar_url || barber.logo_url ? (
+              <img
+                src={barber.avatar_url ?? barber.logo_url ?? ""}
+                alt={barber.name}
+                className="h-full w-full object-cover"
+              />
             ) : (
               barber.name.charAt(0).toUpperCase()
             )}
