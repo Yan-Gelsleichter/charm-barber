@@ -635,7 +635,9 @@ function MeusAgendamentosPage() {
                 </div>
                 {isUpcoming && (
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    {a.payment_status !== "pago" && (
+                    {!["pago", "coberto_por_fidelidade", "coberto_por_assinatura"].includes(
+                      a.payment_status ?? "",
+                    ) && (
                       <Button
                         size="sm"
                         variant="outline"

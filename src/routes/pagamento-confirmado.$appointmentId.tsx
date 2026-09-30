@@ -160,7 +160,10 @@ function ConfirmacaoPage() {
   const method = appointment?.payment_method ?? null;
   // Pagamento presencial: nunca consulta o gateway nem mostra "confirmando pagamento".
   const isPresencial = search.metodo === "presencial" || method === "presencial";
-  const isOnline = !isPresencial && (returnedFromMp || (method != null && method !== "presencial"));
+  // Resgate de fidelidade: gravado direto como coberto_por_fidelidade —
+  // nunca passa pelo gateway, igual ao presencial.
+  const isLoyalty = status === "coberto_por_fidelidade";
+  const isOnline = !isPresencial && !isLoyalty && (returnedFromMp || (method != null && method !== "presencial"));
   const failedOnline =
     isOnline && ["expirado", "cancelado", "falhou", "estornado"].includes(status ?? "");
 
@@ -174,6 +177,7 @@ function ConfirmacaoPage() {
     !paid &&
     !failedOnline &&
     !isPresencial &&
+    !isLoyalty &&
     (isOnline || method == null || status == null || status === "pendente");
 
   // O webhook atualiza appointments e o Realtime entrega essa alteração à
@@ -345,6 +349,7 @@ function ConfirmacaoPage() {
     !paid &&
     !failedOnline &&
     !isPresencial &&
+    !isLoyalty &&
     !gaveUp &&
     (isOnline || method == null || status == null || status === "pendente");
 
@@ -475,6 +480,8 @@ function ConfirmacaoPage() {
             <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               {paid ? (
                 "Pagamento realizado online com sucesso."
+              ) : isLoyalty ? (
+                "Tudo certo! Esse atendimento é grátis — resgate de fidelidade."
               ) : isPresencial ? (
                 "Tudo certo! Você vai pagar presencialmente na barbearia."
               ) : gaveUp ? (
@@ -506,38 +513,44 @@ function ConfirmacaoPage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Forma de pagamento</span>
               <span className="font-medium">
-                {isPresencial
-                  ? "Presencial na barbearia"
-                  : method
-                    ? (METHOD_LABEL[method] ?? method)
-                    : paid
-                      ? "Online"
-                      : "Presencial"}
+                {isLoyalty
+                  ? "Fidelidade"
+                  : isPresencial
+                    ? "Presencial na barbearia"
+                    : method
+                      ? (METHOD_LABEL[method] ?? method)
+                      : paid
+                        ? "Online"
+                        : "Presencial"}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
               <span
                 className={
-                  paid || isPresencial
+                  paid || isPresencial || isLoyalty
                     ? "font-semibold text-[color:var(--success)]"
                     : notCompleted
                       ? "font-semibold text-destructive"
                       : "font-medium"
                 }
               >
-                {paid
-                  ? "Pago"
-                  : isPresencial
-                    ? "Pagar na barbearia"
-                    : notCompleted
-                      ? "Pagamento não confirmado"
-                      : "Aguardando pagamento"}
+                {isLoyalty
+                  ? "Fidelidade"
+                  : paid
+                    ? "Pago"
+                    : isPresencial
+                      ? "Pagar na barbearia"
+                      : notCompleted
+                        ? "Pagamento não confirmado"
+                        : "Aguardando pagamento"}
               </span>
             </div>
             <div className="flex items-center justify-between border-t border-border/60 pt-2">
               <span className="text-muted-foreground">Valor total</span>
-              <span className="brand-text text-base font-bold">{brl(service?.price ?? 0)}</span>
+              <span className="brand-text text-base font-bold">
+                {isLoyalty ? "Grátis" : brl(service?.price ?? 0)}
+              </span>
             </div>
           </section>
 
@@ -561,9 +574,9 @@ function ConfirmacaoPage() {
                   <CalendarDays /> Ver meus agendamentos
                 </Link>
               </Button>
-            ) : paid ? null : (
-              // Já pago não tem sentido "voltar ao checkout" — some pra não
-              // parecer que ainda falta fazer alguma coisa.
+            ) : paid || isLoyalty ? null : (
+              // Já pago (ou coberto por resgate) não tem sentido "voltar ao
+              // checkout" — some pra não parecer que ainda falta fazer algo.
               <Button asChild variant="outline" size="xl" className="w-full">
                 <Link to="/pagamento/$appointmentId" params={{ appointmentId }}>
                   <ArrowLeft /> Voltar ao checkout

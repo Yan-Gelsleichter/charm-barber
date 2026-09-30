@@ -390,7 +390,11 @@ function AgendarPage() {
         toast.success("Resgate aplicado! Este atendimento é grátis.", {
           description: `${fmtTime(slotIso!)} com ${barberQ.data?.name}`,
         });
-        navigate({ to: "/meus-agendamentos" });
+        if (appointmentId) {
+          navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId } });
+        } else {
+          navigate({ to: "/meus-agendamentos" });
+        }
         return;
       }
       if (covered) {
