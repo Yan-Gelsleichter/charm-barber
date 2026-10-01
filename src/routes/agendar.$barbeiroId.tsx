@@ -321,7 +321,9 @@ function AgendarPage() {
       // navegar com uma resposta de API que não esteja fisicamente consultável.
       const persisted = await supabase
         .from("appointments")
-        .select("id, barber_id, service_ids, customer_name, customer_phone, appointment_time")
+        .select(
+          "id, barber_id, service_ids, customer_name, customer_phone, appointment_time, payment_status",
+        )
         .eq("id", createdId)
         .maybeSingle();
       if (
@@ -356,10 +358,14 @@ function AgendarPage() {
         }
       }
 
+      // A decisão de pra onde navegar usa o status relido do banco, não a
+      // resposta da API: assim nunca existe um instante em que a tela de
+      // pagamento é mostrada por engano a quem resgatou (e só depois
+      // redireciona) — o próprio estado gravado é que manda.
       return {
         id: createdId,
-        covered: Boolean(payload.covered_by_subscription),
-        coveredByLoyalty: Boolean(payload.covered_by_loyalty_program),
+        covered: persisted.data.payment_status === "coberto_por_assinatura",
+        coveredByLoyalty: persisted.data.payment_status === "coberto_por_fidelidade",
       };
 
     },
