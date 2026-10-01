@@ -25,6 +25,9 @@ const requestSchema = z.object({
   price: z.number().nonnegative(),
   appointment_time: z.string().min(1),
   payment_status: z.enum(["pago", "pendente"]).optional(),
+  // Só junto com payment_status="pago" — qual meio foi usado, pra separar
+  // no relatório de repasse. Sem isso, cai no genérico "presencial".
+  payment_method: z.enum(["dinheiro", "pix", "cartao"]).optional(),
   // Só usado pelo fluxo "Adicionar serviço" no Caixa: vincula esse avulso a
   // um agendamento do app já existente, pra aparecer agrupado com ele.
   parent_appointment_id: z.string().uuid().optional(),
@@ -234,7 +237,7 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
               appointment_time: appointmentTime.toISOString(),
               status: "confirmado",
               payment_status: paymentStatus,
-              payment_method: paid ? "presencial" : null,
+              payment_method: paid ? (parsed.data.payment_method ?? "presencial") : null,
               paid_at: paid ? new Date().toISOString() : null,
               service_price_snapshot: priceSnapshot,
               duration_minutes_snapshot: totalDuration,
@@ -281,7 +284,7 @@ export const Route = createFileRoute("/api/public/caixa-walkin-create")({
                 appointment_time: appointmentTime.toISOString(),
                 status: "confirmado",
                 payment_status: extraPaid ? "pago" : "pendente",
-                payment_method: extraPaid ? "presencial" : null,
+                payment_method: extraPaid ? (parsed.data.payment_method ?? "presencial") : null,
                 paid_at: extraPaid ? new Date().toISOString() : null,
                 service_price_snapshot: parsed.data.extra.price,
                 duration_minutes_snapshot: extraServices.reduce(

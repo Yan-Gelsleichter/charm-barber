@@ -22,6 +22,9 @@ const requestSchema = z.object({
   customer_name: z.string().trim().min(1).max(120),
   customer_phone: z.string().optional(),
   payment_status: z.enum(["pago", "pendente"]).optional(),
+  // Só junto com payment_status="pago" — qual meio foi usado, pra separar
+  // no relatório de repasse. Sem isso, cai no genérico "presencial".
+  payment_method: z.enum(["dinheiro", "pix", "cartao"]).optional(),
 });
 
 function json(body: unknown, status = 200) {
@@ -105,7 +108,7 @@ export const Route = createFileRoute("/api/public/caixa-product-sale-create")({
               customer_phone: d.customer_phone?.trim() || null,
               total_price: Number(totalPrice.toFixed(2)),
               payment_status: paymentStatus,
-              payment_method: paid ? "presencial" : null,
+              payment_method: paid ? (d.payment_method ?? "presencial") : null,
               paid_at: paid ? new Date().toISOString() : null,
               is_walk_in: true,
               barber_id: d.barber_id ?? null,

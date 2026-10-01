@@ -1008,7 +1008,9 @@ function WalkinDialog({
   const [quando, setQuando] = useState(() => initialState().quando);
   // Só usado ao criar um avulso novo — editar e adicionar serviço não mexem
   // no status inicial de pagamento.
-  const [statusInicial, setStatusInicial] = useState<"pago" | "pendente">("pago");
+  // "Pago" sozinho não bastava pro relatório de repasse separar por meio de
+  // pagamento — agora o próprio status inicial já guarda qual foi usado.
+  const [statusInicial, setStatusInicial] = useState<"dinheiro" | "pix" | "cartao" | "pendente">("dinheiro");
   // Telefone — identifica cliente assinante e fidelidade. Ao criar começa
   // vazio; ao editar, vem preenchido com o que já está gravado.
   const [telefone, setTelefone] = useState(() => initialState().telefone);
@@ -1025,7 +1027,7 @@ function WalkinDialog({
     setNome(s.nome);
     setPreco(s.preco);
     setQuando(s.quando);
-    setStatusInicial("pago");
+    setStatusInicial("dinheiro");
     setTelefone(s.telefone);
     setWalkinLoyaltyProgramId(null);
   }
@@ -1153,7 +1155,8 @@ function WalkinDialog({
             // Fidelidade: o avulso inteiro sai sem custo.
             service_ids: comPlano ? plano.covered : serviceIds,
             price: comPlano || comFidelidade ? 0 : body.price,
-            payment_status: statusInicial,
+            payment_status: statusInicial === "pendente" ? "pendente" : "pago",
+            payment_method: statusInicial === "pendente" ? undefined : statusInicial,
             customer_phone: digits.length >= 8 ? digits : undefined,
             subscription_id: plano.subscription?.subscription_id,
             extra:
@@ -1522,7 +1525,9 @@ function WalkinDialog({
               <div className="grid grid-cols-2 gap-2">
                 {(
                   [
-                    { id: "pago", label: "Pago" },
+                    { id: "dinheiro", label: "Dinheiro" },
+                    { id: "pix", label: "Pix" },
+                    { id: "cartao", label: "Cartão" },
                     { id: "pendente", label: "Pendente" },
                   ] as const
                 ).map((opt) => (
@@ -1594,7 +1599,7 @@ function ProductSaleDialog({
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [itens, setItens] = useState<Record<string, number>>({});
-  const [statusInicial, setStatusInicial] = useState<"pago" | "pendente">("pago");
+  const [statusInicial, setStatusInicial] = useState<"dinheiro" | "pix" | "cartao" | "pendente">("dinheiro");
   const [openedFor, setOpenedFor] = useState(false);
 
   if (open && !openedFor) {
@@ -1604,7 +1609,7 @@ function ProductSaleDialog({
     setNome("");
     setTelefone("");
     setItens({});
-    setStatusInicial("pago");
+    setStatusInicial("dinheiro");
   }
   if (!open && openedFor) setOpenedFor(false);
 
@@ -1636,7 +1641,8 @@ function ProductSaleDialog({
           items: Object.entries(itens).map(([product_id, quantity]) => ({ product_id, quantity })),
           customer_name: nome.trim(),
           customer_phone: telefone.trim() || undefined,
-          payment_status: statusInicial,
+          payment_status: statusInicial === "pendente" ? "pendente" : "pago",
+          payment_method: statusInicial === "pendente" ? undefined : statusInicial,
         },
         token,
       );
@@ -1773,7 +1779,9 @@ function ProductSaleDialog({
             <div className="grid grid-cols-2 gap-2">
               {(
                 [
-                  { id: "pago", label: "Pago" },
+                  { id: "dinheiro", label: "Dinheiro" },
+                  { id: "pix", label: "Pix" },
+                  { id: "cartao", label: "Cartão" },
                   { id: "pendente", label: "Pendente" },
                 ] as const
               ).map((opt) => (

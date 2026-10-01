@@ -51,6 +51,29 @@ interface RepasseRow {
   totalRepasse: number;
 }
 
+interface RepasseMetodoRow {
+  barbeiro: Barber;
+  pix: number;
+  dinheiro: number;
+  cartao: number;
+  online: number;
+  semDetalhar: number;
+  total: number;
+}
+
+// Pagamentos online (Mercado Pago) não contam como pix/cartão aqui porque o
+// gateway não devolve qual dos dois foi usado — ficam na própria coluna
+// Online. "presencial" é o valor antigo, de antes de pedir Dinheiro/Pix/
+// Cartão na hora de marcar como pago — cai em "Sem detalhar".
+function metodoBucket(method: string | null | undefined): keyof Omit<RepasseMetodoRow, "barbeiro" | "total"> {
+  const m = (method ?? "").trim().toLowerCase();
+  if (m === "pix") return "pix";
+  if (m === "dinheiro") return "dinheiro";
+  if (m === "cartao" || m === "cartão") return "cartao";
+  if (m === "online") return "online";
+  return "semDetalhar";
+}
+
 export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
   const [periodo, setPeriodo] = useState<PeriodoRepasse>("semana");
   const [de, setDe] = useState("");
@@ -169,6 +192,47 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
     [linhas],
   );
 
+  // Mesmos atendimentos e produtos do período, mas agora separados pelo meio
+  // de pagamento (Pix/Dinheiro/Cartão/Online) em vez de online/presencial/avulso.
+  const linhasMetodo = useMemo(() => {
+    const porBarbeiro = new Map<string, RepasseMetodoRow>();
+    for (const b of totaisHook.barbeiros) {
+      porBarbeiro.set(b.id, { barbeiro: b, pix: 0, dinheiro: 0, cartao: 0, online: 0, semDetalhar: 0, total: 0 });
+    }
+    for (const a of itensDoPeriodo) {
+      const row = porBarbeiro.get(a.barber_id);
+      if (!row) continue;
+      const valor = totaisHook.precoDe(a);
+      row[metodoBucket(a.payment_method)] += valor;
+      row.total += valor;
+    }
+    for (const o of productOrdersQ.data ?? []) {
+      const row = o.barber_id ? porBarbeiro.get(o.barber_id) : null;
+      if (!row) continue;
+      const valor = Number(o.total_price) || 0;
+      row[metodoBucket(o.payment_method)] += valor;
+      row.total += valor;
+    }
+    return Array.from(porBarbeiro.values()).sort((x, y) => y.total - x.total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itensDoPeriodo, totaisHook.barbeiros, productOrdersQ.data]);
+
+  const totalGeralMetodo = useMemo(
+    () =>
+      linhasMetodo.reduce(
+        (acc, r) => ({
+          pix: acc.pix + r.pix,
+          dinheiro: acc.dinheiro + r.dinheiro,
+          cartao: acc.cartao + r.cartao,
+          online: acc.online + r.online,
+          semDetalhar: acc.semDetalhar + r.semDetalhar,
+          total: acc.total + r.total,
+        }),
+        { pix: 0, dinheiro: 0, cartao: 0, online: 0, semDetalhar: 0, total: 0 },
+      ),
+    [linhasMetodo],
+  );
+
   async function exportarPdf() {
     if (!range) return;
     setExportando(true);
@@ -238,6 +302,44 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
         head,
         body,
         foot,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [30, 30, 30] },
+        footStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: "bold" },
+      });
+
+      // Segunda tabela: mesmo período, mas separado por forma de pagamento
+      // (Pix/Dinheiro/Cartão/Online), já incluindo produtos vendidos.
+      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+      doc.setFontSize(12);
+      doc.text("Movimentos por forma de pagamento", 14, finalY + 10);
+
+      const headMetodo = [["Barbeiro", "Pix", "Dinheiro", "Cartão", "Online", "Sem detalhar", "Total"]];
+      const bodyMetodo = linhasMetodo.map((r) => [
+        r.barbeiro.name,
+        brl(r.pix),
+        brl(r.dinheiro),
+        brl(r.cartao),
+        brl(r.online),
+        brl(r.semDetalhar),
+        brl(r.total),
+      ]);
+      const footMetodo = [
+        [
+          "Total",
+          brl(totalGeralMetodo.pix),
+          brl(totalGeralMetodo.dinheiro),
+          brl(totalGeralMetodo.cartao),
+          brl(totalGeralMetodo.online),
+          brl(totalGeralMetodo.semDetalhar),
+          brl(totalGeralMetodo.total),
+        ],
+      ];
+
+      autoTable(doc, {
+        startY: finalY + 14,
+        head: headMetodo,
+        body: bodyMetodo,
+        foot: footMetodo,
         styles: { fontSize: 9 },
         headStyles: { fillColor: [30, 30, 30] },
         footStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: "bold" },
@@ -408,6 +510,57 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                 </tr>
               </tfoot>
             </table>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              Movimentos por forma de pagamento
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px] text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <th className="py-2 pr-3 text-left">Barbeiro</th>
+                    <th className={thNum}>Pix</th>
+                    <th className={thNum}>Dinheiro</th>
+                    <th className={thNum}>Cartão</th>
+                    <th className={thNum}>Online</th>
+                    <th className={thNum}>Sem detalhar</th>
+                    <th className={thNum}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhasMetodo.map((r) => (
+                    <tr key={r.barbeiro.id} className="border-t border-border">
+                      <td className="py-2 pr-3 font-medium">{r.barbeiro.name}</td>
+                      <td className={tdNum}>{numBr(r.pix)}</td>
+                      <td className={tdNum}>{numBr(r.dinheiro)}</td>
+                      <td className={tdNum}>{numBr(r.cartao)}</td>
+                      <td className={tdNum}>{numBr(r.online)}</td>
+                      <td className={tdNum}>{numBr(r.semDetalhar)}</td>
+                      <td className={cn(tdNum, "brand-text font-semibold")}>{brl(r.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border font-semibold">
+                    <td className="py-2 pr-3">Total</td>
+                    <td className={tdNum}>{brl(totalGeralMetodo.pix)}</td>
+                    <td className={tdNum}>{brl(totalGeralMetodo.dinheiro)}</td>
+                    <td className={tdNum}>{brl(totalGeralMetodo.cartao)}</td>
+                    <td className={tdNum}>{brl(totalGeralMetodo.online)}</td>
+                    <td className={tdNum}>{brl(totalGeralMetodo.semDetalhar)}</td>
+                    <td className={cn(tdNum, "brand-text")}>{brl(totalGeralMetodo.total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {totalGeralMetodo.semDetalhar > 0 && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                "Sem detalhar" são pagamentos marcados como pagos antes de existir a escolha de
+                Pix/Dinheiro/Cartão na hora de lançar — não tem como saber qual meio foi usado.
+              </p>
+            )}
           </div>
 
           <Button
