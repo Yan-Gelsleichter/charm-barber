@@ -99,6 +99,10 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
 
   const totaisHook = useFaturamentoTotais(barber, range);
 
+  // Traz também as vendas "no caixa" (sem barbeiro) — a tabela por barbeiro
+  // continua ignorando essas (sem barbeiro não tem comissão), mas a tabela
+  // por forma de pagamento soma todo mundo numa linha "Produtos" à parte,
+  // senão o Total dela não bateria com o que realmente entrou no caixa.
   const productOrdersQ = useQuery({
     queryKey: ["repasse-product-orders", barber.barbershop_id, range?.ini, range?.fim],
     enabled: !!range && !!barber.barbershop_id,
@@ -109,7 +113,6 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
         .eq("barbershop_id", barber.barbershop_id!)
         .eq("payment_status", "pago")
         .eq("is_walk_in", true)
-        .not("barber_id", "is", null)
         .gte("created_at", new Date(range!.ini).toISOString())
         .lte("created_at", new Date(range!.fim).toISOString());
       if (error) throw error;
@@ -207,7 +210,8 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
       row.total += valor;
     }
     for (const o of productOrdersQ.data ?? []) {
-      const row = o.barber_id ? porBarbeiro.get(o.barber_id) : null;
+      if (!o.barber_id) continue;
+      const row = porBarbeiro.get(o.barber_id);
       if (!row) continue;
       const valor = Number(o.total_price) || 0;
       row[metodoBucket(o.payment_method)] += valor;
@@ -216,6 +220,20 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
     return Array.from(porBarbeiro.values()).sort((x, y) => y.total - x.total);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itensDoPeriodo, totaisHook.barbeiros, productOrdersQ.data]);
+
+  // Vendas "no caixa" (sem barbeiro atribuído) — não entram em linha de
+  // nenhum barbeiro, mas precisam aparecer em algum lugar pra o Total da
+  // tabela por forma de pagamento bater com tudo que entrou de verdade.
+  const produtosSemBarbeiro = useMemo(() => {
+    const row = { pix: 0, dinheiro: 0, cartao: 0, online: 0, semDetalhar: 0, total: 0 };
+    for (const o of productOrdersQ.data ?? []) {
+      if (o.barber_id) continue;
+      const valor = Number(o.total_price) || 0;
+      row[metodoBucket(o.payment_method)] += valor;
+      row.total += valor;
+    }
+    return row;
+  }, [productOrdersQ.data]);
 
   const totalGeralMetodo = useMemo(
     () =>
@@ -228,9 +246,16 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
           semDetalhar: acc.semDetalhar + r.semDetalhar,
           total: acc.total + r.total,
         }),
-        { pix: 0, dinheiro: 0, cartao: 0, online: 0, semDetalhar: 0, total: 0 },
+        {
+          pix: produtosSemBarbeiro.pix,
+          dinheiro: produtosSemBarbeiro.dinheiro,
+          cartao: produtosSemBarbeiro.cartao,
+          online: produtosSemBarbeiro.online,
+          semDetalhar: produtosSemBarbeiro.semDetalhar,
+          total: produtosSemBarbeiro.total,
+        },
       ),
-    [linhasMetodo],
+    [linhasMetodo, produtosSemBarbeiro],
   );
 
   async function exportarPdf() {
@@ -323,6 +348,17 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
         brl(r.semDetalhar),
         brl(r.total),
       ]);
+      if (produtosSemBarbeiro.total > 0) {
+        bodyMetodo.push([
+          "Produtos do caixa",
+          brl(produtosSemBarbeiro.pix),
+          brl(produtosSemBarbeiro.dinheiro),
+          brl(produtosSemBarbeiro.cartao),
+          brl(produtosSemBarbeiro.online),
+          brl(produtosSemBarbeiro.semDetalhar),
+          brl(produtosSemBarbeiro.total),
+        ]);
+      }
       const footMetodo = [
         [
           "Total",
@@ -541,6 +577,17 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                       <td className={cn(tdNum, "brand-text font-semibold")}>{brl(r.total)}</td>
                     </tr>
                   ))}
+                  {produtosSemBarbeiro.total > 0 && (
+                    <tr className="border-t border-border">
+                      <td className="py-2 pr-3 font-medium text-muted-foreground">Produtos do caixa</td>
+                      <td className={tdNum}>{numBr(produtosSemBarbeiro.pix)}</td>
+                      <td className={tdNum}>{numBr(produtosSemBarbeiro.dinheiro)}</td>
+                      <td className={tdNum}>{numBr(produtosSemBarbeiro.cartao)}</td>
+                      <td className={tdNum}>{numBr(produtosSemBarbeiro.online)}</td>
+                      <td className={tdNum}>{numBr(produtosSemBarbeiro.semDetalhar)}</td>
+                      <td className={cn(tdNum, "brand-text font-semibold")}>{brl(produtosSemBarbeiro.total)}</td>
+                    </tr>
+                  )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-border font-semibold">
