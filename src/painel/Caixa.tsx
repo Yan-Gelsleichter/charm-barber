@@ -1427,7 +1427,7 @@ function WalkinDialog({
                       {p.rewardUnrestricted ? "qualquer serviço" : p.rewardServiceNames.join(", ") || "qualquer serviço"}
                       .
                       {!selected && (
-                        <span className="mt-1 block text-xs font-bold text-[color:var(--success)]">
+                        <span className="mt-1 block text-sm font-bold text-[color:var(--success)]">
                           Clique aqui para ativar
                         </span>
                       )}
