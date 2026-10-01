@@ -1439,7 +1439,14 @@ function WalkinDialog({
                         : "border-border bg-card/60 text-muted-foreground hover:border-primary/50",
                     )}
                   >
-                    <span>Usar resgate — {p.program.name}</span>
+                    <span>
+                      Usar resgate — {p.program.name}
+                      {!selected && (
+                        <span className="mt-1 block text-xs font-bold text-[color:var(--success)]">
+                          Clique aqui para ativar
+                        </span>
+                      )}
+                    </span>
                   </button>
                 );
               })}
