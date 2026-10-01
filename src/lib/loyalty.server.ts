@@ -10,6 +10,8 @@
  * (appointment-create.ts) — um único lugar com essa lógica.
  */
 
+import { dedupeNamesCaseInsensitive } from "@/lib/format";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = { from: (table: string) => any };
 
@@ -269,12 +271,14 @@ export async function computeLoyaltyStatus(
       // Nomes sem repetir — vários barbeiros podem ter um serviço com o
       // mesmo nome (ex.: "cabelo" cadastrado em 3 perfis diferentes), e pra
       // quem lê não faz sentido ver "cabelo, cabelo, cabelo".
-      serviceNames: Array.from(new Set(Array.from(eligibleServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"))),
+      serviceNames: dedupeNamesCaseInsensitive(
+        Array.from(eligibleServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"),
+      ),
       serviceIds: Array.from(eligibleServiceIds),
       barberIds: Array.from(eligibleBarberIds),
       rewardServiceIds: Array.from(effectiveRewardServiceIds),
-      rewardServiceNames: Array.from(
-        new Set(Array.from(effectiveRewardServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço")),
+      rewardServiceNames: dedupeNamesCaseInsensitive(
+        Array.from(effectiveRewardServiceIds).map((id) => serviceNamesById.get(id) ?? "Serviço"),
       ),
       rewardBarberIds: Array.from(rewardBarberIds),
       rewardBarberNames: Array.from(rewardBarberIds).map((id) => barberNameById.get(id) ?? "Barbeiro"),

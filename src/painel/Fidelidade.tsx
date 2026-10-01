@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { dedupeNamesCaseInsensitive } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function FidelidadeTab({ barber }: { barber: Barber }) {
@@ -656,8 +657,9 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
               <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">
                 {p.scope === "generic"
                   ? "Qualquer atendimento"
-                  : Array.from(new Set((servicesByProgram.get(p.id) ?? []).map((s) => s.name))).join(", ") ||
-                    "sem serviços"}
+                  : dedupeNamesCaseInsensitive((servicesByProgram.get(p.id) ?? []).map((s) => s.name)).join(
+                      ", ",
+                    ) || "sem serviços"}
                 {" · "}a cada {p.goal}
               </p>
               {p.scope === "generic" && (barbersByProgram.get(p.id) ?? []).length > 0 && (
@@ -682,7 +684,7 @@ export function FidelidadeTab({ barber }: { barber: Barber }) {
                               .filter((n): n is string => !!n),
                           ),
                         );
-                        const rewardSvcNames = Array.from(new Set(rewardSvcs.map((s) => s.name)));
+                        const rewardSvcNames = dedupeNamesCaseInsensitive(rewardSvcs.map((s) => s.name));
                         return `atendimento grátis (${rewardSvcNames.join(", ")}${
                           rewardBarberNames.length > 0 ? ` · com ${rewardBarberNames.join(", ")}` : ""
                         })`;

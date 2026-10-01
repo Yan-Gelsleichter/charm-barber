@@ -109,7 +109,7 @@ export function maskAddressText(value: string, max = 120): string {
 /** Nome impresso no cartão: letras, espaço e pontuação simples. */
 export function maskPersonName(value: string, max = 80): string {
   return value
-    .replace(/[^\p{L}\s.'\-]/gu, "")
+    .replace(/[^\p{L}\s.'-]/gu, "")
     .replace(/\s{2,}/g, " ")
     .replace(/^\s+/, "")
     .slice(0, max);
@@ -126,7 +126,7 @@ export function capitalizeWords(value: string): string {
 /** Número do endereço: dígitos e letras curtas (ex.: 123B, S/N). */
 export function maskAddressNumber(value: string): string {
   return value
-    .replace(/[^\p{L}\p{N}/\-]/gu, "")
+    .replace(/[^\p{L}\p{N}/-]/gu, "")
     .toUpperCase()
     .slice(0, 10);
 }
@@ -134,4 +134,18 @@ export function maskAddressNumber(value: string): string {
 /** UF: duas letras maiúsculas. */
 export function maskUF(value: string): string {
   return value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2);
+}
+
+/**
+ * Remove repetição de nome quando barbeiros diferentes cadastram o mesmo
+ * serviço com capitalização diferente (ex.: "bigode" e "Bigode") — mantém
+ * a primeira grafia encontrada.
+ */
+export function dedupeNamesCaseInsensitive(names: string[]): string[] {
+  const seen = new Map<string, string>();
+  for (const name of names) {
+    const key = name.trim().toLowerCase();
+    if (!seen.has(key)) seen.set(key, name);
+  }
+  return Array.from(seen.values());
 }
