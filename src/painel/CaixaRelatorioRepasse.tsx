@@ -338,14 +338,13 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
       doc.setFontSize(12);
       doc.text("Movimentos por forma de pagamento", 14, finalY + 10);
 
-      const headMetodo = [["Barbeiro", "Pix", "Dinheiro", "Cartão", "Online", "Sem detalhar", "Total"]];
+      const headMetodo = [["Barbeiro", "Pix", "Dinheiro", "Cartão", "Online", "Total"]];
       const bodyMetodo = linhasMetodo.map((r) => [
         r.barbeiro.name,
         brl(r.pix),
         brl(r.dinheiro),
         brl(r.cartao),
         brl(r.online),
-        brl(r.semDetalhar),
         brl(r.total),
       ]);
       if (produtosSemBarbeiro.total > 0) {
@@ -355,7 +354,6 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
           brl(produtosSemBarbeiro.dinheiro),
           brl(produtosSemBarbeiro.cartao),
           brl(produtosSemBarbeiro.online),
-          brl(produtosSemBarbeiro.semDetalhar),
           brl(produtosSemBarbeiro.total),
         ]);
       }
@@ -366,7 +364,6 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
           brl(totalGeralMetodo.dinheiro),
           brl(totalGeralMetodo.cartao),
           brl(totalGeralMetodo.online),
-          brl(totalGeralMetodo.semDetalhar),
           brl(totalGeralMetodo.total),
         ],
       ];
@@ -561,7 +558,6 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                     <th className={thNum}>Dinheiro</th>
                     <th className={thNum}>Cartão</th>
                     <th className={thNum}>Online</th>
-                    <th className={thNum}>Sem detalhar</th>
                     <th className={thNum}>Total</th>
                   </tr>
                 </thead>
@@ -573,7 +569,6 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                       <td className={tdNum}>{numBr(r.dinheiro)}</td>
                       <td className={tdNum}>{numBr(r.cartao)}</td>
                       <td className={tdNum}>{numBr(r.online)}</td>
-                      <td className={tdNum}>{numBr(r.semDetalhar)}</td>
                       <td className={cn(tdNum, "brand-text font-semibold")}>{brl(r.total)}</td>
                     </tr>
                   ))}
@@ -584,7 +579,6 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                       <td className={tdNum}>{numBr(produtosSemBarbeiro.dinheiro)}</td>
                       <td className={tdNum}>{numBr(produtosSemBarbeiro.cartao)}</td>
                       <td className={tdNum}>{numBr(produtosSemBarbeiro.online)}</td>
-                      <td className={tdNum}>{numBr(produtosSemBarbeiro.semDetalhar)}</td>
                       <td className={cn(tdNum, "brand-text font-semibold")}>{brl(produtosSemBarbeiro.total)}</td>
                     </tr>
                   )}
@@ -596,18 +590,11 @@ export function CaixaRelatorioRepasse({ barber }: { barber: Barber }) {
                     <td className={tdNum}>{brl(totalGeralMetodo.dinheiro)}</td>
                     <td className={tdNum}>{brl(totalGeralMetodo.cartao)}</td>
                     <td className={tdNum}>{brl(totalGeralMetodo.online)}</td>
-                    <td className={tdNum}>{brl(totalGeralMetodo.semDetalhar)}</td>
                     <td className={cn(tdNum, "brand-text")}>{brl(totalGeralMetodo.total)}</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
-            {totalGeralMetodo.semDetalhar > 0 && (
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                "Sem detalhar" são pagamentos marcados como pagos antes de existir a escolha de
-                Pix/Dinheiro/Cartão na hora de lançar — não tem como saber qual meio foi usado.
-              </p>
-            )}
           </div>
 
           <Button
