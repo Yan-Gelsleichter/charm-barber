@@ -1443,7 +1443,7 @@ function WalkinDialog({
                       Usar resgate — {p.program.name}
                       {!selected && (
                         <span className="mt-1 block text-xs font-bold text-[color:var(--success)]">
-                          Clique aqui para ativar
+                          Clique aqui para resgatar
                         </span>
                       )}
                     </span>
