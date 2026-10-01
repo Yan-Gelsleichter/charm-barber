@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, PackageCheck, Eye, EyeOff, TrendingUp, Gift } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, PackageCheck, Eye, EyeOff, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -1013,11 +1013,6 @@ function WalkinDialog({
   // vazio; ao editar, vem preenchido com o que já está gravado.
   const [telefone, setTelefone] = useState(() => initialState().telefone);
   const [walkinLoyaltyProgramId, setWalkinLoyaltyProgramId] = useState<string | null>(null);
-  // No avulso o resgate já entra marcado sozinho assim que fica elegível —
-  // aqui é o caixa escolhendo o cliente certo de propósito, diferente do
-  // app onde o próprio cliente decide se quer gastar o resgate agora.
-  // Se o caixa desmarcar na mão, respeita (não força de volta).
-  const [walkinLoyaltyTouched, setWalkinLoyaltyTouched] = useState(false);
 
   // Reabre o formulário do zero a cada vez (criar, editar ou adicionar serviço a outro registro).
   const [openedFor, setOpenedFor] = useState<string | null>(null);
@@ -1033,7 +1028,6 @@ function WalkinDialog({
     setStatusInicial("pago");
     setTelefone(s.telefone);
     setWalkinLoyaltyProgramId(null);
-    setWalkinLoyaltyTouched(false);
   }
   if (!open && openedFor !== null) setOpenedFor(null);
 
@@ -1085,10 +1079,7 @@ function WalkinDialog({
         customer_phone: walkinLoyaltyPhoneDigits,
       }),
   });
-  // Mostrado assim que o telefone é digitado, antes mesmo de escolher o
-  // barbeiro/serviço — avisa o caixa que esse cliente tem resgate disponível,
-  // igual ao aviso que já existe na tela de agendar do cliente.
-  const barberWalkinLoyaltyPrograms =
+  const eligibleWalkinLoyaltyPrograms =
     criando && !plano.subscription
       ? (walkinLoyaltyQ.data?.programs ?? []).filter(
           (p) =>
@@ -1096,22 +1087,13 @@ function WalkinDialog({
             p.availableNow >= 1 &&
             (p.rewardUnrestricted ||
               p.rewardBarberIds.length === 0 ||
-              (!!barberId && p.rewardBarberIds.includes(barberId))),
+              (!!barberId && p.rewardBarberIds.includes(barberId))) &&
+            (p.rewardUnrestricted || serviceIds.some((id) => p.rewardServiceIds.includes(id))),
         )
       : [];
-  const eligibleWalkinLoyaltyPrograms = barberWalkinLoyaltyPrograms.filter(
-    (p) => p.rewardUnrestricted || serviceIds.some((id) => p.rewardServiceIds.includes(id)),
-  );
   const walkinLoyaltyProgram =
     eligibleWalkinLoyaltyPrograms.find((p) => p.program.id === walkinLoyaltyProgramId) ?? null;
   const tudoCobertoPorFidelidade = !!walkinLoyaltyProgram;
-
-  const soloEligibleWalkinLoyaltyId =
-    eligibleWalkinLoyaltyPrograms.length === 1 ? eligibleWalkinLoyaltyPrograms[0].program.id : null;
-  useEffect(() => {
-    if (walkinLoyaltyTouched || !soloEligibleWalkinLoyaltyId) return;
-    setWalkinLoyaltyProgramId(soloEligibleWalkinLoyaltyId);
-  }, [soloEligibleWalkinLoyaltyId, walkinLoyaltyTouched]);
 
   // Valor cobrado = só o que está fora do plano (o resto sai sem custo).
   const planoKey = plano.subscription ? `${plano.subscription.subscription_id}:${plano.extras.join(",")}` : "";
@@ -1294,18 +1276,6 @@ function WalkinDialog({
                   <PhoneInput value={telefone} onChange={setTelefone} />
                 </label>
               )}
-              {criando && !plano.subscription && barberWalkinLoyaltyPrograms.length > 0 && (
-                <div className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-xs">
-                  {barberWalkinLoyaltyPrograms.map((p) => (
-                    <p key={p.program.id} className="text-foreground">
-                      <Gift className="mr-1 inline size-3.5 text-primary" />
-                      <span className="font-semibold">Resgate disponível</span> — {p.program.name}. Grátis:{" "}
-                      {p.rewardUnrestricted ? "qualquer serviço" : p.rewardServiceNames.join(", ") || "qualquer serviço"}
-                      .
-                    </p>
-                  ))}
-                </div>
-              )}
               {criando && assinanteSubs.length > 0 && (
                 <div className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs">
                   <p className="font-semibold text-foreground">
@@ -1428,10 +1398,7 @@ function WalkinDialog({
                   <button
                     key={p.program.id}
                     type="button"
-                    onClick={() => {
-                      setWalkinLoyaltyTouched(true);
-                      setWalkinLoyaltyProgramId(selected ? null : p.program.id);
-                    }}
+                    onClick={() => setWalkinLoyaltyProgramId(selected ? null : p.program.id)}
                     className={cn(
                       "flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition",
                       selected
@@ -1440,10 +1407,12 @@ function WalkinDialog({
                     )}
                   >
                     <span>
-                      Usar resgate — {p.program.name}
+                      <span className="font-semibold">Resgate disponível</span> — {p.program.name}. Grátis:{" "}
+                      {p.rewardUnrestricted ? "qualquer serviço" : p.rewardServiceNames.join(", ") || "qualquer serviço"}
+                      .
                       {!selected && (
                         <span className="mt-1 block text-xs font-bold text-[color:var(--success)]">
-                          Clique aqui para resgatar
+                          Clique aqui para ativar
                         </span>
                       )}
                     </span>
