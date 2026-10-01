@@ -161,7 +161,8 @@ function MeuMercadoPago({ barber }: { barber: Barber }) {
             <span className="font-semibold text-foreground">Antes de continuar:</span> você precisa ter
             (ou vai criar) uma conta no Mercado Pago. Você pode abrir a conta direto pelo app do Mercado
             Pago, ou dentro do Mercado Livre — lá você é direcionado e também pode criar a conta do
-            Mercado Pago.
+            Mercado Pago. Depois de conectar, você pode compartilhar o link da barbearia, que seus
+            clientes já vão poder pagar por Pix e cartão de crédito.
           </p>
         )}
 
@@ -424,7 +425,8 @@ function AdminPagamentos({ barber }: { barber: Barber }) {
             <span className="font-semibold text-foreground">Antes de continuar:</span> você precisa ter
             (ou vai criar) uma conta no Mercado Pago. Você pode abrir a conta direto pelo app do Mercado
             Pago, ou dentro do Mercado Livre — lá você é direcionado e também pode criar a conta do
-            Mercado Pago.
+            Mercado Pago. Depois de conectar, você pode compartilhar o link da barbearia, que seus
+            clientes já vão poder pagar por Pix e cartão de crédito.
           </p>
         )}
 
