@@ -319,13 +319,29 @@ function AgendarPage() {
 
       // Uma segunda leitura ativa pelo mesmo cliente usado pelo painel impede
       // navegar com uma resposta de API que não esteja fisicamente consultável.
-      const persisted = await supabase
-        .from("appointments")
-        .select(
-          "id, barber_id, service_ids, customer_name, customer_phone, appointment_time, payment_status",
-        )
-        .eq("id", createdId)
-        .maybeSingle();
+      const readAppointment = () =>
+        supabase
+          .from("appointments")
+          .select(
+            "id, barber_id, service_ids, customer_name, customer_phone, appointment_time, payment_status",
+          )
+          .eq("id", createdId)
+          .maybeSingle();
+      let persisted = await readAppointment();
+      // Pediu resgate mas essa releitura (uma chamada HTTP separada da que
+      // criou o agendamento) ainda não reflete isso — tenta mais algumas
+      // vezes antes de desistir, pra nunca navegar pra tela de pagamento
+      // por causa só de uma leitura momentaneamente atrasada.
+      for (
+        let attempt = 0;
+        appointmentBody.loyalty_program_id &&
+        persisted.data?.payment_status !== "coberto_por_fidelidade" &&
+        attempt < 3;
+        attempt++
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        persisted = await readAppointment();
+      }
       if (
         persisted.error ||
         !persisted.data ||
