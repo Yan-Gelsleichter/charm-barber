@@ -17,6 +17,8 @@ const STATUS_LABEL: Record<string, string> = {
   cancelado: "Pagamento cancelado",
   falhou: "Pagamento recusado",
   estornado: "Pagamento estornado",
+  coberto_por_fidelidade: "Coberto por fidelidade",
+  coberto_por_assinatura: "Coberto pela assinatura",
 };
 
 export const Route = createFileRoute("/pagamento/$appointmentId")({
@@ -108,6 +110,10 @@ function PagamentoPage() {
   // O estado visual é sempre a linha relida do banco.
   const payStatus = apptQ.data?.appointment.payment_status ?? "pendente";
   const paid = payStatus === "pago";
+  // Assinatura/fidelidade já cobriram o atendimento antes mesmo de chegar
+  // aqui (ex.: um link antigo, ou o botão Pagar visto antes dessa tela ser
+  // escondida pra esses casos) — nunca faz sentido oferecer pagamento.
+  const covered = payStatus === "coberto_por_fidelidade" || payStatus === "coberto_por_assinatura";
 
   const finish = useCallback(() => {
     setTimeout(
@@ -117,8 +123,8 @@ function PagamentoPage() {
   }, [navigate, appointmentId]);
 
   useEffect(() => {
-    if (paid) finish();
-  }, [paid, finish]);
+    if (paid || covered) finish();
+  }, [paid, covered, finish]);
 
   // Checkout Pro: cria a preferência e redireciona para a tela do Mercado Pago.
   const startCheckout = useMutation({
@@ -228,7 +234,7 @@ function PagamentoPage() {
               <span className="text-muted-foreground">Status</span>
               <span
                 className={
-                  paid
+                  paid || covered
                     ? "font-semibold text-[color:var(--success)]"
                     : failed
                       ? "font-semibold text-destructive"
@@ -246,10 +252,11 @@ function PagamentoPage() {
         )}
       </section>
 
-      {paid && (
+      {(paid || covered) && (
         <div className="surface mt-5 flex items-center gap-3 p-4 text-sm">
           <CheckCircle2 className="size-5 text-[color:var(--success)]" />
-          Pagamento aprovado! Abrindo a confirmação do pedido…
+          {paid ? "Pagamento aprovado!" : "Resgate aplicado — atendimento grátis!"} Abrindo a confirmação do
+          pedido…
         </div>
       )}
 
@@ -281,7 +288,7 @@ function PagamentoPage() {
         </div>
       )}
 
-      {!paid && (
+      {!paid && !covered && (
         <div className="mt-5 grid gap-3">
           {connectionQ.data?.connected === true && (
             <Button

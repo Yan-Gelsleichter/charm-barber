@@ -514,7 +514,7 @@ function ConfirmacaoPage() {
               <span className="text-muted-foreground">Forma de pagamento</span>
               <span className="font-medium">
                 {isLoyalty
-                  ? "Fidelidade"
+                  ? "Coberto por fidelidade"
                   : isPresencial
                     ? "Presencial na barbearia"
                     : method
@@ -536,7 +536,7 @@ function ConfirmacaoPage() {
                 }
               >
                 {isLoyalty
-                  ? "Fidelidade"
+                  ? "Resgatado"
                   : paid
                     ? "Pago"
                     : isPresencial
