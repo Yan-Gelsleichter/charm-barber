@@ -719,10 +719,10 @@ function MeusAgendamentosPage() {
       </div>
 
       {session && (
-        <div className="mt-8 flex justify-center">
+        <div className="mt-20 flex justify-center pb-4">
           <Link
             to="/excluir-dados"
-            className="flex items-center gap-1.5 text-xs text-destructive/80 hover:text-destructive hover:underline"
+            className="flex items-center gap-1.5 text-xs text-destructive/60 hover:text-destructive hover:underline"
           >
             <Trash2 className="size-3.5" /> Excluir conta
           </Link>
