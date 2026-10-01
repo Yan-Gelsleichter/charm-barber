@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, PackageCheck, Eye, EyeOff, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2, FileText, X, CheckCircle2, PackageCheck, Eye, EyeOff, TrendingUp, Gift } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -1079,7 +1079,9 @@ function WalkinDialog({
         customer_phone: walkinLoyaltyPhoneDigits,
       }),
   });
-  const eligibleWalkinLoyaltyPrograms =
+  // Mostrado assim que o telefone é digitado, antes mesmo de escolher o
+  // barbeiro/serviço — avisa o caixa que esse cliente tem resgate disponível.
+  const barberWalkinLoyaltyPrograms =
     criando && !plano.subscription
       ? (walkinLoyaltyQ.data?.programs ?? []).filter(
           (p) =>
@@ -1087,10 +1089,12 @@ function WalkinDialog({
             p.availableNow >= 1 &&
             (p.rewardUnrestricted ||
               p.rewardBarberIds.length === 0 ||
-              (!!barberId && p.rewardBarberIds.includes(barberId))) &&
-            (p.rewardUnrestricted || serviceIds.some((id) => p.rewardServiceIds.includes(id))),
+              (!!barberId && p.rewardBarberIds.includes(barberId))),
         )
       : [];
+  const eligibleWalkinLoyaltyPrograms = barberWalkinLoyaltyPrograms.filter(
+    (p) => p.rewardUnrestricted || serviceIds.some((id) => p.rewardServiceIds.includes(id)),
+  );
   const walkinLoyaltyProgram =
     eligibleWalkinLoyaltyPrograms.find((p) => p.program.id === walkinLoyaltyProgramId) ?? null;
   const tudoCobertoPorFidelidade = !!walkinLoyaltyProgram;
@@ -1275,6 +1279,18 @@ function WalkinDialog({
                     : "Telefone (identifica cliente assinante e fidelidade)"}
                   <PhoneInput value={telefone} onChange={setTelefone} />
                 </label>
+              )}
+              {criando && !plano.subscription && barberWalkinLoyaltyPrograms.length > 0 && (
+                <div className="rounded-lg border border-primary/40 bg-primary/10 p-3">
+                  {barberWalkinLoyaltyPrograms.map((p) => (
+                    <p key={p.program.id} className="text-sm text-foreground">
+                      <Gift className="mr-1 inline size-4 text-primary" />
+                      <span className="font-semibold">Resgate disponível</span> — {p.program.name}. Grátis:{" "}
+                      {p.rewardUnrestricted ? "qualquer serviço" : p.rewardServiceNames.join(", ") || "qualquer serviço"}
+                      .
+                    </p>
+                  ))}
+                </div>
               )}
               {criando && assinanteSubs.length > 0 && (
                 <div className="rounded-lg border border-brand-from/30 bg-brand-from/10 p-3 text-xs">
