@@ -123,8 +123,15 @@ function PagamentoPage() {
   }, [navigate, appointmentId]);
 
   useEffect(() => {
-    if (paid || covered) finish();
-  }, [paid, covered, finish]);
+    if (paid) {
+      finish();
+    } else if (covered) {
+      // Quem resgatou (fidelidade/assinatura) nunca deve ver essa tela de
+      // pagamento nem por um instante — troca na hora, sem o atraso de
+      // 1,2s usado pra comemorar um pagamento online de verdade.
+      navigate({ to: "/pagamento-confirmado/$appointmentId", params: { appointmentId }, replace: true });
+    }
+  }, [paid, covered, finish, navigate, appointmentId]);
 
   // Checkout Pro: cria a preferência e redireciona para a tela do Mercado Pago.
   const startCheckout = useMutation({
@@ -195,6 +202,16 @@ function PagamentoPage() {
   const service = apptQ.data?.service ?? null;
   const appointment = apptQ.data?.appointment ?? null;
   const failed = ["expirado", "cancelado", "falhou"].includes(payStatus);
+
+  // Nem o próprio quadro de pagamento/botões aparece nesse caso — o
+  // redirecionamento acima já troca de tela antes do cliente ler algo.
+  if (covered) {
+    return (
+      <main className="mx-auto flex max-w-md justify-center px-5 pb-24 pt-16">
+        <Loader2 className="animate-spin" />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8">
