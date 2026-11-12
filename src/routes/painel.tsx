@@ -576,7 +576,7 @@ WHERE user_id = '${currentUid}';`;
           )}
         >
           <div className="mx-auto max-w-5xl overflow-x-auto">
-            <div className="flex min-w-max items-center gap-1 px-2 py-2">
+            <div className="flex min-w-max items-center gap-1 px-2 py-1">
               {items.map((n) => {
                 const active = tab === n.id;
                 const Icon = n.icon;
@@ -587,7 +587,7 @@ WHERE user_id = '${currentUid}';`;
                     search={{ tab: n.id }}
                     replace
                     className={cn(
-                      "flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-3 py-2 text-[11px] font-medium transition-colors",
+                      "flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-colors",
                       active
                         ? "text-[var(--brand-from)]"
                         : "text-muted-foreground hover:text-foreground",
