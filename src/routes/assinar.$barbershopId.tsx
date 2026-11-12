@@ -17,6 +17,18 @@ import { BrandLoadingScreen } from "@/components/Brand";
 import { brl } from "@/lib/format";
 import { postPublicApi } from "@/lib/api-fetch";
 
+// Barbeiros diferentes podem ter um serviço com o mesmo nome (ex.: "cabelo"
+// cadastrado em perfis separados) — sem isso, a lista de benefícios do plano
+// repete a mesma palavra uma vez por barbeiro.
+function dedupeServicesByName(services: Service[]): Service[] {
+  const seen = new Map<string, Service>();
+  for (const s of services) {
+    const key = s.name.trim().toLowerCase();
+    if (!seen.has(key)) seen.set(key, s);
+  }
+  return Array.from(seen.values());
+}
+
 export const Route = createFileRoute("/assinar/$barbershopId")({
   head: () => ({ meta: [{ title: "Planos de assinatura — APP BARBEARIAS" }] }),
   component: AssinarPage,
@@ -207,7 +219,7 @@ function AssinarPage() {
             </div>
             {plan.description && <p className="mt-1 break-words text-sm text-muted-foreground">{plan.description}</p>}
             <ul className="mt-3 space-y-1">
-              {(servicesByPlan.get(plan.id) ?? []).map((s) => (
+              {dedupeServicesByName(servicesByPlan.get(plan.id) ?? []).map((s) => (
                 <li key={s.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Check className="size-4 text-success" /> {s.name} ilimitado
                 </li>

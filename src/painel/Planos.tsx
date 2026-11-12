@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { brl } from "@/lib/format";
+import { brl, dedupeNamesCaseInsensitive } from "@/lib/format";
 import { BRAZIL_TIME_ZONE } from "@/lib/timezone";
 import { postPublicApi } from "@/lib/api-fetch";
 import { ProducaoDialog } from "@/painel/Producao";
@@ -553,7 +553,9 @@ export function PlanosTab({ barber }: { barber: Barber }) {
                 <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">{p.description}</p>
               )}
               <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">
-                Serviços: {(servicesByPlan.get(p.id) ?? []).map((s) => s.name).join(", ") || "sem serviços"}
+                Serviços:{" "}
+                {dedupeNamesCaseInsensitive((servicesByPlan.get(p.id) ?? []).map((s) => s.name)).join(", ") ||
+                  "sem serviços"}
               </p>
               <p className="mt-1 break-words text-xs text-muted-foreground md:text-sm">
                 Com: {(barbersByPlan.get(p.id) ?? []).join(", ") || "nenhum barbeiro"}
