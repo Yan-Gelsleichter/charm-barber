@@ -179,6 +179,25 @@ function PainelPage() {
   usePaymentSync(!!barber && tab !== "inicio");
   const subscriptionGate = useSubscriptionGate(barber?.barbershop_id ?? null);
 
+  // Aviso avulso nos últimos 2 dias do teste grátis (diferente do bloqueio
+  // total, que só acontece quando o teste já acabou de verdade). Fechar o
+  // aviso de "faltam 2 dias" não esconde o de "falta 1 dia" no dia seguinte
+  // — cada contagem tem a própria chave de "já fechei esse".
+  const trialDaysLeft = (() => {
+    if (subscriptionGate.data?.subscription_status !== "trial") return null;
+    const trialEndsAt = subscriptionGate.data?.trial_ends_at
+      ? new Date(subscriptionGate.data.trial_ends_at).getTime()
+      : null;
+    if (!trialEndsAt) return null;
+    const days = Math.ceil((trialEndsAt - Date.now()) / 86_400_000);
+    return days === 1 || days === 2 ? days : null;
+  })();
+  const trialNoticeKey =
+    trialDaysLeft != null && barber ? `trial_notice_dismissed_${barber.barbershop_id}_${trialDaysLeft}` : null;
+  const [trialNoticeDismissed, setTrialNoticeDismissed] = useState(false);
+  useEffect(() => {
+    setTrialNoticeDismissed(trialNoticeKey ? localStorage.getItem(trialNoticeKey) === "1" : false);
+  }, [trialNoticeKey]);
 
   useEffect(() => {
     if (mp === "ok") toast.success("Mercado Pago conectado!");
@@ -508,6 +527,18 @@ WHERE user_id = '${currentUid}';`;
         </div>
       )}
 
+      {trialDaysLeft != null && !trialNoticeDismissed && barber.is_admin && (
+        <div className="mx-auto max-w-5xl px-4 pt-4 md:px-8">
+          <TrialEndingSoonNotice
+            daysLeft={trialDaysLeft}
+            onDismiss={() => {
+              if (trialNoticeKey) localStorage.setItem(trialNoticeKey, "1");
+              setTrialNoticeDismissed(true);
+            }}
+          />
+        </div>
+      )}
+
       <main
         className={cn(
           "mx-auto px-4 py-6",
@@ -701,6 +732,35 @@ function NewShopNotice({ onDismiss }: { onDismiss: () => void }) {
       <p>
         Acesse pelo seu computador ou tablet em{" "}
         <span className="font-semibold text-foreground">www.appbarbearias.com.br</span>
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Fechar aviso"
+        className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+function TrialEndingSoonNotice({
+  daysLeft,
+  onDismiss,
+}: {
+  daysLeft: number;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="relative flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 pr-9 text-left text-sm text-foreground">
+      <p>
+        {daysLeft === 1
+          ? "Falta 1 dia para o fim do seu teste grátis."
+          : `Faltam ${daysLeft} dias para o fim do seu teste grátis.`}{" "}
+        <span className="text-muted-foreground">
+          Depois disso o painel fica bloqueado até você assinar um plano.
+        </span>
       </p>
       <button
         type="button"
