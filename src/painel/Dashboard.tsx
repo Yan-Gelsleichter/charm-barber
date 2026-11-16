@@ -101,6 +101,20 @@ export function DashboardTab({ barber }: { barber: Barber }) {
   const ganhosSemana = sum(startWeek);
   const ganhosMes = sum(startMonth);
 
+  // Clientes únicos (por telefone) atendidos em cada período — mesmo
+  // recorte de data usado pra somar o faturamento (sum), só que contando
+  // telefones diferentes em vez de somar valor.
+  const clientesNoPeriodo = (from: Date) =>
+    new Set(
+      appointments
+        .filter((a) => new Date(a.appointment_time) >= from && new Date(a.appointment_time) <= now)
+        .map((a) => a.customer_phone),
+    ).size;
+
+  const clientesDia = clientesNoPeriodo(startDay);
+  const clientesSemana = clientesNoPeriodo(startWeek);
+  const clientesMes = clientesNoPeriodo(startMonth);
+
   const startTomorrow = new Date(startDay.getTime() + 86_400_000);
 
   const hoje = topLevelAppointments.filter((a) => {
@@ -131,9 +145,24 @@ export function DashboardTab({ barber }: { barber: Barber }) {
 
       {showTopCards && (
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <Stat icon={DollarSign} label="Hoje" value={brl(ganhosDia)} />
-          <Stat icon={TrendingUp} label="Esta semana" value={brl(ganhosSemana)} />
-          <Stat icon={CalendarCheck} label="Este mês" value={brl(ganhosMes)} />
+          <Stat
+            icon={DollarSign}
+            label="Hoje"
+            value={brl(ganhosDia)}
+            sub={`${clientesDia} ${clientesDia === 1 ? "cliente atendido" : "clientes atendidos"}`}
+          />
+          <Stat
+            icon={TrendingUp}
+            label="Esta semana"
+            value={brl(ganhosSemana)}
+            sub={`${clientesSemana} ${clientesSemana === 1 ? "cliente atendido" : "clientes atendidos"}`}
+          />
+          <Stat
+            icon={CalendarCheck}
+            label="Este mês"
+            value={brl(ganhosMes)}
+            sub={`${clientesMes} ${clientesMes === 1 ? "cliente atendido" : "clientes atendidos"}`}
+          />
           <Stat icon={Users} label="Clientes (30d)" value={String(clientesUnicos)} />
         </section>
       )}
@@ -269,10 +298,12 @@ function Stat({
   icon: Icon,
   label,
   value,
+  sub,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
+  sub?: string;
 }) {
   return (
     <div className="surface p-4 md:flex md:flex-col md:items-center md:text-center">
@@ -280,6 +311,7 @@ function Stat({
         <Icon className="size-4" /> {label}
       </div>
       <p className="mt-2 text-xl font-bold sm:text-2xl">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }
