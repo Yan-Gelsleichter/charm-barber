@@ -86,6 +86,11 @@ function ManualBody() {
         Pronto — sua barbearia é criada na hora e você já cai no painel. Sua conta já nasce como
         administrador (admin) dessa barbearia.
       </P>
+      <P>
+        Logo nesse primeiro acesso aparece um aviso no topo do painel, convidando você a dar uma
+        olhada no manual do app (que fica na aba Perfil). Esse aviso some ao tocar no X e não
+        aparece mais depois.
+      </P>
       <PBold>Avisos de que o teste grátis está acabando</PBold>
       <P>
         Faltando 2 dias para o fim do teste grátis, aparece um aviso no topo do painel: "Faltam 2

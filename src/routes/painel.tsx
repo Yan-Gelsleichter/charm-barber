@@ -148,6 +148,7 @@ function PainelPage() {
   const { session, barber, loading, error, refetchBarber } = useMeBarber();
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [showNewShopNotice, setShowNewShopNotice] = useState(newShopParam === "1");
+  const [showManualNotice, setShowManualNotice] = useState(newShopParam === "1");
 
   // No Android, o teclado virtual pode "empurrar" a barra de navegação fixa
   // pro meio da tela em formulários longos (bug de viewport do Chrome/WebView
@@ -527,6 +528,12 @@ WHERE user_id = '${currentUid}';`;
         </div>
       )}
 
+      {showManualNotice && barber.is_admin && (
+        <div className="mx-auto max-w-5xl px-4 pt-4 md:px-8">
+          <ReadManualNotice onDismiss={() => setShowManualNotice(false)} />
+        </div>
+      )}
+
       {trialDaysLeft != null && !trialNoticeDismissed && barber.is_admin && (
         <div className="mx-auto max-w-5xl px-4 pt-4 md:px-8">
           <TrialEndingSoonNotice
@@ -732,6 +739,25 @@ function NewShopNotice({ onDismiss }: { onDismiss: () => void }) {
       <p>
         Acesse pelo seu computador ou tablet em{" "}
         <span className="font-semibold text-foreground">www.appbarbearias.com.br</span>
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Fechar aviso"
+        className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+function ReadManualNotice({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="relative flex items-start gap-3 rounded-xl border border-brand-from/30 bg-brand-from/10 p-3 pr-9 text-left text-sm text-muted-foreground">
+      <p>
+        Antes de começar, dá uma olhada no manual do app: ele está na aba{" "}
+        <span className="font-semibold text-foreground">Perfil</span>.
       </p>
       <button
         type="button"
